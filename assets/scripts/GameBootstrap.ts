@@ -115,11 +115,30 @@ interface UnitVisual {
     baseScale: number;
 }
 
+interface RoadProfilePoint {
+    y: number;
+    centerX: number;
+    halfWidth: number;
+}
+
 @ccclass('GameBootstrap')
 export class GameBootstrap extends Component {
     private readonly designWidth = 750;
     private readonly designHeight = 1334;
     private readonly arena = { left: -365, right: 365, bottom: -620, top: 525 };
+    // 对应青石山道图片中石板路的可行走轮廓；由下到上插值，避免单位穿进竹林与岩石。
+    private readonly roadProfile: ReadonlyArray<RoadProfilePoint> = [
+        { y: -620, centerX: 15, halfWidth: 160 },
+        { y: -500, centerX: 0, halfWidth: 195 },
+        { y: -360, centerX: -10, halfWidth: 235 },
+        { y: -220, centerX: 0, halfWidth: 210 },
+        { y: -80, centerX: 0, halfWidth: 230 },
+        { y: 80, centerX: 20, halfWidth: 205 },
+        { y: 220, centerX: 15, halfWidth: 235 },
+        { y: 360, centerX: 5, halfWidth: 240 },
+        { y: 500, centerX: 10, halfWidth: 270 },
+        { y: 525, centerX: 8, halfWidth: 250 },
+    ];
 
     private phase: Phase = 'menu';
     private canvas!: Node;
@@ -484,32 +503,32 @@ export class GameBootstrap extends Component {
         backing.setPosition(0, 592);
         hud.addChild(backing);
 
-        const avatarBacking = this.makeRect(82, 82, new Color(12, 48, 48, 240), new Color('#DCC47C'), 20, 3);
-        avatarBacking.setPosition(-300, 595);
+        const avatarBacking = this.makeRect(76, 82, new Color(12, 48, 48, 240), new Color('#DCC47C'), 18, 3);
+        avatarBacking.setPosition(-310, 595);
         hud.addChild(avatarBacking);
-        const portrait = this.createResourceSprite(PLAYER_ASSET.resourcePath, 74);
-        portrait.setPosition(0, -4);
+        const portrait = this.createResourceSprite(PLAYER_ASSET.resourcePath, 62);
+        portrait.setPosition(0, -3);
         avatarBacking.addChild(portrait);
 
         const hpBarNode = new Node('HpBar');
         hpBarNode.layer = Layers.Enum.UI_2D;
-        hpBarNode.setPosition(-170, 600);
+        hpBarNode.setPosition(-145, 600);
         this.hpBar = hpBarNode.addComponent(Graphics);
         hud.addChild(hpBarNode);
 
         const xpBarNode = new Node('XpBar');
         xpBarNode.layer = Layers.Enum.UI_2D;
-        xpBarNode.setPosition(-170, 563);
+        xpBarNode.setPosition(-145, 563);
         this.xpBar = xpBarNode.addComponent(Graphics);
         hud.addChild(xpBarNode);
 
         this.hpLabel = this.makeLabel('', 21, new Color('#FFD5C5'));
-        this.hpLabel.node.setPosition(-170, 628);
-        this.hpLabel.node.getComponent(UITransform)?.setContentSize(260, 42);
+        this.hpLabel.node.setPosition(-145, 628);
+        this.hpLabel.node.getComponent(UITransform)?.setContentSize(232, 42);
         hud.addChild(this.hpLabel.node);
         this.xpLabel = this.makeLabel('', 18, new Color('#A7F3D0'));
-        this.xpLabel.node.setPosition(-170, 578);
-        this.xpLabel.node.getComponent(UITransform)?.setContentSize(270, 32);
+        this.xpLabel.node.setPosition(-145, 578);
+        this.xpLabel.node.getComponent(UITransform)?.setContentSize(232, 32);
         hud.addChild(this.xpLabel.node);
 
         const waveBacking = this.makeRect(162, 82, new Color(19, 48, 45, 235), new Color(206, 177, 100, 175), 18, 2);
@@ -619,10 +638,10 @@ export class GameBootstrap extends Component {
         this.playerMoveAmount += (Math.min(direction.length(), 1) - this.playerMoveAmount) * Math.min(1, dt * 12);
         if (Math.abs(direction.x) > 0.08) this.playerFacing = direction.x >= 0 ? 1 : -1;
         const p = this.player.position;
-        this.player.setPosition(
-            Math.max(this.arena.left + 28, Math.min(this.arena.right - 28, p.x + direction.x * this.moveSpeed * dt)),
-            Math.max(this.arena.bottom + 28, Math.min(this.arena.top - 28, p.y + direction.y * this.moveSpeed * dt)),
-        );
+        this.player.setPosition(this.constrainToRoad(
+            new Vec3(p.x + direction.x * this.moveSpeed * dt, p.y + direction.y * this.moveSpeed * dt),
+            28,
+        ));
 
         const idleBreath = Math.sin(this.elapsed * 3.2) * 0.025;
         const step = Math.sin(this.elapsed * 12);
@@ -669,8 +688,9 @@ export class GameBootstrap extends Component {
         const unit = this.attachUnitVisual(node, ENEMY_ASSETS[wave.enemyKind], radius);
         const hpBar = this.createEnemyHpBar(node, radius + (wave.elite ? 32 : 20));
         const edge = Math.floor(Math.random() * 3);
-        const x = edge === 0 ? this.arena.left + radius : edge === 1 ? this.arena.right - radius : this.random(this.arena.left + 50, this.arena.right - 50);
-        const y = edge < 2 ? this.random(-100, this.arena.top - 40) : this.arena.top - radius;
+        const y = edge < 2 ? this.random(-80, this.arena.top - 70) : this.arena.top - radius;
+        const road = this.getRoadBounds(y, radius + 4);
+        const x = edge === 0 ? road.minX : edge === 1 ? road.maxX : this.random(road.minX, road.maxX);
         node.setPosition(x, y);
         this.battleLayer.addChild(node);
         const enemy: EnemyState = {
@@ -791,7 +811,10 @@ export class GameBootstrap extends Component {
                 const cycle = enemy.age % 2.2;
                 speedMultiplier = cycle > 1.65 && cycle < 2.05 ? 2.25 : 0.72;
             }
-            enemy.node.setPosition(enemy.node.position.clone().add(delta.clone().multiplyScalar(enemy.speed * speedMultiplier * dt)));
+            enemy.node.setPosition(this.constrainToRoad(
+                enemy.node.position.clone().add(delta.clone().multiplyScalar(enemy.speed * speedMultiplier * dt)),
+                enemy.radius,
+            ));
 
             if (enemy.behavior === 'boss') {
                 enemy.abilityTimer -= dt;
@@ -901,10 +924,10 @@ export class GameBootstrap extends Component {
             const knockback = this.player.position.clone().subtract(source);
             if (knockback.lengthSqr() > 0.001) {
                 knockback.normalize().multiplyScalar(18);
-                this.player.setPosition(
-                    Math.max(this.arena.left + 28, Math.min(this.arena.right - 28, this.player.position.x + knockback.x)),
-                    Math.max(this.arena.bottom + 28, Math.min(this.arena.top - 28, this.player.position.y + knockback.y)),
-                );
+                this.player.setPosition(this.constrainToRoad(
+                    new Vec3(this.player.position.x + knockback.x, this.player.position.y + knockback.y),
+                    28,
+                ));
             }
         }
 
@@ -1208,7 +1231,7 @@ export class GameBootstrap extends Component {
     }
 
     private updateHud(): void {
-        this.hpLabel.string = `青岚  ·  气血 ${Math.ceil(this.hp)} / ${this.maxHp}`;
+        this.hpLabel.string = `气血  ${Math.ceil(this.hp)} / ${this.maxHp}`;
         this.xpLabel.string = `境界 ${this.level} 重    修为 ${this.xp} / ${this.xpNeed}`;
         this.waveLabel.string = `青石山道\n第 ${this.waveIndex + 1} / ${STAGES[0].waves.length} 波`;
         this.buildLabel.string = `本局剑阵\n飞剑 ${this.swordCount} 柄   剑伤 ${Math.round(this.swordDamage)}\n御剑间隔 ${this.attackInterval.toFixed(2)} 秒`;
@@ -1232,23 +1255,23 @@ export class GameBootstrap extends Component {
         const hpRatio = Math.max(0, this.hp / this.maxHp);
         this.hpBar.clear();
         this.hpBar.fillColor = new Color(2, 9, 12, 210);
-        this.hpBar.roundRect(-126, -8, 252, 16, 8);
+        this.hpBar.roundRect(-116, -8, 232, 16, 8);
         this.hpBar.fill();
         this.hpBar.fillColor = new Color(hpRatio < 0.3 ? '#E64F4F' : '#D96C61');
-        this.hpBar.roundRect(-123, -5, 246 * hpRatio, 10, 5);
+        this.hpBar.roundRect(-113, -5, 226 * hpRatio, 10, 5);
         this.hpBar.fill();
         this.hpBar.strokeColor = new Color(255, 214, 194, 75);
         this.hpBar.lineWidth = 1;
-        this.hpBar.roundRect(-126, -8, 252, 16, 8);
+        this.hpBar.roundRect(-116, -8, 232, 16, 8);
         this.hpBar.stroke();
 
         const xpRatio = Math.max(0, Math.min(1, this.xp / this.xpNeed));
         this.xpBar.clear();
         this.xpBar.fillColor = new Color(2, 9, 12, 220);
-        this.xpBar.roundRect(-126, -5, 252, 10, 5);
+        this.xpBar.roundRect(-116, -5, 232, 10, 5);
         this.xpBar.fill();
         this.xpBar.fillColor = new Color('#4BC8A7');
-        this.xpBar.roundRect(-124, -3, 248 * xpRatio, 6, 3);
+        this.xpBar.roundRect(-114, -3, 228 * xpRatio, 6, 3);
         this.xpBar.fill();
 
         const boss = this.enemies.find((enemy) => enemy.elite && enemy.node.isValid && !enemy.dead);
@@ -1762,6 +1785,30 @@ export class GameBootstrap extends Component {
             result.push(pool.splice(Math.floor(Math.random() * pool.length), 1)[0]);
         }
         return result;
+    }
+
+    private getRoadBounds(y: number, padding = 0): { minX: number; maxX: number } {
+        const clampedY = Math.max(this.roadProfile[0].y, Math.min(this.roadProfile[this.roadProfile.length - 1].y, y));
+        let lower = this.roadProfile[0];
+        let upper = this.roadProfile[this.roadProfile.length - 1];
+        for (let index = 1; index < this.roadProfile.length; index += 1) {
+            if (clampedY <= this.roadProfile[index].y) {
+                lower = this.roadProfile[index - 1];
+                upper = this.roadProfile[index];
+                break;
+            }
+        }
+        const span = Math.max(upper.y - lower.y, 1);
+        const t = (clampedY - lower.y) / span;
+        const centerX = lower.centerX + (upper.centerX - lower.centerX) * t;
+        const halfWidth = Math.max(36, lower.halfWidth + (upper.halfWidth - lower.halfWidth) * t - padding);
+        return { minX: centerX - halfWidth, maxX: centerX + halfWidth };
+    }
+
+    private constrainToRoad(position: Readonly<Vec3>, padding: number): Vec3 {
+        const y = Math.max(this.arena.bottom + padding, Math.min(this.arena.top - padding, position.y));
+        const bounds = this.getRoadBounds(y, padding);
+        return new Vec3(Math.max(bounds.minX, Math.min(bounds.maxX, position.x)), y, position.z);
     }
 
     private random(min: number, max: number): number {
