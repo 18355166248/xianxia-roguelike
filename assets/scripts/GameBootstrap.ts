@@ -119,7 +119,7 @@ interface UnitVisual {
 export class GameBootstrap extends Component {
     private readonly designWidth = 750;
     private readonly designHeight = 1334;
-    private readonly arena = { left: -350, right: 350, bottom: -520, top: 430 };
+    private readonly arena = { left: -365, right: 365, bottom: -620, top: 525 };
 
     private phase: Phase = 'menu';
     private canvas!: Node;
@@ -142,6 +142,8 @@ export class GameBootstrap extends Component {
     private bossHud!: Node;
     private bossHpBar!: Graphics;
     private bossHpLabel!: Label;
+    private attackHud!: Graphics;
+    private attackHudLabel!: Label;
     private joystick!: Node;
     private joystickKnob!: Node;
     private joystickOpacity!: UIOpacity;
@@ -258,30 +260,17 @@ export class GameBootstrap extends Component {
         const backdrop = new Node('Backdrop');
         backdrop.layer = Layers.Enum.UI_2D;
         const graphics = backdrop.addComponent(Graphics);
-        graphics.fillColor = new Color('#102A2A');
+        graphics.fillColor = new Color('#071719');
         graphics.roundRect(-375, -667, 750, 1334, 0);
-        graphics.fill();
-        graphics.fillColor = new Color('#163838');
-        graphics.roundRect(this.arena.left, this.arena.bottom, 700, 950, 24);
         graphics.fill();
         this.world.addChild(backdrop);
 
         const art = new Node('ArenaArt');
         art.layer = Layers.Enum.UI_2D;
-        art.setPosition(0, (this.arena.bottom + this.arena.top) / 2);
         art.addComponent(UITransform).setContentSize(BACKGROUND_ASSET.displayWidth, BACKGROUND_ASSET.displayHeight);
         this.backgroundSprite = art.addComponent(Sprite);
         this.backgroundSprite.sizeMode = Sprite.SizeMode.CUSTOM;
         this.world.addChild(art);
-
-        const border = new Node('ArenaBorder');
-        border.layer = Layers.Enum.UI_2D;
-        const borderGraphics = border.addComponent(Graphics);
-        borderGraphics.strokeColor = new Color('#6B8F83');
-        borderGraphics.lineWidth = 4;
-        borderGraphics.roundRect(this.arena.left, this.arena.bottom, 700, 950, 24);
-        borderGraphics.stroke();
-        this.world.addChild(border);
 
         this.createArenaAmbience();
     }
@@ -290,9 +279,21 @@ export class GameBootstrap extends Component {
         const vignette = new Node('ArenaVignette');
         vignette.layer = Layers.Enum.UI_2D;
         const g = vignette.addComponent(Graphics);
-        g.strokeColor = new Color(3, 12, 16, 150);
-        g.lineWidth = 26;
-        g.roundRect(this.arena.left + 8, this.arena.bottom + 8, 684, 934, 18);
+        // 用宽描边与上下暗幕把全屏背景压回战斗中心，HUD 仍能保持稳定对比度。
+        g.strokeColor = new Color(2, 10, 12, 155);
+        g.lineWidth = 46;
+        g.rect(-372, -664, 744, 1328);
+        g.stroke();
+        g.fillColor = new Color(3, 12, 15, 116);
+        g.rect(-375, 515, 750, 152);
+        g.fill();
+        g.fillColor = new Color(3, 12, 15, 100);
+        g.rect(-375, -667, 750, 190);
+        g.fill();
+        g.strokeColor = new Color(123, 215, 189, 46);
+        g.lineWidth = 2;
+        g.moveTo(-340, 508);
+        g.lineTo(340, 508);
         g.stroke();
         this.world.addChild(vignette);
 
@@ -376,11 +377,62 @@ export class GameBootstrap extends Component {
     private showMenu(): void {
         this.phase = 'menu';
         this.clearOverlay();
-        const panel = this.makePanel('仙途劫', '第一章 · 青石山道\n御剑杀敌，破境渡劫', 430, 370);
-        this.overlay.addChild(panel);
-        const button = this.makeButton('开始闯关', new Color('#2F7D68'), () => this.startStage());
-        button.setPosition(0, -105);
-        panel.addChild(button);
+        this.bringOverlayToFront();
+        const shade = this.makeRect(750, 1334, new Color(3, 13, 16, 92));
+        this.overlay.addChild(shade);
+
+        const title = this.makeLabel('仙 途 劫', 76, new Color('#FFF0BE'));
+        title.node.setPosition(0, 370);
+        this.overlay.addChild(title.node);
+        const titleRule = new Node('TitleRule');
+        titleRule.layer = Layers.Enum.UI_2D;
+        titleRule.setPosition(0, 318);
+        const rule = titleRule.addComponent(Graphics);
+        rule.strokeColor = new Color(239, 202, 118, 175);
+        rule.lineWidth = 2;
+        rule.moveTo(-205, 0);
+        rule.lineTo(-42, 0);
+        rule.moveTo(42, 0);
+        rule.lineTo(205, 0);
+        rule.stroke();
+        rule.fillColor = new Color(239, 202, 118, 220);
+        rule.circle(0, 0, 5);
+        rule.fill();
+        this.overlay.addChild(titleRule);
+
+        const subtitle = this.makeLabel('御剑破劫 · 一念登仙', 25, new Color('#CFE5DB'));
+        subtitle.node.setPosition(0, 278);
+        this.overlay.addChild(subtitle.node);
+
+        const heroGlow = new Node('HeroGlow');
+        heroGlow.layer = Layers.Enum.UI_2D;
+        heroGlow.setPosition(0, 30);
+        const glow = heroGlow.addComponent(Graphics);
+        glow.fillColor = new Color(76, 190, 167, 28);
+        glow.circle(0, 0, 178);
+        glow.fill();
+        glow.strokeColor = new Color(126, 224, 197, 62);
+        glow.lineWidth = 2;
+        glow.circle(0, 0, 154);
+        glow.stroke();
+        this.overlay.addChild(heroGlow);
+        const hero = this.createResourceSprite(PLAYER_ASSET.resourcePath, 355);
+        hero.setPosition(0, 10);
+        this.overlay.addChild(hero);
+
+        const stage = this.makeLabel('第一章  ·  青石山道', 30, new Color('#FFE2A3'));
+        stage.node.setPosition(0, -245);
+        this.overlay.addChild(stage.node);
+        const objective = this.makeLabel('肃清妖潮  ·  击败镇关山魈', 22, new Color('#BFD5CE'));
+        objective.node.setPosition(0, -290);
+        this.overlay.addChild(objective.node);
+
+        const button = this.makeButton('踏 入 山 门', new Color('#E6C071'), () => this.startStage(), 460, 96, new Color(24, 91, 77, 242));
+        button.setPosition(0, -395);
+        this.overlay.addChild(button);
+        const tip = this.makeLabel('拖动左侧摇杆走位  ·  飞剑自动索敌', 20, new Color(157, 188, 177, 220));
+        tip.node.setPosition(0, -492);
+        this.overlay.addChild(tip.node);
     }
 
     private startStage(): void {
@@ -427,46 +479,81 @@ export class GameBootstrap extends Component {
         hud.layer = Layers.Enum.UI_2D;
         this.canvas.addChild(hud);
 
-        const backing = this.makeRect(710, 104, new Color(5, 18, 23, 205), new Color(72, 118, 108, 170));
+        const backing = this.makeRect(716, 124, new Color(3, 16, 20, 218), new Color(91, 151, 137, 130), 18, 2);
         backing.name = 'HudBacking';
-        backing.setPosition(0, 590);
+        backing.setPosition(0, 592);
         hud.addChild(backing);
+
+        const avatarBacking = this.makeRect(82, 82, new Color(12, 48, 48, 240), new Color('#DCC47C'), 20, 3);
+        avatarBacking.setPosition(-300, 595);
+        hud.addChild(avatarBacking);
+        const portrait = this.createResourceSprite(PLAYER_ASSET.resourcePath, 74);
+        portrait.setPosition(0, -4);
+        avatarBacking.addChild(portrait);
 
         const hpBarNode = new Node('HpBar');
         hpBarNode.layer = Layers.Enum.UI_2D;
-        hpBarNode.setPosition(-235, 561);
+        hpBarNode.setPosition(-170, 600);
         this.hpBar = hpBarNode.addComponent(Graphics);
         hud.addChild(hpBarNode);
 
         const xpBarNode = new Node('XpBar');
         xpBarNode.layer = Layers.Enum.UI_2D;
-        xpBarNode.setPosition(0, 551);
+        xpBarNode.setPosition(-170, 563);
         this.xpBar = xpBarNode.addComponent(Graphics);
         hud.addChild(xpBarNode);
 
-        this.hpLabel = this.makeLabel('', 24, new Color('#FCA5A5'));
-        this.hpLabel.node.setPosition(-235, 603);
+        this.hpLabel = this.makeLabel('', 21, new Color('#FFD5C5'));
+        this.hpLabel.node.setPosition(-170, 628);
+        this.hpLabel.node.getComponent(UITransform)?.setContentSize(260, 42);
         hud.addChild(this.hpLabel.node);
-        this.xpLabel = this.makeLabel('', 22, new Color('#A7F3D0'));
-        this.xpLabel.node.setPosition(0, 603);
+        this.xpLabel = this.makeLabel('', 18, new Color('#A7F3D0'));
+        this.xpLabel.node.setPosition(-170, 578);
+        this.xpLabel.node.getComponent(UITransform)?.setContentSize(270, 32);
         hud.addChild(this.xpLabel.node);
-        this.waveLabel = this.makeLabel('', 23, new Color('#FDE68A'));
-        this.waveLabel.node.setPosition(245, 603);
-        hud.addChild(this.waveLabel.node);
-        this.buildLabel = this.makeLabel('', 20, new Color('#C7DAD2'));
-        this.buildLabel.node.setPosition(180, -485);
-        this.buildLabel.node.getComponent(UITransform)?.setContentSize(330, 56);
+
+        const waveBacking = this.makeRect(162, 82, new Color(19, 48, 45, 235), new Color(206, 177, 100, 175), 18, 2);
+        waveBacking.setPosition(264, 594);
+        hud.addChild(waveBacking);
+        this.waveLabel = this.makeLabel('', 21, new Color('#FDE6A6'));
+        this.waveLabel.node.setPosition(0, 0);
+        this.waveLabel.node.getComponent(UITransform)?.setContentSize(150, 70);
+        waveBacking.addChild(this.waveLabel.node);
+
+        const bottomBacking = this.makeRect(750, 194, new Color(3, 14, 18, 142), new Color(80, 145, 131, 55), 0, 2);
+        bottomBacking.setPosition(0, -570);
+        hud.addChild(bottomBacking);
+        this.buildLabel = this.makeLabel('', 20, new Color('#D4E6DF'));
+        this.buildLabel.node.setPosition(0, -574);
+        this.buildLabel.node.getComponent(UITransform)?.setContentSize(330, 78);
         hud.addChild(this.buildLabel.node);
+
+        this.createAttackHud(hud);
         this.createBossHud(hud);
         this.createJoystick(hud);
         this.updateHud();
     }
 
+    private createAttackHud(hud: Node): void {
+        const node = new Node('AttackHud');
+        node.layer = Layers.Enum.UI_2D;
+        node.setPosition(274, -560);
+        this.attackHud = node.addComponent(Graphics);
+        hud.addChild(node);
+        const sword = this.createResourceSprite('art/relics/xianxia-relics_00/spriteFrame', 68);
+        sword.setRotationFromEuler(0, 0, -8);
+        node.addChild(sword);
+        this.attackHudLabel = this.makeLabel('', 17, new Color('#FFF0BE'));
+        this.attackHudLabel.node.setPosition(0, -70);
+        this.attackHudLabel.node.getComponent(UITransform)?.setContentSize(150, 34);
+        node.addChild(this.attackHudLabel.node);
+    }
+
     private createBossHud(hud: Node): void {
         this.bossHud = new Node('BossHud');
         this.bossHud.layer = Layers.Enum.UI_2D;
-        this.bossHud.setPosition(0, 486);
-        const backing = this.makeRect(500, 66, new Color(18, 10, 13, 225), new Color(178, 112, 61, 210));
+        this.bossHud.setPosition(0, 485);
+        const backing = this.makeRect(520, 72, new Color(24, 8, 12, 222), new Color(211, 139, 65, 210), 18, 3);
         this.bossHud.addChild(backing);
         this.bossHpLabel = this.makeLabel('', 22, new Color('#F8D9A0'));
         this.bossHpLabel.node.setPosition(0, 14);
@@ -483,23 +570,23 @@ export class GameBootstrap extends Component {
     private createJoystick(hud: Node): void {
         this.joystick = new Node('VirtualJoystick');
         this.joystick.layer = Layers.Enum.UI_2D;
-        this.joystick.setPosition(-265, -462);
+        this.joystick.setPosition(-274, -560);
         this.joystickOpacity = this.joystick.addComponent(UIOpacity);
-        this.joystickOpacity.opacity = 125;
+        this.joystickOpacity.opacity = 185;
         const ring = this.joystick.addComponent(Graphics);
-        ring.fillColor = new Color(6, 21, 27, 105);
-        ring.circle(0, 0, 66);
+        ring.fillColor = new Color(6, 24, 29, 165);
+        ring.circle(0, 0, 72);
         ring.fill();
-        ring.strokeColor = new Color(139, 201, 183, 150);
+        ring.strokeColor = new Color(167, 221, 202, 190);
         ring.lineWidth = 3;
-        ring.circle(0, 0, 66);
+        ring.circle(0, 0, 72);
         ring.stroke();
-        ring.strokeColor = new Color(139, 201, 183, 90);
+        ring.strokeColor = new Color(139, 201, 183, 105);
         ring.lineWidth = 2;
         for (let index = 0; index < 4; index += 1) {
             const angle = index * Math.PI / 2;
-            ring.moveTo(Math.cos(angle) * 49, Math.sin(angle) * 49);
-            ring.lineTo(Math.cos(angle) * 59, Math.sin(angle) * 59);
+            ring.moveTo(Math.cos(angle) * 53, Math.sin(angle) * 53);
+            ring.lineTo(Math.cos(angle) * 64, Math.sin(angle) * 64);
             ring.stroke();
         }
 
@@ -1001,11 +1088,27 @@ export class GameBootstrap extends Component {
         this.createScreenFlash(new Color(79, 209, 166, 58), 0.38);
         this.createDeathBurst(this.player.position, 58);
         this.clearOverlay();
-        const shade = this.makeRect(750, 1334, new Color(4, 12, 18, 220));
+        this.bringOverlayToFront();
+        const shade = this.makeRect(750, 1334, new Color(2, 10, 14, 218), undefined, 0);
         this.overlay.addChild(shade);
-        const title = this.makeLabel(`破境 · ${this.level} 重`, 40, new Color('#FDE68A'));
-        title.node.setPosition(0, 300);
+        const halo = new Node('UpgradeHalo');
+        halo.layer = Layers.Enum.UI_2D;
+        halo.setPosition(0, 385);
+        const haloGraphics = halo.addComponent(Graphics);
+        haloGraphics.fillColor = new Color(86, 210, 174, 26);
+        haloGraphics.circle(0, 0, 112);
+        haloGraphics.fill();
+        haloGraphics.strokeColor = new Color(244, 211, 126, 145);
+        haloGraphics.lineWidth = 2;
+        haloGraphics.circle(0, 0, 86);
+        haloGraphics.stroke();
+        this.overlay.addChild(halo);
+        const title = this.makeLabel('破  境', 58, new Color('#FFE4A0'));
+        title.node.setPosition(0, 402);
         this.overlay.addChild(title.node);
+        const subtitle = this.makeLabel(`境界提升至 ${this.level} 重  ·  选择一项天命`, 23, new Color('#BFE0D4'));
+        subtitle.node.setPosition(0, 337);
+        this.overlay.addChild(subtitle.node);
         const choices = this.pickUpgrades(3);
         choices.forEach((choice, index) => {
             const button = this.makeUpgradeButton(choice, () => {
@@ -1013,9 +1116,16 @@ export class GameBootstrap extends Component {
                 this.clearOverlay();
                 this.phase = 'playing';
             });
-            button.setPosition(0, 140 - index * 155);
+            button.setPosition(0, 172 - index * 170);
             this.overlay.addChild(button);
         });
+        const currentBuild = this.makeLabel(
+            `当前构筑  ·  飞剑 ${this.swordCount}  ·  剑伤 ${Math.round(this.swordDamage)}  ·  攻速 ${this.attackInterval.toFixed(2)}秒`,
+            19,
+            new Color(144, 180, 170, 230),
+        );
+        currentBuild.node.setPosition(0, -388);
+        this.overlay.addChild(currentBuild.node);
     }
 
     private applyUpgrade(id: UpgradeId): void {
@@ -1063,10 +1173,28 @@ export class GameBootstrap extends Component {
         });
         this.bossPulses = [];
         this.clearOverlay();
-        const panel = this.makePanel(victory ? '渡劫成功' : '道途未竟', victory ? `青石山道已肃清\n境界：${this.level} 重` : `本次修至 ${this.level} 重\n调整构筑，再战一次`, 470, 390);
+        this.bringOverlayToFront();
+        const shade = this.makeRect(750, 1334, new Color(2, 10, 14, 205), undefined, 0);
+        this.overlay.addChild(shade);
+        const panel = this.makePanel(
+            victory ? '渡 劫 成 功' : '道 途 未 竟',
+            victory
+                ? `青石山道已肃清\n最终境界  ${this.level} 重  ·  飞剑 ${this.swordCount} 柄`
+                : `本次修至 ${this.level} 重\n重新调整构筑，再战山门`,
+            560,
+            420,
+        );
+        panel.setPosition(0, 25);
         this.overlay.addChild(panel);
-        const button = this.makeButton(victory ? '再次闯关' : '重新挑战', new Color(victory ? '#2F7D68' : '#8B4545'), () => this.startStage());
-        button.setPosition(0, -115);
+        const button = this.makeButton(
+            victory ? '再 入 山 门' : '重 整 道 心',
+            new Color(victory ? '#E3C06F' : '#E29A7F'),
+            () => this.startStage(),
+            390,
+            92,
+            new Color(victory ? '#1C6758' : '#713A39'),
+        );
+        button.setPosition(0, -135);
         panel.addChild(button);
     }
 
@@ -1080,27 +1208,47 @@ export class GameBootstrap extends Component {
     }
 
     private updateHud(): void {
-        this.hpLabel.string = `气血 ${Math.ceil(this.hp)}/${this.maxHp}`;
-        this.xpLabel.string = `境界 ${this.level} 重  ·  修为 ${this.xp}/${this.xpNeed}`;
-        this.waveLabel.string = `第 ${this.waveIndex + 1}/${STAGES[0].waves.length} 波`;
-        this.buildLabel.string = `飞剑 ${this.swordCount}  ·  伤害 ${Math.round(this.swordDamage)}  ·  剑诀 ${this.attackInterval.toFixed(2)}秒`;
+        this.hpLabel.string = `青岚  ·  气血 ${Math.ceil(this.hp)} / ${this.maxHp}`;
+        this.xpLabel.string = `境界 ${this.level} 重    修为 ${this.xp} / ${this.xpNeed}`;
+        this.waveLabel.string = `青石山道\n第 ${this.waveIndex + 1} / ${STAGES[0].waves.length} 波`;
+        this.buildLabel.string = `本局剑阵\n飞剑 ${this.swordCount} 柄   剑伤 ${Math.round(this.swordDamage)}\n御剑间隔 ${this.attackInterval.toFixed(2)} 秒`;
+        const cooldownRatio = this.enemies.length === 0
+            ? 1
+            : 1 - Math.max(0, Math.min(1, this.attackTimer / this.attackInterval));
+        this.attackHudLabel.string = this.enemies.length === 0 ? '自动御剑' : cooldownRatio >= 0.99 ? '剑诀已就绪' : '御剑蓄势';
+        this.attackHud.clear();
+        this.attackHud.fillColor = new Color(5, 22, 27, 205);
+        this.attackHud.circle(0, 0, 62);
+        this.attackHud.fill();
+        this.attackHud.strokeColor = new Color(241, 211, 134, 225);
+        this.attackHud.lineWidth = 6;
+        this.attackHud.arc(0, 0, 62, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * cooldownRatio, false);
+        this.attackHud.stroke();
+        this.attackHud.strokeColor = new Color(142, 207, 187, 85);
+        this.attackHud.lineWidth = 2;
+        this.attackHud.circle(0, 0, 52);
+        this.attackHud.stroke();
 
         const hpRatio = Math.max(0, this.hp / this.maxHp);
         this.hpBar.clear();
         this.hpBar.fillColor = new Color(2, 9, 12, 210);
-        this.hpBar.roundRect(-100, -6, 200, 12, 6);
+        this.hpBar.roundRect(-126, -8, 252, 16, 8);
         this.hpBar.fill();
-        this.hpBar.fillColor = new Color(hpRatio < 0.3 ? '#DC5A55' : '#D98272');
-        this.hpBar.roundRect(-98, -4, 196 * hpRatio, 8, 4);
+        this.hpBar.fillColor = new Color(hpRatio < 0.3 ? '#E64F4F' : '#D96C61');
+        this.hpBar.roundRect(-123, -5, 246 * hpRatio, 10, 5);
         this.hpBar.fill();
+        this.hpBar.strokeColor = new Color(255, 214, 194, 75);
+        this.hpBar.lineWidth = 1;
+        this.hpBar.roundRect(-126, -8, 252, 16, 8);
+        this.hpBar.stroke();
 
         const xpRatio = Math.max(0, Math.min(1, this.xp / this.xpNeed));
         this.xpBar.clear();
         this.xpBar.fillColor = new Color(2, 9, 12, 220);
-        this.xpBar.roundRect(-205, -4, 410, 8, 4);
+        this.xpBar.roundRect(-126, -5, 252, 10, 5);
         this.xpBar.fill();
-        this.xpBar.fillColor = new Color('#55BFA1');
-        this.xpBar.roundRect(-203, -2, 406 * xpRatio, 4, 2);
+        this.xpBar.fillColor = new Color('#4BC8A7');
+        this.xpBar.roundRect(-124, -3, 248 * xpRatio, 6, 3);
         this.xpBar.fill();
 
         const boss = this.enemies.find((enemy) => enemy.elite && enemy.node.isValid && !enemy.dead);
@@ -1416,12 +1564,21 @@ export class GameBootstrap extends Component {
             jiangshi: '尸潮压境',
             shanxiao: '山魈镇关',
         };
+        const banner = this.makeRect(
+            wave.elite ? 520 : 470,
+            wave.elite ? 76 : 66,
+            new Color(3, 18, 22, wave.elite ? 220 : 185),
+            new Color(wave.elite ? '#E9B55E' : '#7DD4B6'),
+            16,
+            wave.elite ? 3 : 2,
+        );
         const label = this.makeLabel(
             `第 ${this.waveIndex + 1} 波  ·  ${enemyName[wave.enemyKind]}`,
             wave.elite ? 35 : 30,
             new Color(wave.elite ? '#FDE68A' : '#D1FAE5'),
         );
-        const node = label.node;
+        banner.addChild(label.node);
+        const node = banner;
         node.name = 'WaveAnnouncement';
         node.setPosition(0, 430);
         const opacity = node.addComponent(UIOpacity);
@@ -1456,37 +1613,67 @@ export class GameBootstrap extends Component {
         this.overlay.removeAllChildren();
     }
 
+    private bringOverlayToFront(): void {
+        // HUD 会在开局后动态创建；弹窗出现时需重新提到最上层，避免摇杆与状态条穿透遮罩。
+        this.overlay.setSiblingIndex(this.canvas.children.length - 1);
+    }
+
     private makePanel(titleText: string, bodyText: string, width: number, height: number): Node {
-        const panel = this.makeRect(width, height, new Color('#173A38'), new Color('#8DB7A8'));
-        const title = this.makeLabel(titleText, 50, new Color('#F8E7B0'));
-        title.node.setPosition(0, 105);
+        const shadow = this.makeRect(width + 18, height + 18, new Color(2, 9, 12, 185), undefined, 28);
+        const panel = this.makeRect(width, height, new Color(13, 48, 47, 246), new Color('#B5D0C4'), 24, 3);
+        panel.addChild(shadow);
+        shadow.setSiblingIndex(0);
+        shadow.setPosition(0, -8);
+        const inner = this.makeRect(width - 22, height - 22, new Color(13, 48, 47, 0), new Color(230, 198, 121, 80), 20, 1);
+        panel.addChild(inner);
+        const title = this.makeLabel(titleText, 49, new Color('#FFE6A5'));
+        title.node.setPosition(0, 112);
         panel.addChild(title.node);
-        const body = this.makeLabel(bodyText, 27, new Color('#D2E6DE'));
+        const body = this.makeLabel(bodyText, 25, new Color('#D6E8E1'));
         body.node.setPosition(0, 20);
         panel.addChild(body.node);
         return panel;
     }
 
     private makeButton(text: string, border: Color, onClick: () => void, width = 300, height = 82, fill = new Color('#214F48')): Node {
-        const node = this.makeRect(width, height, fill, border);
-        const label = this.makeLabel(text, 28, new Color('#F5F3E8'));
+        const shadow = this.makeRect(width, height, new Color(2, 8, 10, 155), undefined, 18);
+        shadow.setPosition(0, -7);
+        const node = this.makeRect(width, height, fill, border, 18, 3);
+        node.addChild(shadow);
+        shadow.setSiblingIndex(0);
+        const sheen = new Node('ButtonSheen');
+        sheen.layer = Layers.Enum.UI_2D;
+        const sheenGraphics = sheen.addComponent(Graphics);
+        sheenGraphics.strokeColor = new Color(255, 255, 255, 45);
+        sheenGraphics.lineWidth = 2;
+        sheenGraphics.moveTo(-width / 2 + 25, height / 2 - 12);
+        sheenGraphics.lineTo(width / 2 - 25, height / 2 - 12);
+        sheenGraphics.stroke();
+        node.addChild(sheen);
+        const label = this.makeLabel(text, 29, new Color('#FFF8E7'));
         node.addChild(label.node);
+        node.on(Node.EventType.TOUCH_START, (event: EventTouch) => {
+            event.propagationStopped = true;
+            node.setScale(0.97, 0.97);
+        });
+        node.on(Node.EventType.TOUCH_CANCEL, () => node.setScale(1, 1));
         node.on(Node.EventType.TOUCH_END, (event: EventTouch) => {
             event.propagationStopped = true;
+            node.setScale(1, 1);
             onClick();
         });
         return node;
     }
 
     private makeUpgradeButton(choice: UpgradeConfig, onClick: () => void): Node {
-        const node = this.makeRect(520, 125, new Color('#102A2A'), new Color(choice.accent));
-        const iconBacking = this.makeRect(88, 88, new Color(5, 18, 23, 210), new Color(choice.accent));
-        iconBacking.setPosition(-195, 0);
+        const node = this.makeRect(580, 142, new Color(8, 34, 38, 245), new Color(choice.accent), 22, 3);
+        const iconBacking = this.makeRect(104, 104, new Color(3, 17, 22, 230), new Color(choice.accent), 22, 2);
+        iconBacking.setPosition(-220, 0);
         node.addChild(iconBacking);
 
         const icon = new Node(`UpgradeIcon-${choice.id}`);
         icon.layer = Layers.Enum.UI_2D;
-        icon.addComponent(UITransform).setContentSize(74, 74);
+        icon.addComponent(UITransform).setContentSize(86, 86);
         const sprite = icon.addComponent(Sprite);
         sprite.sizeMode = Sprite.SizeMode.CUSTOM;
         iconBacking.addChild(icon);
@@ -1495,30 +1682,60 @@ export class GameBootstrap extends Component {
             if (!error && icon.isValid) sprite.spriteFrame = frame;
         });
 
-        const label = this.makeLabel(`${choice.title}\n${choice.description}`, 28, new Color('#F5F3E8'));
-        label.node.setPosition(50, 0);
-        label.node.getComponent(UITransform)?.setContentSize(380, 102);
+        const level = (this.upgradeLevels[choice.id] ?? 0) + 1;
+        const label = this.makeLabel(`${choice.title}   ·   第 ${level} 层\n${choice.description}`, 27, new Color('#FFF5DC'));
+        label.node.setPosition(52, 0);
+        label.node.getComponent(UITransform)?.setContentSize(400, 112);
         node.addChild(label.node);
+        node.on(Node.EventType.TOUCH_START, (event: EventTouch) => {
+            event.propagationStopped = true;
+            node.setScale(0.975, 0.975);
+        });
+        node.on(Node.EventType.TOUCH_CANCEL, () => node.setScale(1, 1));
         node.on(Node.EventType.TOUCH_END, (event: EventTouch) => {
             event.propagationStopped = true;
+            node.setScale(1, 1);
             onClick();
         });
         return node;
     }
 
-    private makeRect(width: number, height: number, fill: Color, stroke?: Color): Node {
+    private makeRect(width: number, height: number, fill: Color, stroke?: Color, radius = 20, lineWidth = 4): Node {
         const node = new Node('Panel');
         node.layer = Layers.Enum.UI_2D;
         node.addComponent(UITransform).setContentSize(width, height);
         const g = node.addComponent(Graphics);
         g.fillColor = fill;
-        g.roundRect(-width / 2, -height / 2, width, height, 20);
+        g.roundRect(-width / 2, -height / 2, width, height, radius);
         g.fill();
         if (stroke) {
             g.strokeColor = stroke;
-            g.lineWidth = 4;
-            g.roundRect(-width / 2, -height / 2, width, height, 20);
+            g.lineWidth = lineWidth;
+            g.roundRect(-width / 2, -height / 2, width, height, radius);
             g.stroke();
+        }
+        return node;
+    }
+
+    private createResourceSprite(resourcePath: string, displayHeight: number): Node {
+        const node = new Node('ResourceSprite');
+        node.layer = Layers.Enum.UI_2D;
+        const assign = (frame: SpriteFrame): void => {
+            if (!node.isValid) return;
+            const sprite = node.getComponent(Sprite) ?? node.addComponent(Sprite);
+            sprite.spriteFrame = frame;
+            sprite.sizeMode = Sprite.SizeMode.RAW;
+            const scale = displayHeight / Math.max(frame.originalSize.height, 1);
+            node.setScale(scale, scale);
+        };
+        const cached = this.spriteFrames.get(resourcePath);
+        if (cached) {
+            assign(cached);
+        } else {
+            // 菜单与 HUD 可在预加载完成前创建；异步补图失败时只缺装饰，不阻断战斗。
+            resources.load(resourcePath, SpriteFrame, (error, frame) => {
+                if (!error) assign(frame);
+            });
         }
         return node;
     }

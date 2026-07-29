@@ -9,8 +9,9 @@ export interface SpriteAssetSpec {
 
 export const BACKGROUND_ASSET = {
     resourcePath: 'art/backgrounds/qingshi-road/spriteFrame',
-    displayWidth: 700,
-    displayHeight: 950,
+    // 原图保持比例放大并由竖屏视口裁掉左右边缘，避免战场看起来像嵌在页面里的卡片。
+    displayWidth: 984,
+    displayHeight: 1334,
 } as const;
 
 export const PLAYER_ASSET: SpriteAssetSpec = {
