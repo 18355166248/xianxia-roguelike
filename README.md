@@ -29,8 +29,12 @@
 assets/
   scenes/                 启动场景
   scripts/
+    config/ArenaConfig.ts  场景尺寸与可行走道路轮廓
     config/GameConfig.ts  关卡、波次、强化配置
-    GameBootstrap.ts      状态机、战斗循环、技能动作和程序化 UI
+    runtime/              战斗实体与 UI 运行时共享类型
+    systems/SkillRuntime.ts 功法等级、冷却、蓄力与数值规则
+    ui/SkillHudRenderer.ts 主动功法 HUD 绘制
+    GameBootstrap.ts      场景状态机、战斗循环和节点编排
   resources/art/relics/   从 ai-asset-pipeline 导入的透明图
 docs/
   GAME_DESIGN.md          MVP 玩法与后续拆分建议
@@ -50,4 +54,10 @@ prompts/xianxia/          可复刻当前画风与后续动画素材的生成提
 ```bash
 node /Applications/Cocos/Creator/3.8.8/CocosCreator.app/Contents/Resources/resources/3d/engine/node_modules/typescript/bin/tsc \
   -p tsconfig.check.json
+```
+
+功法规则不依赖 Cocos 节点，可单独执行回归测试：
+
+```bash
+npm run test:skills
 ```

@@ -7,8 +7,12 @@
     "isolatedModules": false
   },
   "files": [
+    "assets/scripts/config/ArenaConfig.ts",
     "assets/scripts/config/AssetCatalog.ts",
     "assets/scripts/config/GameConfig.ts",
+    "assets/scripts/runtime/GameRuntimeTypes.ts",
+    "assets/scripts/systems/SkillRuntime.ts",
+    "assets/scripts/ui/SkillHudRenderer.ts",
     "assets/scripts/GameBootstrap.ts"
   ]
 }

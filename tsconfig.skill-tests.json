@@ -1,0 +1,15 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "commonjs",
+    "strict": true,
+    "skipLibCheck": true,
+    "rootDir": ".",
+    "outDir": "temp/skill-tests"
+  },
+  "files": [
+    "assets/scripts/config/GameConfig.ts",
+    "assets/scripts/systems/SkillRuntime.ts",
+    "tests/SkillRuntime.test.ts"
+  ]
+}

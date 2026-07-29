@@ -31,122 +31,42 @@ import {
     SpriteAssetSpec,
 } from './config/AssetCatalog';
 import {
-    EnemyBehavior,
-    EnemyKind,
+    type EnemyKind,
     STAGES,
     UPGRADES,
     UpgradeConfig,
     UpgradeId,
     WaveConfig,
 } from './config/GameConfig';
+import { ARENA_BOUNDS, DESIGN_SIZE, QINGSHI_ROAD_PROFILE } from './config/ArenaConfig';
+import {
+    AmbientState,
+    BossPulseState,
+    EnemyState,
+    Phase,
+    ProjectileState,
+    SkillHud,
+    UnitVisual,
+    VisualEffectState,
+} from './runtime/GameRuntimeTypes';
+import {
+    getDashCooldown,
+    getDashDistance,
+    getFormationSpec,
+    getTribulationDamageMultiplier,
+    getTribulationStrikeRadius,
+    SkillRuntime,
+} from './systems/SkillRuntime';
+import { drawSkillHud, drawTribulationHud } from './ui/SkillHudRenderer';
 
 const { ccclass } = _decorator;
 
-type Phase = 'menu' | 'playing' | 'upgrade' | 'victory' | 'defeat';
-
-interface EnemyState {
-    node: Node;
-    visual: Node;
-    opacity: UIOpacity;
-    kind: EnemyKind;
-    behavior: EnemyBehavior;
-    hp: number;
-    maxHp: number;
-    speed: number;
-    damage: number;
-    radius: number;
-    xp: number;
-    elite: boolean;
-    age: number;
-    strafeSign: number;
-    abilityTimer: number;
-    abilityInterval: number;
-    abilityDamage: number;
-    hpBar: Graphics;
-    baseScale: number;
-    baseVisualY: number;
-    hitTimer: number;
-    deathTimer: number;
-    spawnTimer: number;
-    castTimer: number;
-    dead: boolean;
-}
-
-interface ProjectileState {
-    node: Node;
-    velocity: Vec3;
-    damage: number;
-    radius: number;
-    life: number;
-    hit: Set<Node>;
-    trailTimer: number;
-}
-
-interface BossPulseState {
-    node: Node;
-    graphics: Graphics;
-    elapsed: number;
-    triggerAt: number;
-    life: number;
-    radius: number;
-    damage: number;
-    applied: boolean;
-}
-
-interface VisualEffectState {
-    node: Node;
-    elapsed: number;
-    life: number;
-    update: (progress: number) => void;
-}
-
-interface AmbientState {
-    node: Node;
-    baseX: number;
-    baseY: number;
-    speed: number;
-    phase: number;
-    range: number;
-}
-
-interface UnitVisual {
-    visual: Node;
-    opacity: UIOpacity;
-    baseScale: number;
-}
-
-interface RoadProfilePoint {
-    y: number;
-    centerX: number;
-    halfWidth: number;
-}
-
-interface SkillHud {
-    node: Node;
-    graphics: Graphics;
-    label: Label;
-    iconOpacity: UIOpacity;
-    radius: number;
-}
-
 @ccclass('GameBootstrap')
 export class GameBootstrap extends Component {
-    private readonly designWidth = 750;
-    private readonly designHeight = 1334;
-    private readonly arena = { left: -365, right: 365, bottom: -620, top: 525 };
-    // 对应青石山道图片中石板路的可行走轮廓；由下到上插值，避免单位穿进竹林与岩石。
-    private readonly roadProfile: ReadonlyArray<RoadProfilePoint> = [
-        { y: -620, centerX: 15, halfWidth: 160 },
-        { y: -500, centerX: 0, halfWidth: 195 },
-        { y: -360, centerX: -10, halfWidth: 235 },
-        { y: -220, centerX: 0, halfWidth: 210 },
-        { y: -80, centerX: 0, halfWidth: 230 },
-        { y: 80, centerX: 20, halfWidth: 205 },
-        { y: 220, centerX: 15, halfWidth: 235 },
-        { y: 360, centerX: 5, halfWidth: 240 },
-        { y: 500, centerX: 10, halfWidth: 270 },
-        { y: 525, centerX: 8, halfWidth: 250 },
-    ];
+    private readonly designWidth = DESIGN_SIZE.width;
+    private readonly designHeight = DESIGN_SIZE.height;
+    private readonly arena = ARENA_BOUNDS;
+    private readonly roadProfile = QINGSHI_ROAD_PROFILE;
 
     private phase: Phase = 'menu';
     private canvas!: Node;
@@ -213,17 +133,10 @@ export class GameBootstrap extends Component {
     private playerMoveAmount = 0;
     private playerFacing = 1;
     private lastMoveDirection = new Vec2(0, 1);
-    private dashCooldown = 0;
-    private formationCooldown = 0;
-    private tribulationCharge = 0;
-    private tribulationHold = 0;
-    private tribulationHolding = false;
-    private dashActionTimer = 0;
-    private formationActionTimer = 0;
-    private tribulationActionTimer = 0;
+    // 功法等级、冷却和蓄力统一由规则对象维护，场景类只负责节点、命中与表现编排。
+    private readonly skills = new SkillRuntime();
     private cameraShakeTimer = 0;
     private cameraShakeStrength = 0;
-    private upgradeLevels: Partial<Record<UpgradeId, number>> = {};
 
     protected override onLoad(): void {
         // 项目未依赖编辑器里的本机 View 配置，换设备时也固定按 750×1334 竖屏等比显示。
@@ -506,17 +419,8 @@ export class GameBootstrap extends Component {
         this.playerHitTimer = 0;
         this.playerInvulnerableTimer = 0;
         this.lastMoveDirection.set(0, 1);
-        this.dashCooldown = 0;
-        this.formationCooldown = 0;
-        this.tribulationCharge = 0;
-        this.tribulationHold = 0;
-        this.tribulationHolding = false;
-        this.dashActionTimer = 0;
-        this.formationActionTimer = 0;
-        this.tribulationActionTimer = 0;
+        this.skills.reset();
         this.cameraShakeTimer = 0;
-        // 自动御剑是角色初始功法，其余主动技能在破境选择中逐步解锁到三阶。
-        this.upgradeLevels = { sword: 1 };
         this.createPlayer();
         this.createHud();
         this.showWaveAnnouncement();
@@ -811,20 +715,20 @@ export class GameBootstrap extends Component {
             scaleY -= snap * 0.07;
             angle -= this.playerFacing * snap * 10;
         }
-        if (this.dashActionTimer > 0) {
-            const dashPose = Math.sin((1 - this.dashActionTimer / 0.32) * Math.PI);
+        if (this.skills.dashActionTimer > 0) {
+            const dashPose = Math.sin((1 - this.skills.dashActionTimer / 0.32) * Math.PI);
             scaleX += dashPose * 0.2;
             scaleY -= dashPose * 0.1;
             angle -= this.playerFacing * dashPose * 15;
         }
-        if (this.formationActionTimer > 0) {
-            const formationPose = Math.sin((1 - this.formationActionTimer / 0.58) * Math.PI);
+        if (this.skills.formationActionTimer > 0) {
+            const formationPose = Math.sin((1 - this.skills.formationActionTimer / 0.58) * Math.PI);
             scaleX += formationPose * 0.08;
             scaleY += formationPose * 0.13;
             angle += this.playerFacing * formationPose * 8;
         }
-        if (this.tribulationActionTimer > 0) {
-            const channelPose = Math.sin(Math.min(1, (1 - this.tribulationActionTimer / 0.8) * 2) * Math.PI / 2);
+        if (this.skills.tribulationActionTimer > 0) {
+            const channelPose = Math.sin(Math.min(1, (1 - this.skills.tribulationActionTimer / 0.8) * 2) * Math.PI / 2);
             scaleX -= channelPose * 0.08;
             scaleY += channelPose * 0.18;
             angle *= 0.25;
@@ -844,37 +748,19 @@ export class GameBootstrap extends Component {
     }
 
     private updateAbilities(dt: number): void {
-        this.dashCooldown = Math.max(0, this.dashCooldown - dt);
-        this.formationCooldown = Math.max(0, this.formationCooldown - dt);
-        this.dashActionTimer = Math.max(0, this.dashActionTimer - dt);
-        this.formationActionTimer = Math.max(0, this.formationActionTimer - dt);
-        this.tribulationActionTimer = Math.max(0, this.tribulationActionTimer - dt);
-
-        const tribulationLevel = this.upgradeLevels.tribulation ?? 0;
-        if (tribulationLevel > 0 && !this.tribulationHolding) {
-            // 天劫以战斗命中为主要充能来源，并保留少量自然回复，避免无敌人阶段卡死。
-            this.tribulationCharge = Math.min(1, this.tribulationCharge + dt * (0.012 + tribulationLevel * 0.003));
-        }
-        if (!this.tribulationHolding) return;
-        if (tribulationLevel <= 0 || this.tribulationCharge < 1) {
-            this.releaseTribulationHold();
-            return;
-        }
-        this.tribulationHold += dt;
-        const requiredHold = 0.72 - (tribulationLevel - 1) * 0.12;
-        if (this.tribulationHold >= requiredHold) this.castTribulation();
+        if (this.skills.tick(dt)) this.castTribulation();
     }
 
     private tryDash(): void {
-        const level = this.upgradeLevels.dash ?? 0;
+        const level = this.skills.getLevel('dash');
         if (this.phase !== 'playing') return;
         if (level <= 0) {
             this.createAbilityHint('踏云尚未参悟', new Color('#A8C9BE'));
             return;
         }
-        if (this.dashCooldown > 0) return;
+        if (this.skills.dashCooldown > 0) return;
 
-        const distance = [150, 190, 230][level - 1];
+        const distance = getDashDistance(level);
         const direction = this.lastMoveDirection.lengthSqr() > 0.01
             ? this.lastMoveDirection.clone().normalize()
             : new Vec2(this.playerFacing, 0);
@@ -886,8 +772,7 @@ export class GameBootstrap extends Component {
         this.player.setPosition(to);
         this.playerFacing = Math.abs(direction.x) > 0.08 ? (direction.x >= 0 ? 1 : -1) : this.playerFacing;
         this.playerInvulnerableTimer = Math.max(this.playerInvulnerableTimer, 0.18 + level * 0.08);
-        this.dashCooldown = [5.2, 4.4, 3.5][level - 1];
-        this.dashActionTimer = 0.32;
+        this.skills.markDashUsed(level);
         this.createDashEffect(from, to, level);
 
         if (level >= 3) {
@@ -902,19 +787,18 @@ export class GameBootstrap extends Component {
     }
 
     private trySwordFormation(): void {
-        const level = this.upgradeLevels.formation ?? 0;
+        const level = this.skills.getLevel('formation');
         if (this.phase !== 'playing') return;
         if (level <= 0) {
             this.createAbilityHint('剑阵尚未参悟', new Color('#A8C9BE'));
             return;
         }
-        if (this.formationCooldown > 0) return;
+        if (this.skills.formationCooldown > 0) return;
 
-        const radius = [145, 182, 220][level - 1];
-        const swordAmount = [5, 7, 9][level - 1];
-        const damage = this.swordDamage * [1.15, 1.48, 1.82][level - 1];
-        this.formationCooldown = [12, 10, 8][level - 1];
-        this.formationActionTimer = 0.58;
+        const spec = getFormationSpec(level);
+        const { radius, swordAmount } = spec;
+        const damage = this.swordDamage * spec.damageMultiplier;
+        this.skills.markFormationUsed(level);
         this.playerInvulnerableTimer = Math.max(this.playerInvulnerableTimer, 0.16);
         this.createSwordFormationEffect(this.player.position, radius, swordAmount);
         for (const enemy of this.enemies) {
@@ -928,26 +812,23 @@ export class GameBootstrap extends Component {
     }
 
     private startTribulationHold(): void {
-        const level = this.upgradeLevels.tribulation ?? 0;
+        const level = this.skills.getLevel('tribulation');
         if (this.phase !== 'playing') return;
         if (level <= 0) {
             this.createAbilityHint('天劫尚未参悟', new Color('#A8C9BE'));
             return;
         }
-        if (this.tribulationCharge < 1 || this.tribulationHolding) return;
-        this.tribulationHolding = true;
-        this.tribulationHold = 0;
+        if (!this.skills.beginTribulationHold()) return;
         this.playerInvulnerableTimer = Math.max(this.playerInvulnerableTimer, 0.12);
     }
 
     private releaseTribulationHold(): void {
-        this.tribulationHolding = false;
-        this.tribulationHold = 0;
+        this.skills.releaseTribulationHold();
     }
 
     private castTribulation(): void {
-        const level = this.upgradeLevels.tribulation ?? 0;
-        if (level <= 0 || this.tribulationCharge < 1) return;
+        const level = this.skills.getLevel('tribulation');
+        if (level <= 0 || this.skills.tribulationCharge < 1) return;
         const alive = this.enemies
             .filter((enemy) => enemy.node.isValid && !enemy.dead)
             .sort((a, b) => Vec3.distance(a.node.position, this.player.position) - Vec3.distance(b.node.position, this.player.position));
@@ -955,8 +836,8 @@ export class GameBootstrap extends Component {
             new Vec3(this.player.position.x, this.player.position.y + 170),
             20,
         );
-        const strikeRadius = 72 + level * 12;
-        const damage = this.swordDamage * (1.75 + level * 0.55);
+        const strikeRadius = getTribulationStrikeRadius(level);
+        const damage = this.swordDamage * getTribulationDamageMultiplier(level);
 
         // 多重天劫优先分摊到不同目标；目标不足时围绕首要目标落雷，保证首领战仍有成长收益。
         for (let index = 0; index < level; index += 1) {
@@ -975,10 +856,7 @@ export class GameBootstrap extends Component {
                 }
             }
         }
-        this.tribulationCharge = 0;
-        this.tribulationHolding = false;
-        this.tribulationHold = 0;
-        this.tribulationActionTimer = 0.8;
+        this.skills.markTribulationCast();
         this.playerInvulnerableTimer = Math.max(this.playerInvulnerableTimer, 0.45);
         this.createScreenFlash(new Color(154, 230, 255, 46), 0.28);
         this.cameraShakeTimer = 0.34;
@@ -991,9 +869,7 @@ export class GameBootstrap extends Component {
         enemy.hitTimer = 0.18;
         this.createHitBurst(enemy.node.position, color, burstRadius, true);
         this.createDamageNumber(enemy.node.position, Math.round(damage), enemy.elite);
-        if ((this.upgradeLevels.tribulation ?? 0) > 0) {
-            this.tribulationCharge = Math.min(1, this.tribulationCharge + (enemy.elite ? 0.07 : 0.035));
-        }
+        this.skills.addTribulationCharge(enemy.elite ? 0.07 : 0.035);
         if (enemy.hp <= 0) this.killEnemy(enemy);
         else this.drawEnemyHp(enemy);
     }
@@ -1597,9 +1473,7 @@ export class GameBootstrap extends Component {
         this.gainXp(enemy.xp);
         this.createDeathBurst(enemy.node.position, enemy.elite ? 74 : 42);
         this.createXpWisp(enemy.node.position);
-        if ((this.upgradeLevels.tribulation ?? 0) > 0) {
-            this.tribulationCharge = Math.min(1, this.tribulationCharge + (enemy.elite ? 0.22 : 0.08));
-        }
+        this.skills.addTribulationCharge(enemy.elite ? 0.22 : 0.08);
         this.cameraShakeTimer = enemy.elite ? 0.42 : 0.1;
         this.cameraShakeStrength = Math.max(this.cameraShakeStrength, enemy.elite ? 14 : 4);
     }
@@ -1651,7 +1525,7 @@ export class GameBootstrap extends Component {
             this.overlay.addChild(button);
         });
         const currentBuild = this.makeLabel(
-            `御剑 ${this.upgradeLevels.sword ?? 1}阶  ·  踏云 ${this.upgradeLevels.dash ?? 0}阶  ·  剑阵 ${this.upgradeLevels.formation ?? 0}阶  ·  天劫 ${this.upgradeLevels.tribulation ?? 0}阶`,
+            `御剑 ${this.skills.getLevel('sword')}阶  ·  踏云 ${this.skills.getLevel('dash')}阶  ·  剑阵 ${this.skills.getLevel('formation')}阶  ·  天劫 ${this.skills.getLevel('tribulation')}阶`,
             19,
             new Color(144, 180, 170, 230),
         );
@@ -1660,15 +1534,11 @@ export class GameBootstrap extends Component {
     }
 
     private applyUpgrade(id: UpgradeId): void {
-        const nextLevel = Math.min(3, (this.upgradeLevels[id] ?? 0) + 1);
-        this.upgradeLevels[id] = nextLevel;
+        const nextLevel = this.skills.upgrade(id);
         if (id === 'sword') this.swordCount = nextLevel;
         if (id === 'dash') {
-            this.dashCooldown = 0;
             this.moveSpeed *= 1.04;
         }
-        if (id === 'formation') this.formationCooldown = 0;
-        if (id === 'tribulation') this.tribulationCharge = 1;
         if (id === 'damage') this.swordDamage *= nextLevel >= 3 ? 1.35 : 1.3;
         if (id === 'haste') this.attackInterval = Math.max(0.2, this.attackInterval * (nextLevel >= 3 ? 0.82 : 0.85));
         if (id === 'guard') {
@@ -1722,7 +1592,7 @@ export class GameBootstrap extends Component {
         const panel = this.makePanel(
             victory ? '渡 劫 成 功' : '道 途 未 竟',
             victory
-                ? `青石山道已肃清\n御剑 ${this.upgradeLevels.sword ?? 1}阶  ·  踏云 ${this.upgradeLevels.dash ?? 0}阶\n剑阵 ${this.upgradeLevels.formation ?? 0}阶  ·  天劫 ${this.upgradeLevels.tribulation ?? 0}阶`
+                ? `青石山道已肃清\n御剑 ${this.skills.getLevel('sword')}阶  ·  踏云 ${this.skills.getLevel('dash')}阶\n剑阵 ${this.skills.getLevel('formation')}阶  ·  天劫 ${this.skills.getLevel('tribulation')}阶`
                 : `本次修至 ${this.level} 重\n重新组合功法，再战山门`,
             560,
             420,
@@ -1758,7 +1628,7 @@ export class GameBootstrap extends Component {
         const cooldownRatio = this.enemies.length === 0
             ? 1
             : 1 - Math.max(0, Math.min(1, this.attackTimer / this.attackInterval));
-        const swordLevel = this.upgradeLevels.sword ?? 1;
+        const swordLevel = this.skills.getLevel('sword');
         this.attackHudLabel.string = cooldownRatio >= 0.99 ? '御剑' : `${Math.max(0, this.attackTimer).toFixed(1)}`;
         this.attackIconOpacity.opacity = 245;
         this.attackHud.clear();
@@ -1781,23 +1651,23 @@ export class GameBootstrap extends Component {
             this.attackHud.fill();
         }
 
-        const dashLevel = this.upgradeLevels.dash ?? 0;
-        const formationLevel = this.upgradeLevels.formation ?? 0;
-        this.drawSkillHud(
+        const dashLevel = this.skills.getLevel('dash');
+        const formationLevel = this.skills.getLevel('formation');
+        drawSkillHud(
             this.dashHud,
             '踏云',
             dashLevel,
-            this.dashCooldown,
-            dashLevel > 0 ? [5.2, 4.4, 3.5][dashLevel - 1] : 1,
+            this.skills.dashCooldown,
+            dashLevel > 0 ? getDashCooldown(dashLevel) : 1,
         );
-        this.drawSkillHud(
+        drawSkillHud(
             this.formationHud,
             '剑阵',
             formationLevel,
-            this.formationCooldown,
-            formationLevel > 0 ? [12, 10, 8][formationLevel - 1] : 1,
+            this.skills.formationCooldown,
+            formationLevel > 0 ? getFormationSpec(formationLevel).cooldown : 1,
         );
-        this.drawTribulationHud();
+        drawTribulationHud(this.tribulationHud, this.tribulationHudLabel, this.skills);
 
         const hpRatio = Math.max(0, this.hp / this.maxHp);
         this.hpBar.clear();
@@ -1834,82 +1704,6 @@ export class GameBootstrap extends Component {
             this.bossHpBar.roundRect(-216, -4, 432 * ratio, 8, 4);
             this.bossHpBar.fill();
         }
-    }
-
-    private drawSkillHud(hud: SkillHud, title: string, level: number, cooldown: number, maxCooldown: number): void {
-        const readyRatio = level <= 0 ? 0 : 1 - Math.max(0, Math.min(1, cooldown / Math.max(maxCooldown, 0.01)));
-        hud.graphics.clear();
-        hud.graphics.fillColor = new Color(level > 0 ? 5 : 9, level > 0 ? 27 : 18, level > 0 ? 31 : 23, 220);
-        hud.graphics.circle(0, 0, hud.radius);
-        hud.graphics.fill();
-        hud.graphics.strokeColor = new Color(level > 0 ? 220 : 94, level > 0 ? 195 : 111, level > 0 ? 117 : 108, level > 0 ? 205 : 100);
-        hud.graphics.lineWidth = 4;
-        hud.graphics.circle(0, 0, hud.radius);
-        hud.graphics.stroke();
-        if (level > 0) {
-            hud.graphics.strokeColor = new Color(112, 231, 211, 220);
-            hud.graphics.lineWidth = 5;
-            hud.graphics.arc(
-                0,
-                0,
-                hud.radius - 5,
-                -Math.PI / 2,
-                -Math.PI / 2 + Math.PI * 2 * readyRatio,
-                false,
-            );
-            hud.graphics.stroke();
-        }
-        for (let index = 0; index < 3; index += 1) {
-            hud.graphics.fillColor = index < level
-                ? new Color(135, 238, 215, 235)
-                : new Color(45, 76, 74, 190);
-            hud.graphics.circle(-14 + index * 14, hud.radius + 5, 4.5);
-            hud.graphics.fill();
-        }
-        hud.iconOpacity.opacity = level > 0 ? 235 : 58;
-        hud.label.color = new Color(level > 0 ? '#FFF0BE' : '#79958E');
-        hud.label.string = level <= 0 ? `${title}·未悟` : cooldown > 0 ? cooldown.toFixed(1) : title;
-    }
-
-    private drawTribulationHud(): void {
-        const level = this.upgradeLevels.tribulation ?? 0;
-        const charge = level > 0 ? this.tribulationCharge : 0;
-        const requiredHold = level > 0 ? 0.72 - (level - 1) * 0.12 : 1;
-        const holdRatio = this.tribulationHolding ? Math.min(1, this.tribulationHold / requiredHold) : 0;
-        this.tribulationHud.clear();
-        this.tribulationHud.fillColor = new Color(level > 0 ? 4 : 8, level > 0 ? 24 : 17, level > 0 ? 29 : 21, 232);
-        this.tribulationHud.roundRect(-175, -25, 350, 50, 25);
-        this.tribulationHud.fill();
-        if (charge > 0) {
-            this.tribulationHud.fillColor = new Color(77, 204, 190, 105 + Math.round(charge * 65));
-            this.tribulationHud.roundRect(-169, -19, 338 * charge, 38, 19);
-            this.tribulationHud.fill();
-        }
-        if (holdRatio > 0) {
-            this.tribulationHud.fillColor = new Color(221, 248, 255, 135);
-            this.tribulationHud.roundRect(-169, -19, 338 * holdRatio, 38, 19);
-            this.tribulationHud.fill();
-        }
-        this.tribulationHud.strokeColor = new Color(level > 0 ? 232 : 87, level > 0 ? 207 : 109, level > 0 ? 132 : 105, level > 0 ? 220 : 100);
-        this.tribulationHud.lineWidth = level > 0 ? 3 : 2;
-        this.tribulationHud.roundRect(-175, -25, 350, 50, 25);
-        this.tribulationHud.stroke();
-        for (let index = 0; index < 3; index += 1) {
-            this.tribulationHud.fillColor = index < level
-                ? new Color(155, 242, 226, 240)
-                : new Color(42, 72, 70, 210);
-            this.tribulationHud.circle(-24 + index * 24, 31, 5);
-            this.tribulationHud.fill();
-        }
-        const realm = level >= 3 ? '三重' : level === 2 ? '二重' : level === 1 ? '初劫' : '未悟';
-        this.tribulationHudLabel.color = new Color(level > 0 ? '#E9FFF8' : '#738B85');
-        this.tribulationHudLabel.string = level <= 0
-            ? '天劫 · 未悟'
-            : this.tribulationHolding
-                ? `引劫 ${(holdRatio * 100).toFixed(0)}%`
-                : charge >= 1
-                    ? `天劫 · ${realm}  长按释放`
-                    : `天劫 · ${realm}  劫力 ${(charge * 100).toFixed(0)}%`;
     }
 
     private createPlayerAura(): void {
@@ -2328,7 +2122,7 @@ export class GameBootstrap extends Component {
             if (!error && icon.isValid) sprite.spriteFrame = frame;
         });
 
-        const level = Math.min(choice.maxLevel, (this.upgradeLevels[choice.id] ?? 0) + 1);
+        const level = Math.min(choice.maxLevel, this.skills.getLevel(choice.id) + 1);
         const realm = level === 1 ? '初悟' : level === 2 ? '进阶' : '圆满';
         const label = this.makeLabel(
             `${choice.title}   ·   ${realm}\n${choice.descriptions[level - 1]}`,
@@ -2407,11 +2201,11 @@ export class GameBootstrap extends Component {
     }
 
     private pickUpgrades(count: number): UpgradeConfig[] {
-        const pool = UPGRADES.filter((choice) => (this.upgradeLevels[choice.id] ?? 0) < choice.maxLevel);
+        const pool = UPGRADES.filter((choice) => this.skills.getLevel(choice.id) < choice.maxLevel);
         const result: UpgradeConfig[] = [];
         const activeIds: UpgradeId[] = ['dash', 'formation', 'tribulation', 'sword'];
         const activePool = pool.filter((choice) => activeIds.includes(choice.id));
-        const lockedActivePool = activePool.filter((choice) => (this.upgradeLevels[choice.id] ?? 0) === 0);
+        const lockedActivePool = activePool.filter((choice) => this.skills.getLevel(choice.id) === 0);
         // 未参悟的主动功法优先出现，保证一局前几次破境就能体验完整动作组合。
         while (result.length < Math.min(2, count) && lockedActivePool.length > 0) {
             const choice = lockedActivePool.splice(Math.floor(Math.random() * lockedActivePool.length), 1)[0];
