@@ -30,6 +30,7 @@ export interface UpgradeConfig {
     title: string;
     description: string;
     accent: string;
+    iconResourcePath: string;
 }
 
 // 闯关数据保持纯配置：后续加关卡时不改战斗状态机，只追加一条配置。
@@ -91,10 +92,10 @@ export const STAGES: StageConfig[] = [
 ];
 
 export const UPGRADES: UpgradeConfig[] = [
-    { id: 'sword', title: '万剑归宗', description: '飞剑数量 +1', accent: '#7DD3FC' },
-    { id: 'damage', title: '剑心通明', description: '飞剑伤害 +35%', accent: '#FDE68A' },
-    { id: 'haste', title: '御剑如风', description: '攻击间隔 -18%', accent: '#C4B5FD' },
-    { id: 'speed', title: '踏云步', description: '移动速度 +15%', accent: '#86EFAC' },
-    { id: 'guard', title: '护体罡气', description: '回复并提升生命上限', accent: '#93C5FD' },
-    { id: 'heal', title: '枯木逢春', description: '立即回复 35% 生命', accent: '#6EE7B7' },
+    { id: 'sword', title: '万剑归宗', description: '飞剑数量 +1', accent: '#7DD3FC', iconResourcePath: 'art/relics/xianxia-relics_00/spriteFrame' },
+    { id: 'damage', title: '剑心通明', description: '飞剑伤害 +35%', accent: '#FDE68A', iconResourcePath: 'art/relics/xianxia-relics_06/spriteFrame' },
+    { id: 'haste', title: '御剑如风', description: '攻击间隔 -18%', accent: '#C4B5FD', iconResourcePath: 'art/relics/xianxia-relics_05/spriteFrame' },
+    { id: 'speed', title: '踏云步', description: '移动速度 +15%', accent: '#86EFAC', iconResourcePath: 'art/relics/xianxia-relics_23/spriteFrame' },
+    { id: 'guard', title: '护体罡气', description: '回复并提升生命上限', accent: '#93C5FD', iconResourcePath: 'art/relics/xianxia-relics_04/spriteFrame' },
+    { id: 'heal', title: '枯木逢春', description: '立即回复 35% 生命', accent: '#6EE7B7', iconResourcePath: 'art/relics/xianxia-relics_19/spriteFrame' },
 ];

@@ -33,12 +33,13 @@ assets/
 docs/
   GAME_DESIGN.md          MVP 玩法与后续拆分建议
   ASSET_CONTRACT.md       竖切版资源目录、尺寸与验收规则
+prompts/xianxia/          可复刻当前画风与后续动画素材的生成提示词
 ```
 
 ## 素材约定
 
-本项目只消费最终素材，不包含生成与切图逻辑。新增素材先在
-`ai-asset-pipeline` 中质检，通过后复制到 `assets/resources/art/`。
+本项目保存最终素材和生成提示词；批量切图、去背与 contact sheet 仍由
+`ai-asset-pipeline` 执行，通过质检后再复制到 `assets/resources/art/`。
 
 当前竖切素材固定由 `assets/scripts/config/AssetCatalog.ts` 统一管理路径和显示尺寸。
 新电脑首次打开项目后，Creator 会重新生成 `temp/` 类型声明；随后可执行：

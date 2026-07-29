@@ -136,8 +136,12 @@ export class GameBootstrap extends Component {
     private hpLabel!: Label;
     private xpLabel!: Label;
     private waveLabel!: Label;
+    private buildLabel!: Label;
     private hpBar!: Graphics;
     private xpBar!: Graphics;
+    private bossHud!: Node;
+    private bossHpBar!: Graphics;
+    private bossHpLabel!: Label;
     private joystick!: Node;
     private joystickKnob!: Node;
     private joystickOpacity!: UIOpacity;
@@ -175,6 +179,7 @@ export class GameBootstrap extends Component {
     private playerFacing = 1;
     private cameraShakeTimer = 0;
     private cameraShakeStrength = 0;
+    private upgradeLevels: Partial<Record<UpgradeId, number>> = {};
 
     protected override onLoad(): void {
         // 项目未依赖编辑器里的本机 View 配置，换设备时也固定按 750×1334 竖屏等比显示。
@@ -399,6 +404,7 @@ export class GameBootstrap extends Component {
         this.playerHitTimer = 0;
         this.playerInvulnerableTimer = 0;
         this.cameraShakeTimer = 0;
+        this.upgradeLevels = {};
         this.createPlayer();
         this.createHud();
         this.showWaveAnnouncement();
@@ -447,8 +453,31 @@ export class GameBootstrap extends Component {
         this.waveLabel = this.makeLabel('', 23, new Color('#FDE68A'));
         this.waveLabel.node.setPosition(245, 603);
         hud.addChild(this.waveLabel.node);
+        this.buildLabel = this.makeLabel('', 20, new Color('#C7DAD2'));
+        this.buildLabel.node.setPosition(180, -485);
+        this.buildLabel.node.getComponent(UITransform)?.setContentSize(330, 56);
+        hud.addChild(this.buildLabel.node);
+        this.createBossHud(hud);
         this.createJoystick(hud);
         this.updateHud();
+    }
+
+    private createBossHud(hud: Node): void {
+        this.bossHud = new Node('BossHud');
+        this.bossHud.layer = Layers.Enum.UI_2D;
+        this.bossHud.setPosition(0, 486);
+        const backing = this.makeRect(500, 66, new Color(18, 10, 13, 225), new Color(178, 112, 61, 210));
+        this.bossHud.addChild(backing);
+        this.bossHpLabel = this.makeLabel('', 22, new Color('#F8D9A0'));
+        this.bossHpLabel.node.setPosition(0, 14);
+        this.bossHud.addChild(this.bossHpLabel.node);
+        const barNode = new Node('BossHpBar');
+        barNode.layer = Layers.Enum.UI_2D;
+        barNode.setPosition(0, -17);
+        this.bossHpBar = barNode.addComponent(Graphics);
+        this.bossHud.addChild(barNode);
+        this.bossHud.active = false;
+        hud.addChild(this.bossHud);
     }
 
     private createJoystick(hud: Node): void {
@@ -979,17 +1008,18 @@ export class GameBootstrap extends Component {
         this.overlay.addChild(title.node);
         const choices = this.pickUpgrades(3);
         choices.forEach((choice, index) => {
-            const button = this.makeButton(`${choice.title}\n${choice.description}`, new Color(choice.accent), () => {
+            const button = this.makeUpgradeButton(choice, () => {
                 this.applyUpgrade(choice.id);
                 this.clearOverlay();
                 this.phase = 'playing';
-            }, 500, 125, new Color('#102A2A'));
+            });
             button.setPosition(0, 140 - index * 155);
             this.overlay.addChild(button);
         });
     }
 
     private applyUpgrade(id: UpgradeId): void {
+        this.upgradeLevels[id] = (this.upgradeLevels[id] ?? 0) + 1;
         if (id === 'sword') this.swordCount += 1;
         if (id === 'damage') this.swordDamage *= 1.35;
         if (id === 'haste') this.attackInterval = Math.max(0.2, this.attackInterval * 0.82);
@@ -1053,6 +1083,7 @@ export class GameBootstrap extends Component {
         this.hpLabel.string = `气血 ${Math.ceil(this.hp)}/${this.maxHp}`;
         this.xpLabel.string = `境界 ${this.level} 重  ·  修为 ${this.xp}/${this.xpNeed}`;
         this.waveLabel.string = `第 ${this.waveIndex + 1}/${STAGES[0].waves.length} 波`;
+        this.buildLabel.string = `飞剑 ${this.swordCount}  ·  伤害 ${Math.round(this.swordDamage)}  ·  剑诀 ${this.attackInterval.toFixed(2)}秒`;
 
         const hpRatio = Math.max(0, this.hp / this.maxHp);
         this.hpBar.clear();
@@ -1071,6 +1102,20 @@ export class GameBootstrap extends Component {
         this.xpBar.fillColor = new Color('#55BFA1');
         this.xpBar.roundRect(-203, -2, 406 * xpRatio, 4, 2);
         this.xpBar.fill();
+
+        const boss = this.enemies.find((enemy) => enemy.elite && enemy.node.isValid && !enemy.dead);
+        this.bossHud.active = Boolean(boss);
+        if (boss) {
+            const ratio = Math.max(0, boss.hp / boss.maxHp);
+            this.bossHpLabel.string = `镇关山魈  ${Math.ceil(boss.hp)}/${boss.maxHp}`;
+            this.bossHpBar.clear();
+            this.bossHpBar.fillColor = new Color(5, 4, 6, 230);
+            this.bossHpBar.roundRect(-218, -6, 436, 12, 6);
+            this.bossHpBar.fill();
+            this.bossHpBar.fillColor = new Color(ratio < 0.3 ? '#D45745' : '#B97738');
+            this.bossHpBar.roundRect(-216, -4, 432 * ratio, 8, 4);
+            this.bossHpBar.fill();
+        }
     }
 
     private createPlayerAura(): void {
@@ -1425,6 +1470,34 @@ export class GameBootstrap extends Component {
     private makeButton(text: string, border: Color, onClick: () => void, width = 300, height = 82, fill = new Color('#214F48')): Node {
         const node = this.makeRect(width, height, fill, border);
         const label = this.makeLabel(text, 28, new Color('#F5F3E8'));
+        node.addChild(label.node);
+        node.on(Node.EventType.TOUCH_END, (event: EventTouch) => {
+            event.propagationStopped = true;
+            onClick();
+        });
+        return node;
+    }
+
+    private makeUpgradeButton(choice: UpgradeConfig, onClick: () => void): Node {
+        const node = this.makeRect(520, 125, new Color('#102A2A'), new Color(choice.accent));
+        const iconBacking = this.makeRect(88, 88, new Color(5, 18, 23, 210), new Color(choice.accent));
+        iconBacking.setPosition(-195, 0);
+        node.addChild(iconBacking);
+
+        const icon = new Node(`UpgradeIcon-${choice.id}`);
+        icon.layer = Layers.Enum.UI_2D;
+        icon.addComponent(UITransform).setContentSize(74, 74);
+        const sprite = icon.addComponent(Sprite);
+        sprite.sizeMode = Sprite.SizeMode.CUSTOM;
+        iconBacking.addChild(icon);
+        // 图标是可选表现层；资源导入失败时保留带色边框，升级逻辑仍可继续。
+        resources.load(choice.iconResourcePath, SpriteFrame, (error, frame) => {
+            if (!error && icon.isValid) sprite.spriteFrame = frame;
+        });
+
+        const label = this.makeLabel(`${choice.title}\n${choice.description}`, 28, new Color('#F5F3E8'));
+        label.node.setPosition(50, 0);
+        label.node.getComponent(UITransform)?.setContentSize(380, 102);
         node.addChild(label.node);
         node.on(Node.EventType.TOUCH_END, (event: EventTouch) => {
             event.propagationStopped = true;
