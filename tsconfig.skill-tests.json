@@ -9,7 +9,9 @@
   },
   "files": [
     "assets/scripts/config/GameConfig.ts",
+    "assets/scripts/systems/PlayerActionRuntime.ts",
     "assets/scripts/systems/SkillRuntime.ts",
+    "tests/PlayerActionRuntime.test.ts",
     "tests/SkillRuntime.test.ts"
   ]
 }

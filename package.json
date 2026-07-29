@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "description": "仙侠闯关制动作 Roguelike，基于 Cocos Creator 3.8.8",
   "scripts": {
-    "test:skills": "node /Applications/Cocos/Creator/3.8.8/CocosCreator.app/Contents/Resources/resources/3d/engine/node_modules/typescript/bin/tsc -p tsconfig.skill-tests.json && node temp/skill-tests/tests/SkillRuntime.test.js"
+    "test:skills": "node /Applications/Cocos/Creator/3.8.8/CocosCreator.app/Contents/Resources/resources/3d/engine/node_modules/typescript/bin/tsc -p tsconfig.skill-tests.json && node temp/skill-tests/tests/PlayerActionRuntime.test.js && node temp/skill-tests/tests/SkillRuntime.test.js"
   },
   "creator": {
     "version": "3.8.8"

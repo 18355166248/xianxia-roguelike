@@ -43,3 +43,40 @@ The reference depicts a fully upgraded cinematic cast state while the captured i
 No P0, P1, or P2 visual or interaction issues remain.
 
 final result: passed
+
+# Progressive Gesture Controls — Design QA
+
+## Evidence
+
+- Control explorations: `docs/design/control-concepts/control-concept-a-one-hand.png`,
+  `control-concept-b-dual-zone.png`, and `control-concept-c-gesture-combo.png`
+- Live implementation: `docs/qa/progressive-controls-directional-live.png`
+- Combined comparison: `docs/qa/progressive-controls-comparison.png`
+- State: sword tier 2, directional drag attack available; dash and formation unlocked
+
+## Product decision
+
+The three concepts are treated as progressive depth rather than randomized layouts. The fixed one-hand
+layout from concept A remains the spatial anchor. Sword tier 2 adopts concept B's directional intent, and
+tier 3 adopts concept C's hold gesture. This preserves muscle memory while letting action depth grow with
+the build.
+
+## Interaction verification
+
+- Tier 1 automatic targeting and tap strike: passed.
+- Tier 2 drag direction resolution and aimed volley: passed.
+- Tier 3 hold threshold and charged-slash routing: passed by runtime regression test.
+- Fast joystick flick only routes to dash after the skill is unlocked: passed by runtime regression test.
+- Action priority prevents hit, dash, formation, tribulation, and attack poses from overwriting each other:
+  passed.
+- Upgrade modal blocks combat touches: passed.
+- TypeScript check, gesture/action tests, Cocos Web Mobile build, and browser smoke test: passed.
+- Browser smoke test produced no warnings or errors.
+
+The live game intentionally keeps the existing compact jade-and-gold HUD rather than copying the concept
+art's oversized callouts. Skill anchors, thumb reach, dark cyan palette, and the right-side combat hierarchy
+remain consistent with the selected direction.
+
+No P0, P1, or P2 visual or interaction issues remain.
+
+final result: passed

@@ -57,6 +57,11 @@ import {
     getTribulationStrikeRadius,
     SkillRuntime,
 } from './systems/SkillRuntime';
+import {
+    PlayerActionRuntime,
+    resolveSwordGesture,
+    shouldTriggerFlickDash,
+} from './systems/PlayerActionRuntime';
 import { drawSkillHud, drawTribulationHud } from './ui/SkillHudRenderer';
 
 const { ccclass } = _decorator;
@@ -135,6 +140,12 @@ export class GameBootstrap extends Component {
     private lastMoveDirection = new Vec2(0, 1);
     // 功法等级、冷却和蓄力统一由规则对象维护，场景类只负责节点、命中与表现编排。
     private readonly skills = new SkillRuntime();
+    private readonly actions = new PlayerActionRuntime();
+    private joystickGestureStartedAt = 0;
+    private joystickMaxDrag = 0;
+    private attackGestureOrigin?: Vec2;
+    private attackGestureCurrent?: Vec2;
+    private attackGestureStartedAt = 0;
     private cameraShakeTimer = 0;
     private cameraShakeStrength = 0;
 
@@ -318,6 +329,8 @@ export class GameBootstrap extends Component {
         const p = event.getUILocation();
         if (p.y > this.designHeight * 0.55) return;
         this.touchOrigin = new Vec2(p.x, p.y);
+        this.joystickGestureStartedAt = this.elapsed;
+        this.joystickMaxDrag = 0;
         this.joystickOpacity.opacity = 220;
     }
 
@@ -325,15 +338,21 @@ export class GameBootstrap extends Component {
         if (!this.touchOrigin || this.phase !== 'playing') return;
         const p = event.getUILocation();
         this.touchDirection.set(p.x - this.touchOrigin.x, p.y - this.touchOrigin.y);
+        this.joystickMaxDrag = Math.max(this.joystickMaxDrag, this.touchDirection.length());
         if (this.touchDirection.length() > 1) this.touchDirection.normalize();
         this.joystickKnob.setPosition(this.touchDirection.x * 34, this.touchDirection.y * 34);
     }
 
     private onTouchEnd(): void {
+        const gestureDuration = this.elapsed - this.joystickGestureStartedAt;
+        const shouldDash = Boolean(this.touchOrigin)
+            && shouldTriggerFlickDash(gestureDuration, this.joystickMaxDrag);
         this.touchOrigin = undefined;
         this.touchDirection.set(0, 0);
         if (this.joystickKnob?.isValid) this.joystickKnob.setPosition(0, 0);
         if (this.joystickOpacity?.isValid) this.joystickOpacity.opacity = 125;
+        this.joystickMaxDrag = 0;
+        if (shouldDash) this.tryDash();
     }
 
     private showMenu(): void {
@@ -420,6 +439,9 @@ export class GameBootstrap extends Component {
         this.playerInvulnerableTimer = 0;
         this.lastMoveDirection.set(0, 1);
         this.skills.reset();
+        this.actions.reset();
+        this.attackGestureOrigin = undefined;
+        this.attackGestureCurrent = undefined;
         this.cameraShakeTimer = 0;
         this.createPlayer();
         this.createHud();
@@ -514,6 +536,106 @@ export class GameBootstrap extends Component {
         this.attackHudLabel.node.setPosition(0, -48);
         this.attackHudLabel.node.getComponent(UITransform)?.setContentSize(130, 30);
         node.addChild(this.attackHudLabel.node);
+        node.on(Node.EventType.TOUCH_START, (event: EventTouch) => {
+            event.propagationStopped = true;
+            const point = event.getUILocation();
+            this.attackGestureOrigin = new Vec2(point.x, point.y);
+            this.attackGestureCurrent = this.attackGestureOrigin.clone();
+            this.attackGestureStartedAt = this.elapsed;
+            node.setScale(0.96, 0.96);
+        });
+        node.on(Node.EventType.TOUCH_MOVE, (event: EventTouch) => {
+            event.propagationStopped = true;
+            if (!this.attackGestureOrigin) return;
+            const point = event.getUILocation();
+            this.attackGestureCurrent?.set(point.x, point.y);
+        });
+        node.on(Node.EventType.TOUCH_END, (event: EventTouch) => {
+            event.propagationStopped = true;
+            node.setScale(1, 1);
+            this.releaseSwordGesture();
+        });
+        node.on(Node.EventType.TOUCH_CANCEL, () => {
+            node.setScale(1, 1);
+            this.cancelSwordGesture();
+        });
+    }
+
+    private releaseSwordGesture(): void {
+        if (!this.attackGestureOrigin || !this.attackGestureCurrent || this.phase !== 'playing') {
+            this.cancelSwordGesture();
+            return;
+        }
+        const delta = this.attackGestureCurrent.clone().subtract(this.attackGestureOrigin);
+        const holdSeconds = this.elapsed - this.attackGestureStartedAt;
+        const gesture = resolveSwordGesture(this.skills.getLevel('sword'), holdSeconds, delta.length());
+        const direction = delta.lengthSqr() > 4
+            ? delta.normalize()
+            : this.lastMoveDirection.clone().normalize();
+        this.cancelSwordGesture();
+
+        if (gesture === 'charged') {
+            this.performChargedSlash(direction);
+        } else if (gesture === 'aimed') {
+            this.performAimedVolley(direction);
+        } else {
+            this.performQuickStrike();
+        }
+    }
+
+    private cancelSwordGesture(): void {
+        this.attackGestureOrigin = undefined;
+        this.attackGestureCurrent = undefined;
+        this.attackGestureStartedAt = 0;
+    }
+
+    private performQuickStrike(): void {
+        const target = this.findNearestEnemy();
+        if (!target) return;
+        this.actions.enter('quickStrike', 0.28);
+        this.fireSword(target, 0);
+        this.attackTimer = Math.max(this.attackTimer, this.attackInterval * 0.45);
+    }
+
+    private performAimedVolley(direction: Readonly<Vec2>): void {
+        const target = this.findEnemyInDirection(direction) ?? this.findNearestEnemy();
+        if (!target) return;
+        this.actions.enter('aimedVolley', 0.42);
+        const amount = Math.max(2, this.skills.getLevel('sword'));
+        for (let index = 0; index < amount; index += 1) {
+            this.fireSword(target, (index - (amount - 1) / 2) * 0.11);
+        }
+        this.attackTimer = Math.max(this.attackTimer, this.attackInterval * 0.7);
+        this.createAbilityHint('御剑定向', new Color('#A5F3FC'));
+    }
+
+    private performChargedSlash(direction: Readonly<Vec2>): void {
+        const normalized = direction.lengthSqr() > 0.01
+            ? direction.clone().normalize()
+            : this.lastMoveDirection.clone().normalize();
+        this.actions.enter('chargedSlash', 0.72);
+        this.playerFacing = Math.abs(normalized.x) > 0.08
+            ? (normalized.x >= 0 ? 1 : -1)
+            : this.playerFacing;
+        const damage = this.swordDamage * 2.35;
+        const radius = 235;
+        for (const enemy of this.enemies) {
+            if (!enemy.node.isValid || enemy.dead) continue;
+            const offset = new Vec2(
+                enemy.node.position.x - this.player.position.x,
+                enemy.node.position.y - this.player.position.y,
+            );
+            const distance = offset.length();
+            if (distance > radius + enemy.radius || distance <= 0.01) continue;
+            if (offset.normalize().dot(normalized) < -0.1) continue;
+            this.dealSkillDamage(enemy, damage, new Color('#CFFAFE'), enemy.elite ? 62 : 46);
+        }
+        this.createChargedSlashEffect(normalized, radius);
+        this.attackTimer = Math.max(this.attackTimer, this.attackInterval);
+        this.playerInvulnerableTimer = Math.max(this.playerInvulnerableTimer, 0.22);
+        this.cameraShakeTimer = 0.24;
+        this.cameraShakeStrength = Math.max(this.cameraShakeStrength, 9);
+        this.createAbilityHint('蓄力斩', new Color('#E0F2FE'));
     }
 
     private createAbilityHud(hud: Node): void {
@@ -692,6 +814,7 @@ export class GameBootstrap extends Component {
         if (this.pressed.has(KeyCode.KEY_W) || this.pressed.has(KeyCode.ARROW_UP)) y += 1;
         const direction = new Vec2(x, y);
         if (direction.lengthSqr() > 1) direction.normalize();
+        this.actions.tick(dt, direction.lengthSqr() > 0.04);
         if (direction.lengthSqr() > 0.04) this.lastMoveDirection.set(direction).normalize();
         this.playerMoveAmount += (Math.min(direction.length(), 1) - this.playerMoveAmount) * Math.min(1, dt * 12);
         if (Math.abs(direction.x) > 0.08) this.playerFacing = direction.x >= 0 ? 1 : -1;
@@ -708,27 +831,27 @@ export class GameBootstrap extends Component {
         let scaleY = 1 - idleBreath - this.playerMoveAmount * Math.abs(step) * 0.025;
         let angle = -direction.x * 5.5;
 
-        if (this.playerAttackTimer > 0) {
-            const attackProgress = 1 - this.playerAttackTimer / 0.22;
-            const snap = Math.sin(Math.min(1, attackProgress) * Math.PI);
-            scaleX += snap * 0.12;
-            scaleY -= snap * 0.07;
-            angle -= this.playerFacing * snap * 10;
+        if (this.actions.is('autoAttack', 'quickStrike', 'aimedVolley', 'chargedSlash')) {
+            const snap = Math.sin(this.actions.progress() * Math.PI);
+            const strength = this.actions.is('chargedSlash') ? 1.8 : this.actions.is('aimedVolley') ? 1.35 : 1;
+            scaleX += snap * 0.12 * strength;
+            scaleY -= snap * 0.07 * strength;
+            angle -= this.playerFacing * snap * 10 * strength;
         }
-        if (this.skills.dashActionTimer > 0) {
-            const dashPose = Math.sin((1 - this.skills.dashActionTimer / 0.32) * Math.PI);
+        if (this.actions.is('dash')) {
+            const dashPose = Math.sin(this.actions.progress() * Math.PI);
             scaleX += dashPose * 0.2;
             scaleY -= dashPose * 0.1;
             angle -= this.playerFacing * dashPose * 15;
         }
-        if (this.skills.formationActionTimer > 0) {
-            const formationPose = Math.sin((1 - this.skills.formationActionTimer / 0.58) * Math.PI);
+        if (this.actions.is('formation')) {
+            const formationPose = Math.sin(this.actions.progress() * Math.PI);
             scaleX += formationPose * 0.08;
             scaleY += formationPose * 0.13;
             angle += this.playerFacing * formationPose * 8;
         }
-        if (this.skills.tribulationActionTimer > 0) {
-            const channelPose = Math.sin(Math.min(1, (1 - this.skills.tribulationActionTimer / 0.8) * 2) * Math.PI / 2);
+        if (this.actions.is('tribulation')) {
+            const channelPose = Math.sin(Math.min(1, this.actions.progress() * 2) * Math.PI / 2);
             scaleX -= channelPose * 0.08;
             scaleY += channelPose * 0.18;
             angle *= 0.25;
@@ -773,6 +896,7 @@ export class GameBootstrap extends Component {
         this.playerFacing = Math.abs(direction.x) > 0.08 ? (direction.x >= 0 ? 1 : -1) : this.playerFacing;
         this.playerInvulnerableTimer = Math.max(this.playerInvulnerableTimer, 0.18 + level * 0.08);
         this.skills.markDashUsed(level);
+        this.actions.enter('dash', 0.32);
         this.createDashEffect(from, to, level);
 
         if (level >= 3) {
@@ -799,6 +923,7 @@ export class GameBootstrap extends Component {
         const { radius, swordAmount } = spec;
         const damage = this.swordDamage * spec.damageMultiplier;
         this.skills.markFormationUsed(level);
+        this.actions.enter('formation', 0.58);
         this.playerInvulnerableTimer = Math.max(this.playerInvulnerableTimer, 0.16);
         this.createSwordFormationEffect(this.player.position, radius, swordAmount);
         for (const enemy of this.enemies) {
@@ -857,6 +982,7 @@ export class GameBootstrap extends Component {
             }
         }
         this.skills.markTribulationCast();
+        this.actions.enter('tribulation', 0.8);
         this.playerInvulnerableTimer = Math.max(this.playerInvulnerableTimer, 0.45);
         this.createScreenFlash(new Color(154, 230, 255, 46), 0.28);
         this.cameraShakeTimer = 0.34;
@@ -918,6 +1044,34 @@ export class GameBootstrap extends Component {
                 );
                 afterimage.setScale(afterimage.scale.x * 1.002, afterimage.scale.y * 1.002);
                 opacity.opacity = Math.round(150 * (1 - progress));
+            },
+        });
+    }
+
+    private createChargedSlashEffect(direction: Readonly<Vec2>, radius: number): void {
+        const slash = new Node('ChargedSwordSlash');
+        slash.layer = Layers.Enum.UI_2D;
+        slash.setPosition(this.player.position);
+        const opacity = slash.addComponent(UIOpacity);
+        const graphics = slash.addComponent(Graphics);
+        const angle = Math.atan2(direction.y, direction.x);
+        graphics.strokeColor = new Color(207, 250, 254, 225);
+        graphics.lineWidth = 22;
+        graphics.arc(0, 0, radius * 0.72, angle - 1.05, angle + 1.05, false);
+        graphics.stroke();
+        graphics.strokeColor = new Color(103, 232, 249, 115);
+        graphics.lineWidth = 42;
+        graphics.arc(0, 0, radius * 0.68, angle - 0.95, angle + 0.95, false);
+        graphics.stroke();
+        this.effectsLayer.addChild(slash);
+        this.effects.push({
+            node: slash,
+            elapsed: 0,
+            life: 0.42,
+            update: (progress) => {
+                opacity.opacity = Math.round(255 * (1 - progress));
+                const scale = 0.72 + progress * 0.38;
+                slash.setScale(scale, scale);
             },
         });
     }
@@ -1303,6 +1457,7 @@ export class GameBootstrap extends Component {
         this.hp = Math.max(0, this.hp - amount);
         this.playerInvulnerableTimer = 0.42;
         this.playerHitTimer = 0.24;
+        this.actions.enter('hit', 0.24);
         this.cameraShakeTimer = 0.2;
         this.cameraShakeStrength = Math.max(this.cameraShakeStrength, 8);
         this.createScreenFlash(new Color(190, 49, 45, 92), 0.18);
@@ -1392,6 +1547,7 @@ export class GameBootstrap extends Component {
     }
 
     private fireSword(target: EnemyState, spread: number): void {
+        this.actions.enter('autoAttack', 0.22);
         const node = new Node('FlyingSword');
         node.layer = Layers.Enum.UI_2D;
         const glow = new Node('SwordGlow');
@@ -1575,6 +1731,7 @@ export class GameBootstrap extends Component {
 
     private finish(victory: boolean): void {
         this.phase = victory ? 'victory' : 'defeat';
+        if (!victory) this.actions.enter('defeat', 0, true);
         this.releaseTribulationHold();
         if (victory) {
             this.createScreenFlash(new Color(244, 221, 137, 72), 0.5);
@@ -1620,6 +1777,27 @@ export class GameBootstrap extends Component {
         }, undefined);
     }
 
+    private findEnemyInDirection(direction: Readonly<Vec2>): EnemyState | undefined {
+        const normalized = direction.lengthSqr() > 0.01 ? direction.clone().normalize() : new Vec2(0, 1);
+        let best: EnemyState | undefined;
+        let bestScore = -Infinity;
+        for (const enemy of this.enemies) {
+            if (!enemy.node.isValid || enemy.dead) continue;
+            const offset = new Vec2(
+                enemy.node.position.x - this.player.position.x,
+                enemy.node.position.y - this.player.position.y,
+            );
+            const distance = Math.max(offset.length(), 1);
+            const alignment = offset.normalize().dot(normalized);
+            // 拖动瞄准优先方向一致的目标，并用距离做轻微衰减，避免吸附到远处边缘敌人。
+            const score = alignment * 1.4 - distance / 1600;
+            if (alignment < 0.2 || score <= bestScore) continue;
+            best = enemy;
+            bestScore = score;
+        }
+        return best;
+    }
+
     private updateHud(): void {
         this.hpLabel.string = `气血  ${Math.ceil(this.hp)} / ${this.maxHp}`;
         this.xpLabel.string = `境界 ${this.level} 重    修为 ${this.xp} / ${this.xpNeed}`;
@@ -1629,7 +1807,25 @@ export class GameBootstrap extends Component {
             ? 1
             : 1 - Math.max(0, Math.min(1, this.attackTimer / this.attackInterval));
         const swordLevel = this.skills.getLevel('sword');
-        this.attackHudLabel.string = cooldownRatio >= 0.99 ? '御剑' : `${Math.max(0, this.attackTimer).toFixed(1)}`;
+        const gestureHold = this.attackGestureOrigin ? this.elapsed - this.attackGestureStartedAt : 0;
+        const gestureDrag = this.attackGestureOrigin && this.attackGestureCurrent
+            ? Vec2.distance(this.attackGestureOrigin, this.attackGestureCurrent)
+            : 0;
+        if (this.attackGestureOrigin) {
+            this.attackHudLabel.string = swordLevel >= 3 && gestureHold >= 0.18
+                ? `蓄力 ${Math.min(100, Math.round(gestureHold / 0.55 * 100))}%`
+                : swordLevel >= 2 && gestureDrag >= 30
+                    ? '御剑定向'
+                    : '御剑';
+        } else {
+            this.attackHudLabel.string = cooldownRatio < 0.99
+                ? `${Math.max(0, this.attackTimer).toFixed(1)}`
+                : swordLevel >= 3
+                    ? '御剑·长按'
+                    : swordLevel >= 2
+                        ? '御剑·拖动'
+                        : '御剑·自动';
+        }
         this.attackIconOpacity.opacity = 245;
         this.attackHud.clear();
         this.attackHud.fillColor = new Color(5, 22, 27, 205);
@@ -1643,6 +1839,20 @@ export class GameBootstrap extends Component {
         this.attackHud.lineWidth = 2;
         this.attackHud.circle(0, 0, 52);
         this.attackHud.stroke();
+        if (this.attackGestureOrigin && swordLevel >= 3) {
+            const chargeRatio = Math.min(1, gestureHold / 0.55);
+            this.attackHud.strokeColor = new Color(165, 243, 252, 235);
+            this.attackHud.lineWidth = 8;
+            this.attackHud.arc(
+                0,
+                0,
+                48,
+                -Math.PI / 2,
+                -Math.PI / 2 + Math.PI * 2 * chargeRatio,
+                false,
+            );
+            this.attackHud.stroke();
+        }
         for (let index = 0; index < 3; index += 1) {
             this.attackHud.fillColor = index < swordLevel
                 ? new Color(135, 238, 215, 235)
