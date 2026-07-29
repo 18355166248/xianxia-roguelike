@@ -121,6 +121,14 @@ interface RoadProfilePoint {
     halfWidth: number;
 }
 
+interface SkillHud {
+    node: Node;
+    graphics: Graphics;
+    label: Label;
+    iconOpacity: UIOpacity;
+    radius: number;
+}
+
 @ccclass('GameBootstrap')
 export class GameBootstrap extends Component {
     private readonly designWidth = 750;
@@ -163,6 +171,12 @@ export class GameBootstrap extends Component {
     private bossHpLabel!: Label;
     private attackHud!: Graphics;
     private attackHudLabel!: Label;
+    private attackIconOpacity!: UIOpacity;
+    private dashHud!: SkillHud;
+    private formationHud!: SkillHud;
+    private tribulationHud!: Graphics;
+    private tribulationHudLabel!: Label;
+    private tribulationHudNode!: Node;
     private joystick!: Node;
     private joystickKnob!: Node;
     private joystickOpacity!: UIOpacity;
@@ -198,6 +212,15 @@ export class GameBootstrap extends Component {
     private playerInvulnerableTimer = 0;
     private playerMoveAmount = 0;
     private playerFacing = 1;
+    private lastMoveDirection = new Vec2(0, 1);
+    private dashCooldown = 0;
+    private formationCooldown = 0;
+    private tribulationCharge = 0;
+    private tribulationHold = 0;
+    private tribulationHolding = false;
+    private dashActionTimer = 0;
+    private formationActionTimer = 0;
+    private tribulationActionTimer = 0;
     private cameraShakeTimer = 0;
     private cameraShakeStrength = 0;
     private upgradeLevels: Partial<Record<UpgradeId, number>> = {};
@@ -226,6 +249,7 @@ export class GameBootstrap extends Component {
         this.updateCameraFeedback(dt);
         if (this.phase !== 'playing') return;
         this.updatePlayer(dt);
+        this.updateAbilities(dt);
         this.updateSpawning(dt);
         this.updateEnemies(dt);
         this.updateBossPulses(dt);
@@ -363,11 +387,17 @@ export class GameBootstrap extends Component {
     }
 
     private onKeyDown(event: EventKeyboard): void {
+        const firstPress = !this.pressed.has(event.keyCode);
         this.pressed.add(event.keyCode);
+        if (!firstPress || this.phase !== 'playing') return;
+        if (event.keyCode === KeyCode.SPACE) this.tryDash();
+        if (event.keyCode === KeyCode.KEY_Q) this.trySwordFormation();
+        if (event.keyCode === KeyCode.KEY_E) this.startTribulationHold();
     }
 
     private onKeyUp(event: EventKeyboard): void {
         this.pressed.delete(event.keyCode);
+        if (event.keyCode === KeyCode.KEY_E) this.releaseTribulationHold();
     }
 
     private onTouchStart(event: EventTouch): void {
@@ -449,7 +479,7 @@ export class GameBootstrap extends Component {
         const button = this.makeButton('踏 入 山 门', new Color('#E6C071'), () => this.startStage(), 460, 96, new Color(24, 91, 77, 242));
         button.setPosition(0, -395);
         this.overlay.addChild(button);
-        const tip = this.makeLabel('拖动左侧摇杆走位  ·  飞剑自动索敌', 20, new Color(157, 188, 177, 220));
+        const tip = this.makeLabel('摇杆走位  ·  主动功法随破境逐阶解锁', 20, new Color(157, 188, 177, 220));
         tip.node.setPosition(0, -492);
         this.overlay.addChild(tip.node);
     }
@@ -463,6 +493,7 @@ export class GameBootstrap extends Component {
         this.swordDamage = 18;
         this.swordCount = 1;
         this.attackInterval = 0.72;
+        this.attackTimer = 0;
         this.level = 1;
         this.xp = 0;
         this.xpNeed = 50;
@@ -474,8 +505,18 @@ export class GameBootstrap extends Component {
         this.playerAttackTimer = 0;
         this.playerHitTimer = 0;
         this.playerInvulnerableTimer = 0;
+        this.lastMoveDirection.set(0, 1);
+        this.dashCooldown = 0;
+        this.formationCooldown = 0;
+        this.tribulationCharge = 0;
+        this.tribulationHold = 0;
+        this.tribulationHolding = false;
+        this.dashActionTimer = 0;
+        this.formationActionTimer = 0;
+        this.tribulationActionTimer = 0;
         this.cameraShakeTimer = 0;
-        this.upgradeLevels = {};
+        // 自动御剑是角色初始功法，其余主动技能在破境选择中逐步解锁到三阶。
+        this.upgradeLevels = { sword: 1 };
         this.createPlayer();
         this.createHud();
         this.showWaveAnnouncement();
@@ -539,15 +580,16 @@ export class GameBootstrap extends Component {
         this.waveLabel.node.getComponent(UITransform)?.setContentSize(150, 70);
         waveBacking.addChild(this.waveLabel.node);
 
-        const bottomBacking = this.makeRect(750, 194, new Color(3, 14, 18, 142), new Color(80, 145, 131, 55), 0, 2);
-        bottomBacking.setPosition(0, -570);
+        const bottomBacking = this.makeRect(750, 274, new Color(3, 14, 18, 150), new Color(80, 145, 131, 55), 0, 2);
+        bottomBacking.setPosition(0, -532);
         hud.addChild(bottomBacking);
-        this.buildLabel = this.makeLabel('', 20, new Color('#D4E6DF'));
-        this.buildLabel.node.setPosition(0, -574);
-        this.buildLabel.node.getComponent(UITransform)?.setContentSize(330, 78);
+        this.buildLabel = this.makeLabel('', 17, new Color('#D4E6DF'));
+        this.buildLabel.node.setPosition(0, -638);
+        this.buildLabel.node.getComponent(UITransform)?.setContentSize(310, 48);
         hud.addChild(this.buildLabel.node);
 
         this.createAttackHud(hud);
+        this.createAbilityHud(hud);
         this.createBossHud(hud);
         this.createJoystick(hud);
         this.updateHud();
@@ -556,16 +598,109 @@ export class GameBootstrap extends Component {
     private createAttackHud(hud: Node): void {
         const node = new Node('AttackHud');
         node.layer = Layers.Enum.UI_2D;
-        node.setPosition(274, -560);
+        node.addComponent(UITransform).setContentSize(144, 144);
+        node.setPosition(286, -564);
         this.attackHud = node.addComponent(Graphics);
         hud.addChild(node);
         const sword = this.createResourceSprite('art/relics/xianxia-relics_00/spriteFrame', 68);
         sword.setRotationFromEuler(0, 0, -8);
+        this.attackIconOpacity = sword.addComponent(UIOpacity);
         node.addChild(sword);
         this.attackHudLabel = this.makeLabel('', 17, new Color('#FFF0BE'));
-        this.attackHudLabel.node.setPosition(0, -70);
-        this.attackHudLabel.node.getComponent(UITransform)?.setContentSize(150, 34);
+        this.attackHudLabel.node.setPosition(0, -48);
+        this.attackHudLabel.node.getComponent(UITransform)?.setContentSize(130, 30);
         node.addChild(this.attackHudLabel.node);
+    }
+
+    private createAbilityHud(hud: Node): void {
+        const connector = new Node('SkillArc');
+        connector.layer = Layers.Enum.UI_2D;
+        const arc = connector.addComponent(Graphics);
+        arc.strokeColor = new Color(96, 224, 205, 90);
+        arc.lineWidth = 3;
+        arc.moveTo(286, -564);
+        arc.bezierCurveTo(255, -500, 205, -462, 176, -410);
+        arc.stroke();
+        arc.fillColor = new Color(105, 235, 214, 145);
+        arc.circle(246, -492, 5);
+        arc.fill();
+        arc.circle(205, -454, 5);
+        arc.fill();
+        hud.addChild(connector);
+
+        this.dashHud = this.createSkillHud(
+            hud,
+            'DashHud',
+            new Vec3(222, -484),
+            43,
+            '踏云',
+            'art/relics/xianxia-relics_23/spriteFrame',
+            () => this.tryDash(),
+        );
+        this.formationHud = this.createSkillHud(
+            hud,
+            'FormationHud',
+            new Vec3(172, -395),
+            48,
+            '剑阵',
+            'art/relics/xianxia-relics_05/spriteFrame',
+            () => this.trySwordFormation(),
+        );
+
+        this.tribulationHudNode = new Node('TribulationHud');
+        this.tribulationHudNode.layer = Layers.Enum.UI_2D;
+        this.tribulationHudNode.addComponent(UITransform).setContentSize(350, 58);
+        this.tribulationHudNode.setPosition(0, -594);
+        this.tribulationHud = this.tribulationHudNode.addComponent(Graphics);
+        this.tribulationHudLabel = this.makeLabel('', 20, new Color('#E9FFF8'));
+        this.tribulationHudLabel.node.getComponent(UITransform)?.setContentSize(330, 48);
+        this.tribulationHudNode.addChild(this.tribulationHudLabel.node);
+        this.tribulationHudNode.on(Node.EventType.TOUCH_START, (event: EventTouch) => {
+            event.propagationStopped = true;
+            this.startTribulationHold();
+        });
+        this.tribulationHudNode.on(Node.EventType.TOUCH_END, (event: EventTouch) => {
+            event.propagationStopped = true;
+            this.releaseTribulationHold();
+        });
+        this.tribulationHudNode.on(Node.EventType.TOUCH_CANCEL, () => this.releaseTribulationHold());
+        hud.addChild(this.tribulationHudNode);
+    }
+
+    private createSkillHud(
+        hud: Node,
+        name: string,
+        position: Readonly<Vec3>,
+        radius: number,
+        labelText: string,
+        iconResourcePath: string,
+        onTap: () => void,
+    ): SkillHud {
+        const node = new Node(name);
+        node.layer = Layers.Enum.UI_2D;
+        node.addComponent(UITransform).setContentSize(radius * 2 + 14, radius * 2 + 14);
+        node.setPosition(position);
+        const graphics = node.addComponent(Graphics);
+        const icon = this.createResourceSprite(iconResourcePath, radius * 1.08);
+        const iconOpacity = icon.addComponent(UIOpacity);
+        icon.setPosition(0, 4);
+        node.addChild(icon);
+        const label = this.makeLabel(labelText, 16, new Color('#FFF0BE'));
+        label.node.setPosition(0, -radius + 10);
+        label.node.getComponent(UITransform)?.setContentSize(radius * 2, 26);
+        node.addChild(label.node);
+        node.on(Node.EventType.TOUCH_START, (event: EventTouch) => {
+            event.propagationStopped = true;
+            node.setScale(0.95, 0.95);
+        });
+        node.on(Node.EventType.TOUCH_CANCEL, () => node.setScale(1, 1));
+        node.on(Node.EventType.TOUCH_END, (event: EventTouch) => {
+            event.propagationStopped = true;
+            node.setScale(1, 1);
+            onTap();
+        });
+        hud.addChild(node);
+        return { node, graphics, label, iconOpacity, radius };
     }
 
     private createBossHud(hud: Node): void {
@@ -620,6 +755,24 @@ export class GameBootstrap extends Component {
         knob.circle(0, 0, 27);
         knob.stroke();
         this.joystick.addChild(this.joystickKnob);
+        const dashHint = new Node('DashGestureHint');
+        dashHint.layer = Layers.Enum.UI_2D;
+        dashHint.setPosition(91, 0);
+        const hint = dashHint.addComponent(Graphics);
+        hint.strokeColor = new Color(174, 237, 213, 150);
+        hint.lineWidth = 5;
+        hint.moveTo(-12, -15);
+        hint.lineTo(3, 0);
+        hint.lineTo(-12, 15);
+        hint.moveTo(7, -15);
+        hint.lineTo(22, 0);
+        hint.lineTo(7, 15);
+        hint.stroke();
+        this.joystick.addChild(dashHint);
+        const gestureLabel = this.makeLabel('滑动走位', 14, new Color(161, 203, 190, 195));
+        gestureLabel.node.setPosition(0, -91);
+        gestureLabel.node.getComponent(UITransform)?.setContentSize(150, 24);
+        this.joystick.addChild(gestureLabel.node);
         hud.addChild(this.joystick);
     }
 
@@ -635,6 +788,7 @@ export class GameBootstrap extends Component {
         if (this.pressed.has(KeyCode.KEY_W) || this.pressed.has(KeyCode.ARROW_UP)) y += 1;
         const direction = new Vec2(x, y);
         if (direction.lengthSqr() > 1) direction.normalize();
+        if (direction.lengthSqr() > 0.04) this.lastMoveDirection.set(direction).normalize();
         this.playerMoveAmount += (Math.min(direction.length(), 1) - this.playerMoveAmount) * Math.min(1, dt * 12);
         if (Math.abs(direction.x) > 0.08) this.playerFacing = direction.x >= 0 ? 1 : -1;
         const p = this.player.position;
@@ -657,6 +811,24 @@ export class GameBootstrap extends Component {
             scaleY -= snap * 0.07;
             angle -= this.playerFacing * snap * 10;
         }
+        if (this.dashActionTimer > 0) {
+            const dashPose = Math.sin((1 - this.dashActionTimer / 0.32) * Math.PI);
+            scaleX += dashPose * 0.2;
+            scaleY -= dashPose * 0.1;
+            angle -= this.playerFacing * dashPose * 15;
+        }
+        if (this.formationActionTimer > 0) {
+            const formationPose = Math.sin((1 - this.formationActionTimer / 0.58) * Math.PI);
+            scaleX += formationPose * 0.08;
+            scaleY += formationPose * 0.13;
+            angle += this.playerFacing * formationPose * 8;
+        }
+        if (this.tribulationActionTimer > 0) {
+            const channelPose = Math.sin(Math.min(1, (1 - this.tribulationActionTimer / 0.8) * 2) * Math.PI / 2);
+            scaleX -= channelPose * 0.08;
+            scaleY += channelPose * 0.18;
+            angle *= 0.25;
+        }
 
         const hitJitter = this.playerHitTimer > 0 ? Math.sin(this.playerHitTimer * 95) * 5 : 0;
         this.playerVisual.setPosition(hitJitter, bob);
@@ -669,6 +841,346 @@ export class GameBootstrap extends Component {
                 : new Color(255, 255, 255, this.playerInvulnerableTimer > 0 && Math.floor(this.elapsed * 20) % 2 === 0 ? 155 : 255);
         }
         this.player.getChildByName('PlayerAura')?.setRotationFromEuler(0, 0, this.elapsed * 22);
+    }
+
+    private updateAbilities(dt: number): void {
+        this.dashCooldown = Math.max(0, this.dashCooldown - dt);
+        this.formationCooldown = Math.max(0, this.formationCooldown - dt);
+        this.dashActionTimer = Math.max(0, this.dashActionTimer - dt);
+        this.formationActionTimer = Math.max(0, this.formationActionTimer - dt);
+        this.tribulationActionTimer = Math.max(0, this.tribulationActionTimer - dt);
+
+        const tribulationLevel = this.upgradeLevels.tribulation ?? 0;
+        if (tribulationLevel > 0 && !this.tribulationHolding) {
+            // 天劫以战斗命中为主要充能来源，并保留少量自然回复，避免无敌人阶段卡死。
+            this.tribulationCharge = Math.min(1, this.tribulationCharge + dt * (0.012 + tribulationLevel * 0.003));
+        }
+        if (!this.tribulationHolding) return;
+        if (tribulationLevel <= 0 || this.tribulationCharge < 1) {
+            this.releaseTribulationHold();
+            return;
+        }
+        this.tribulationHold += dt;
+        const requiredHold = 0.72 - (tribulationLevel - 1) * 0.12;
+        if (this.tribulationHold >= requiredHold) this.castTribulation();
+    }
+
+    private tryDash(): void {
+        const level = this.upgradeLevels.dash ?? 0;
+        if (this.phase !== 'playing') return;
+        if (level <= 0) {
+            this.createAbilityHint('踏云尚未参悟', new Color('#A8C9BE'));
+            return;
+        }
+        if (this.dashCooldown > 0) return;
+
+        const distance = [150, 190, 230][level - 1];
+        const direction = this.lastMoveDirection.lengthSqr() > 0.01
+            ? this.lastMoveDirection.clone().normalize()
+            : new Vec2(this.playerFacing, 0);
+        const from = this.player.position.clone();
+        const to = this.constrainToRoad(
+            new Vec3(from.x + direction.x * distance, from.y + direction.y * distance),
+            28,
+        );
+        this.player.setPosition(to);
+        this.playerFacing = Math.abs(direction.x) > 0.08 ? (direction.x >= 0 ? 1 : -1) : this.playerFacing;
+        this.playerInvulnerableTimer = Math.max(this.playerInvulnerableTimer, 0.18 + level * 0.08);
+        this.dashCooldown = [5.2, 4.4, 3.5][level - 1];
+        this.dashActionTimer = 0.32;
+        this.createDashEffect(from, to, level);
+
+        if (level >= 3) {
+            for (const enemy of this.enemies) {
+                if (!enemy.node.isValid || enemy.dead) continue;
+                const distanceToPath = this.distanceToSegment(enemy.node.position, from, to);
+                if (distanceToPath <= enemy.radius + 34) {
+                    this.dealSkillDamage(enemy, this.swordDamage * 0.8, new Color('#A7F3D0'), 34);
+                }
+            }
+        }
+    }
+
+    private trySwordFormation(): void {
+        const level = this.upgradeLevels.formation ?? 0;
+        if (this.phase !== 'playing') return;
+        if (level <= 0) {
+            this.createAbilityHint('剑阵尚未参悟', new Color('#A8C9BE'));
+            return;
+        }
+        if (this.formationCooldown > 0) return;
+
+        const radius = [145, 182, 220][level - 1];
+        const swordAmount = [5, 7, 9][level - 1];
+        const damage = this.swordDamage * [1.15, 1.48, 1.82][level - 1];
+        this.formationCooldown = [12, 10, 8][level - 1];
+        this.formationActionTimer = 0.58;
+        this.playerInvulnerableTimer = Math.max(this.playerInvulnerableTimer, 0.16);
+        this.createSwordFormationEffect(this.player.position, radius, swordAmount);
+        for (const enemy of this.enemies) {
+            if (!enemy.node.isValid || enemy.dead) continue;
+            if (Vec3.distance(enemy.node.position, this.player.position) <= radius + enemy.radius) {
+                this.dealSkillDamage(enemy, damage, new Color('#67E8F9'), enemy.elite ? 48 : 34);
+            }
+        }
+        this.cameraShakeTimer = 0.18;
+        this.cameraShakeStrength = Math.max(this.cameraShakeStrength, 6 + level);
+    }
+
+    private startTribulationHold(): void {
+        const level = this.upgradeLevels.tribulation ?? 0;
+        if (this.phase !== 'playing') return;
+        if (level <= 0) {
+            this.createAbilityHint('天劫尚未参悟', new Color('#A8C9BE'));
+            return;
+        }
+        if (this.tribulationCharge < 1 || this.tribulationHolding) return;
+        this.tribulationHolding = true;
+        this.tribulationHold = 0;
+        this.playerInvulnerableTimer = Math.max(this.playerInvulnerableTimer, 0.12);
+    }
+
+    private releaseTribulationHold(): void {
+        this.tribulationHolding = false;
+        this.tribulationHold = 0;
+    }
+
+    private castTribulation(): void {
+        const level = this.upgradeLevels.tribulation ?? 0;
+        if (level <= 0 || this.tribulationCharge < 1) return;
+        const alive = this.enemies
+            .filter((enemy) => enemy.node.isValid && !enemy.dead)
+            .sort((a, b) => Vec3.distance(a.node.position, this.player.position) - Vec3.distance(b.node.position, this.player.position));
+        const fallback = this.constrainToRoad(
+            new Vec3(this.player.position.x, this.player.position.y + 170),
+            20,
+        );
+        const strikeRadius = 72 + level * 12;
+        const damage = this.swordDamage * (1.75 + level * 0.55);
+
+        // 多重天劫优先分摊到不同目标；目标不足时围绕首要目标落雷，保证首领战仍有成长收益。
+        for (let index = 0; index < level; index += 1) {
+            const primary = alive[index % Math.max(1, alive.length)];
+            const base = primary?.node.position ?? fallback;
+            const angle = index * Math.PI * 2 / Math.max(level, 1);
+            const position = new Vec3(
+                base.x + (level > 1 ? Math.cos(angle) * 34 : 0),
+                base.y + (level > 1 ? Math.sin(angle) * 24 : 0),
+            );
+            this.createTribulationStrike(position, strikeRadius, index);
+            for (const enemy of this.enemies) {
+                if (!enemy.node.isValid || enemy.dead) continue;
+                if (Vec3.distance(enemy.node.position, position) <= strikeRadius + enemy.radius) {
+                    this.dealSkillDamage(enemy, damage, new Color('#E0F2FE'), enemy.elite ? 58 : 42);
+                }
+            }
+        }
+        this.tribulationCharge = 0;
+        this.tribulationHolding = false;
+        this.tribulationHold = 0;
+        this.tribulationActionTimer = 0.8;
+        this.playerInvulnerableTimer = Math.max(this.playerInvulnerableTimer, 0.45);
+        this.createScreenFlash(new Color(154, 230, 255, 46), 0.28);
+        this.cameraShakeTimer = 0.34;
+        this.cameraShakeStrength = Math.max(this.cameraShakeStrength, 10 + level * 2);
+    }
+
+    private dealSkillDamage(enemy: EnemyState, damage: number, color: Color, burstRadius: number): void {
+        if (!enemy.node.isValid || enemy.dead) return;
+        enemy.hp -= damage;
+        enemy.hitTimer = 0.18;
+        this.createHitBurst(enemy.node.position, color, burstRadius, true);
+        this.createDamageNumber(enemy.node.position, Math.round(damage), enemy.elite);
+        if ((this.upgradeLevels.tribulation ?? 0) > 0) {
+            this.tribulationCharge = Math.min(1, this.tribulationCharge + (enemy.elite ? 0.07 : 0.035));
+        }
+        if (enemy.hp <= 0) this.killEnemy(enemy);
+        else this.drawEnemyHp(enemy);
+    }
+
+    private createDashEffect(from: Readonly<Vec3>, to: Readonly<Vec3>, level: number): void {
+        const trail = new Node('CloudStepTrail');
+        trail.layer = Layers.Enum.UI_2D;
+        const trailOpacity = trail.addComponent(UIOpacity);
+        const g = trail.addComponent(Graphics);
+        g.strokeColor = new Color(125, 231, 211, 105 + level * 25);
+        g.lineWidth = 12 + level * 3;
+        g.moveTo(from.x, from.y);
+        g.bezierCurveTo(
+            from.x + (to.x - from.x) * 0.35 - 18,
+            from.y + (to.y - from.y) * 0.35 + 12,
+            from.x + (to.x - from.x) * 0.7 + 16,
+            from.y + (to.y - from.y) * 0.7 - 10,
+            to.x,
+            to.y,
+        );
+        g.stroke();
+        this.effectsLayer.addChild(trail);
+        this.effects.push({
+            node: trail,
+            elapsed: 0,
+            life: 0.38,
+            update: (progress) => {
+                trailOpacity.opacity = Math.round(220 * (1 - progress));
+            },
+        });
+
+        const afterimage = this.createResourceSprite(PLAYER_ASSET.resourcePath, PLAYER_ASSET.displayHeight);
+        afterimage.name = 'CloudStepAfterimage';
+        afterimage.setPosition(from);
+        const opacity = afterimage.addComponent(UIOpacity);
+        opacity.opacity = 150;
+        this.effectsLayer.addChild(afterimage);
+        this.effects.push({
+            node: afterimage,
+            elapsed: 0,
+            life: 0.32,
+            update: (progress) => {
+                afterimage.setPosition(
+                    from.x + (to.x - from.x) * progress * 0.34,
+                    from.y + (to.y - from.y) * progress * 0.34 + progress * 16,
+                );
+                afterimage.setScale(afterimage.scale.x * 1.002, afterimage.scale.y * 1.002);
+                opacity.opacity = Math.round(150 * (1 - progress));
+            },
+        });
+    }
+
+    private createSwordFormationEffect(position: Readonly<Vec3>, radius: number, swordAmount: number): void {
+        const node = new Node('SwordFormation');
+        node.layer = Layers.Enum.UI_2D;
+        node.setPosition(position);
+        const opacity = node.addComponent(UIOpacity);
+        const ring = node.addComponent(Graphics);
+        ring.strokeColor = new Color(116, 227, 216, 175);
+        ring.lineWidth = 3;
+        ring.circle(0, 0, radius);
+        ring.stroke();
+        ring.strokeColor = new Color(211, 250, 240, 95);
+        ring.lineWidth = 2;
+        ring.circle(0, 0, radius * 0.72);
+        ring.stroke();
+        for (let index = 0; index < swordAmount; index += 1) {
+            const angle = index * Math.PI * 2 / swordAmount - Math.PI / 2;
+            const sword = this.createResourceSprite('art/relics/xianxia-relics_00/spriteFrame', 50);
+            sword.setPosition(Math.cos(angle) * radius * 0.82, Math.sin(angle) * radius * 0.82);
+            sword.angle = angle * 180 / Math.PI - 45;
+            node.addChild(sword);
+        }
+        this.effectsLayer.addChild(node);
+        this.effects.push({
+            node,
+            elapsed: 0,
+            life: 0.72,
+            update: (progress) => {
+                const scale = 0.46 + Math.sin(Math.min(progress / 0.42, 1) * Math.PI / 2) * 0.62;
+                node.setScale(scale, scale);
+                node.angle = progress * 70;
+                opacity.opacity = Math.round(255 * (1 - Math.max(0, progress - 0.55) / 0.45));
+            },
+        });
+    }
+
+    private createTribulationStrike(position: Readonly<Vec3>, radius: number, index: number): void {
+        const node = new Node(`TribulationStrike-${index + 1}`);
+        node.layer = Layers.Enum.UI_2D;
+        node.setPosition(position);
+        const opacity = node.addComponent(UIOpacity);
+        const g = node.addComponent(Graphics);
+        g.fillColor = new Color(190, 239, 255, 42);
+        g.circle(0, 0, radius);
+        g.fill();
+        g.strokeColor = new Color(222, 247, 255, 225);
+        g.lineWidth = 10;
+        g.moveTo(0, 560);
+        g.lineTo(0, 16);
+        g.stroke();
+        g.strokeColor = new Color(105, 211, 238, 170);
+        g.lineWidth = 3;
+        g.circle(0, 0, radius);
+        g.stroke();
+        const sword = this.createResourceSprite('art/relics/xianxia-relics_00/spriteFrame', 86);
+        sword.setPosition(0, 20);
+        sword.setRotationFromEuler(0, 0, 45);
+        node.addChild(sword);
+        this.effectsLayer.addChild(node);
+        this.effects.push({
+            node,
+            elapsed: 0,
+            life: 0.62 + index * 0.06,
+            update: (progress) => {
+                const strike = Math.sin(Math.min(1, progress * 2.6) * Math.PI);
+                node.setScale(0.62 + strike * 0.58, 0.62 + strike * 0.58);
+                opacity.opacity = Math.round(255 * (1 - progress));
+            },
+        });
+    }
+
+    private createUpgradeResonance(id: UpgradeId, level: number): void {
+        const skillNames: Partial<Record<UpgradeId, string>> = {
+            sword: '御剑',
+            dash: '踏云',
+            formation: '剑阵',
+            tribulation: '天劫',
+        };
+        const node = new Node('UpgradeResonance');
+        node.layer = Layers.Enum.UI_2D;
+        node.setPosition(this.player.position);
+        const opacity = node.addComponent(UIOpacity);
+        const g = node.addComponent(Graphics);
+        g.strokeColor = new Color(176, 242, 218, 210);
+        g.lineWidth = 4;
+        for (let ring = 0; ring < Math.min(level, 3); ring += 1) {
+            g.circle(0, 0, 42 + ring * 20);
+            g.stroke();
+        }
+        const name = skillNames[id];
+        if (name) {
+            const label = this.makeLabel(`${name} · ${level}阶`, 24, new Color('#FFF1B8'));
+            label.node.setPosition(0, 92);
+            node.addChild(label.node);
+        }
+        this.effectsLayer.addChild(node);
+        this.effects.push({
+            node,
+            elapsed: 0,
+            life: 0.72,
+            update: (progress) => {
+                const scale = 0.42 + progress * 1.15;
+                node.setScale(scale, scale);
+                opacity.opacity = Math.round(255 * (1 - progress));
+            },
+        });
+        this.createScreenFlash(new Color(102, 226, 192, 36 + level * 8), 0.24);
+    }
+
+    private createAbilityHint(text: string, color: Color): void {
+        const label = this.makeLabel(text, 20, color);
+        const node = label.node;
+        node.name = 'AbilityHint';
+        node.setPosition(this.player.position.x, this.player.position.y + 74);
+        const opacity = node.addComponent(UIOpacity);
+        this.effectsLayer.addChild(node);
+        this.effects.push({
+            node,
+            elapsed: 0,
+            life: 0.7,
+            update: (progress) => {
+                node.setPosition(node.position.x, this.player.position.y + 74 + progress * 28);
+                opacity.opacity = Math.round(255 * (1 - progress));
+            },
+        });
+    }
+
+    private distanceToSegment(point: Readonly<Vec3>, start: Readonly<Vec3>, end: Readonly<Vec3>): number {
+        const dx = end.x - start.x;
+        const dy = end.y - start.y;
+        const lengthSquared = dx * dx + dy * dy;
+        if (lengthSquared <= 0.001) return Vec3.distance(point, start);
+        const t = Math.max(0, Math.min(1, ((point.x - start.x) * dx + (point.y - start.y) * dy) / lengthSquared));
+        const closestX = start.x + dx * t;
+        const closestY = start.y + dy * t;
+        return Math.hypot(point.x - closestX, point.y - closestY);
     }
 
     private updateSpawning(dt: number): void {
@@ -1062,17 +1574,9 @@ export class GameBootstrap extends Component {
                 if (projectile.hit.has(enemy.node)) continue;
                 if (Vec3.distance(projectile.node.position, enemy.node.position) > projectile.radius + enemy.radius) continue;
                 projectile.hit.add(enemy.node);
-                enemy.hp -= projectile.damage;
-                enemy.hitTimer = 0.14;
-                this.createHitBurst(projectile.node.position, new Color('#BAE6FD'), enemy.elite ? 42 : 28, true);
-                this.createDamageNumber(enemy.node.position, Math.round(projectile.damage), enemy.elite);
+                this.dealSkillDamage(enemy, projectile.damage, new Color('#BAE6FD'), enemy.elite ? 42 : 28);
                 this.cameraShakeTimer = Math.max(this.cameraShakeTimer, enemy.elite ? 0.12 : 0.07);
                 this.cameraShakeStrength = Math.max(this.cameraShakeStrength, enemy.elite ? 5 : 2.5);
-                if (enemy.hp <= 0) {
-                    this.killEnemy(enemy);
-                } else {
-                    this.drawEnemyHp(enemy);
-                }
                 projectile.life = 0;
                 break;
             }
@@ -1093,6 +1597,9 @@ export class GameBootstrap extends Component {
         this.gainXp(enemy.xp);
         this.createDeathBurst(enemy.node.position, enemy.elite ? 74 : 42);
         this.createXpWisp(enemy.node.position);
+        if ((this.upgradeLevels.tribulation ?? 0) > 0) {
+            this.tribulationCharge = Math.min(1, this.tribulationCharge + (enemy.elite ? 0.22 : 0.08));
+        }
         this.cameraShakeTimer = enemy.elite ? 0.42 : 0.1;
         this.cameraShakeStrength = Math.max(this.cameraShakeStrength, enemy.elite ? 14 : 4);
     }
@@ -1108,6 +1615,7 @@ export class GameBootstrap extends Component {
 
     private showUpgrade(): void {
         this.phase = 'upgrade';
+        this.releaseTribulationHold();
         this.createScreenFlash(new Color(79, 209, 166, 58), 0.38);
         this.createDeathBurst(this.player.position, 58);
         this.clearOverlay();
@@ -1143,7 +1651,7 @@ export class GameBootstrap extends Component {
             this.overlay.addChild(button);
         });
         const currentBuild = this.makeLabel(
-            `当前构筑  ·  飞剑 ${this.swordCount}  ·  剑伤 ${Math.round(this.swordDamage)}  ·  攻速 ${this.attackInterval.toFixed(2)}秒`,
+            `御剑 ${this.upgradeLevels.sword ?? 1}阶  ·  踏云 ${this.upgradeLevels.dash ?? 0}阶  ·  剑阵 ${this.upgradeLevels.formation ?? 0}阶  ·  天劫 ${this.upgradeLevels.tribulation ?? 0}阶`,
             19,
             new Color(144, 180, 170, 230),
         );
@@ -1152,16 +1660,27 @@ export class GameBootstrap extends Component {
     }
 
     private applyUpgrade(id: UpgradeId): void {
-        this.upgradeLevels[id] = (this.upgradeLevels[id] ?? 0) + 1;
-        if (id === 'sword') this.swordCount += 1;
-        if (id === 'damage') this.swordDamage *= 1.35;
-        if (id === 'haste') this.attackInterval = Math.max(0.2, this.attackInterval * 0.82);
-        if (id === 'speed') this.moveSpeed *= 1.15;
-        if (id === 'guard') {
-            this.maxHp += 30;
-            this.hp = Math.min(this.maxHp, this.hp + 45);
+        const nextLevel = Math.min(3, (this.upgradeLevels[id] ?? 0) + 1);
+        this.upgradeLevels[id] = nextLevel;
+        if (id === 'sword') this.swordCount = nextLevel;
+        if (id === 'dash') {
+            this.dashCooldown = 0;
+            this.moveSpeed *= 1.04;
         }
-        if (id === 'heal') this.hp = Math.min(this.maxHp, this.hp + this.maxHp * 0.35);
+        if (id === 'formation') this.formationCooldown = 0;
+        if (id === 'tribulation') this.tribulationCharge = 1;
+        if (id === 'damage') this.swordDamage *= nextLevel >= 3 ? 1.35 : 1.3;
+        if (id === 'haste') this.attackInterval = Math.max(0.2, this.attackInterval * (nextLevel >= 3 ? 0.82 : 0.85));
+        if (id === 'guard') {
+            this.maxHp += 20 + nextLevel * 5;
+            this.hp = Math.min(this.maxHp, this.hp + 30 + nextLevel * 10);
+        }
+        if (id === 'heal') {
+            const ratio = nextLevel >= 3 ? 1 : 0.25 + nextLevel * 0.1;
+            this.hp = Math.min(this.maxHp, this.hp + this.maxHp * ratio);
+            if (nextLevel >= 3) this.playerInvulnerableTimer = Math.max(this.playerInvulnerableTimer, 1.2);
+        }
+        this.createUpgradeResonance(id, nextLevel);
     }
 
     private checkStageProgress(dt: number): void {
@@ -1186,6 +1705,7 @@ export class GameBootstrap extends Component {
 
     private finish(victory: boolean): void {
         this.phase = victory ? 'victory' : 'defeat';
+        this.releaseTribulationHold();
         if (victory) {
             this.createScreenFlash(new Color(244, 221, 137, 72), 0.5);
             this.cameraShakeTimer = 0.36;
@@ -1202,8 +1722,8 @@ export class GameBootstrap extends Component {
         const panel = this.makePanel(
             victory ? '渡 劫 成 功' : '道 途 未 竟',
             victory
-                ? `青石山道已肃清\n最终境界  ${this.level} 重  ·  飞剑 ${this.swordCount} 柄`
-                : `本次修至 ${this.level} 重\n重新调整构筑，再战山门`,
+                ? `青石山道已肃清\n御剑 ${this.upgradeLevels.sword ?? 1}阶  ·  踏云 ${this.upgradeLevels.dash ?? 0}阶\n剑阵 ${this.upgradeLevels.formation ?? 0}阶  ·  天劫 ${this.upgradeLevels.tribulation ?? 0}阶`
+                : `本次修至 ${this.level} 重\n重新组合功法，再战山门`,
             560,
             420,
         );
@@ -1234,11 +1754,13 @@ export class GameBootstrap extends Component {
         this.hpLabel.string = `气血  ${Math.ceil(this.hp)} / ${this.maxHp}`;
         this.xpLabel.string = `境界 ${this.level} 重    修为 ${this.xp} / ${this.xpNeed}`;
         this.waveLabel.string = `青石山道\n第 ${this.waveIndex + 1} / ${STAGES[0].waves.length} 波`;
-        this.buildLabel.string = `本局剑阵\n飞剑 ${this.swordCount} 柄   剑伤 ${Math.round(this.swordDamage)}\n御剑间隔 ${this.attackInterval.toFixed(2)} 秒`;
+        this.buildLabel.string = `飞剑 ${this.swordCount}柄  ·  剑伤 ${Math.round(this.swordDamage)}  ·  间隔 ${this.attackInterval.toFixed(2)}秒`;
         const cooldownRatio = this.enemies.length === 0
             ? 1
             : 1 - Math.max(0, Math.min(1, this.attackTimer / this.attackInterval));
-        this.attackHudLabel.string = this.enemies.length === 0 ? '自动御剑' : cooldownRatio >= 0.99 ? '剑诀已就绪' : '御剑蓄势';
+        const swordLevel = this.upgradeLevels.sword ?? 1;
+        this.attackHudLabel.string = cooldownRatio >= 0.99 ? '御剑' : `${Math.max(0, this.attackTimer).toFixed(1)}`;
+        this.attackIconOpacity.opacity = 245;
         this.attackHud.clear();
         this.attackHud.fillColor = new Color(5, 22, 27, 205);
         this.attackHud.circle(0, 0, 62);
@@ -1251,6 +1773,31 @@ export class GameBootstrap extends Component {
         this.attackHud.lineWidth = 2;
         this.attackHud.circle(0, 0, 52);
         this.attackHud.stroke();
+        for (let index = 0; index < 3; index += 1) {
+            this.attackHud.fillColor = index < swordLevel
+                ? new Color(135, 238, 215, 235)
+                : new Color(45, 76, 74, 190);
+            this.attackHud.circle(-18 + index * 18, 68, 5.5);
+            this.attackHud.fill();
+        }
+
+        const dashLevel = this.upgradeLevels.dash ?? 0;
+        const formationLevel = this.upgradeLevels.formation ?? 0;
+        this.drawSkillHud(
+            this.dashHud,
+            '踏云',
+            dashLevel,
+            this.dashCooldown,
+            dashLevel > 0 ? [5.2, 4.4, 3.5][dashLevel - 1] : 1,
+        );
+        this.drawSkillHud(
+            this.formationHud,
+            '剑阵',
+            formationLevel,
+            this.formationCooldown,
+            formationLevel > 0 ? [12, 10, 8][formationLevel - 1] : 1,
+        );
+        this.drawTribulationHud();
 
         const hpRatio = Math.max(0, this.hp / this.maxHp);
         this.hpBar.clear();
@@ -1287,6 +1834,82 @@ export class GameBootstrap extends Component {
             this.bossHpBar.roundRect(-216, -4, 432 * ratio, 8, 4);
             this.bossHpBar.fill();
         }
+    }
+
+    private drawSkillHud(hud: SkillHud, title: string, level: number, cooldown: number, maxCooldown: number): void {
+        const readyRatio = level <= 0 ? 0 : 1 - Math.max(0, Math.min(1, cooldown / Math.max(maxCooldown, 0.01)));
+        hud.graphics.clear();
+        hud.graphics.fillColor = new Color(level > 0 ? 5 : 9, level > 0 ? 27 : 18, level > 0 ? 31 : 23, 220);
+        hud.graphics.circle(0, 0, hud.radius);
+        hud.graphics.fill();
+        hud.graphics.strokeColor = new Color(level > 0 ? 220 : 94, level > 0 ? 195 : 111, level > 0 ? 117 : 108, level > 0 ? 205 : 100);
+        hud.graphics.lineWidth = 4;
+        hud.graphics.circle(0, 0, hud.radius);
+        hud.graphics.stroke();
+        if (level > 0) {
+            hud.graphics.strokeColor = new Color(112, 231, 211, 220);
+            hud.graphics.lineWidth = 5;
+            hud.graphics.arc(
+                0,
+                0,
+                hud.radius - 5,
+                -Math.PI / 2,
+                -Math.PI / 2 + Math.PI * 2 * readyRatio,
+                false,
+            );
+            hud.graphics.stroke();
+        }
+        for (let index = 0; index < 3; index += 1) {
+            hud.graphics.fillColor = index < level
+                ? new Color(135, 238, 215, 235)
+                : new Color(45, 76, 74, 190);
+            hud.graphics.circle(-14 + index * 14, hud.radius + 5, 4.5);
+            hud.graphics.fill();
+        }
+        hud.iconOpacity.opacity = level > 0 ? 235 : 58;
+        hud.label.color = new Color(level > 0 ? '#FFF0BE' : '#79958E');
+        hud.label.string = level <= 0 ? `${title}·未悟` : cooldown > 0 ? cooldown.toFixed(1) : title;
+    }
+
+    private drawTribulationHud(): void {
+        const level = this.upgradeLevels.tribulation ?? 0;
+        const charge = level > 0 ? this.tribulationCharge : 0;
+        const requiredHold = level > 0 ? 0.72 - (level - 1) * 0.12 : 1;
+        const holdRatio = this.tribulationHolding ? Math.min(1, this.tribulationHold / requiredHold) : 0;
+        this.tribulationHud.clear();
+        this.tribulationHud.fillColor = new Color(level > 0 ? 4 : 8, level > 0 ? 24 : 17, level > 0 ? 29 : 21, 232);
+        this.tribulationHud.roundRect(-175, -25, 350, 50, 25);
+        this.tribulationHud.fill();
+        if (charge > 0) {
+            this.tribulationHud.fillColor = new Color(77, 204, 190, 105 + Math.round(charge * 65));
+            this.tribulationHud.roundRect(-169, -19, 338 * charge, 38, 19);
+            this.tribulationHud.fill();
+        }
+        if (holdRatio > 0) {
+            this.tribulationHud.fillColor = new Color(221, 248, 255, 135);
+            this.tribulationHud.roundRect(-169, -19, 338 * holdRatio, 38, 19);
+            this.tribulationHud.fill();
+        }
+        this.tribulationHud.strokeColor = new Color(level > 0 ? 232 : 87, level > 0 ? 207 : 109, level > 0 ? 132 : 105, level > 0 ? 220 : 100);
+        this.tribulationHud.lineWidth = level > 0 ? 3 : 2;
+        this.tribulationHud.roundRect(-175, -25, 350, 50, 25);
+        this.tribulationHud.stroke();
+        for (let index = 0; index < 3; index += 1) {
+            this.tribulationHud.fillColor = index < level
+                ? new Color(155, 242, 226, 240)
+                : new Color(42, 72, 70, 210);
+            this.tribulationHud.circle(-24 + index * 24, 31, 5);
+            this.tribulationHud.fill();
+        }
+        const realm = level >= 3 ? '三重' : level === 2 ? '二重' : level === 1 ? '初劫' : '未悟';
+        this.tribulationHudLabel.color = new Color(level > 0 ? '#E9FFF8' : '#738B85');
+        this.tribulationHudLabel.string = level <= 0
+            ? '天劫 · 未悟'
+            : this.tribulationHolding
+                ? `引劫 ${(holdRatio * 100).toFixed(0)}%`
+                : charge >= 1
+                    ? `天劫 · ${realm}  长按释放`
+                    : `天劫 · ${realm}  劫力 ${(charge * 100).toFixed(0)}%`;
     }
 
     private createPlayerAura(): void {
@@ -1705,8 +2328,13 @@ export class GameBootstrap extends Component {
             if (!error && icon.isValid) sprite.spriteFrame = frame;
         });
 
-        const level = (this.upgradeLevels[choice.id] ?? 0) + 1;
-        const label = this.makeLabel(`${choice.title}   ·   第 ${level} 层\n${choice.description}`, 27, new Color('#FFF5DC'));
+        const level = Math.min(choice.maxLevel, (this.upgradeLevels[choice.id] ?? 0) + 1);
+        const realm = level === 1 ? '初悟' : level === 2 ? '进阶' : '圆满';
+        const label = this.makeLabel(
+            `${choice.title}   ·   ${realm}\n${choice.descriptions[level - 1]}`,
+            27,
+            new Color('#FFF5DC'),
+        );
         label.node.setPosition(52, 0);
         label.node.getComponent(UITransform)?.setContentSize(400, 112);
         node.addChild(label.node);
@@ -1779,8 +2407,24 @@ export class GameBootstrap extends Component {
     }
 
     private pickUpgrades(count: number): UpgradeConfig[] {
-        const pool = [...UPGRADES];
+        const pool = UPGRADES.filter((choice) => (this.upgradeLevels[choice.id] ?? 0) < choice.maxLevel);
         const result: UpgradeConfig[] = [];
+        const activeIds: UpgradeId[] = ['dash', 'formation', 'tribulation', 'sword'];
+        const activePool = pool.filter((choice) => activeIds.includes(choice.id));
+        const lockedActivePool = activePool.filter((choice) => (this.upgradeLevels[choice.id] ?? 0) === 0);
+        // 未参悟的主动功法优先出现，保证一局前几次破境就能体验完整动作组合。
+        while (result.length < Math.min(2, count) && lockedActivePool.length > 0) {
+            const choice = lockedActivePool.splice(Math.floor(Math.random() * lockedActivePool.length), 1)[0];
+            result.push(choice);
+            activePool.splice(activePool.indexOf(choice), 1);
+            pool.splice(pool.indexOf(choice), 1);
+        }
+        // 解锁齐全后仍至少提供两个功法成长方向，避免纯数值强化把动作升级挤出选项。
+        while (result.length < Math.min(2, count) && activePool.length > 0) {
+            const choice = activePool.splice(Math.floor(Math.random() * activePool.length), 1)[0];
+            result.push(choice);
+            pool.splice(pool.indexOf(choice), 1);
+        }
         while (result.length < count && pool.length > 0) {
             result.push(pool.splice(Math.floor(Math.random() * pool.length), 1)[0]);
         }

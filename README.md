@@ -5,9 +5,11 @@
 ## 当前可玩闭环
 
 - 主菜单 → 第一章
-- WASD / 方向键移动；移动端在屏幕下半区拖动
+- WASD / 方向键移动；移动端使用左侧摇杆
 - 飞剑自动攻击最近的敌人
-- 击杀获得修为，境界提升时三选一强化
+- 击杀获得修为，境界提升时三选一强化，主动功法优先解锁
+- 踏云、周天剑阵、天劫剑意均可升至三阶，按钮、冷却与特效同步成长
+- 桌面端可用空格释放踏云、Q 释放剑阵、长按 E 引动天劫
 - 四波敌人，最后一波含首领
 - 山精直追、狐妖迂回、僵尸扑进，山魈会预警震地
 - 通关 / 失败后可重新开始
@@ -28,11 +30,12 @@ assets/
   scenes/                 启动场景
   scripts/
     config/GameConfig.ts  关卡、波次、强化配置
-    GameBootstrap.ts      状态机、战斗循环和程序化 UI
+    GameBootstrap.ts      状态机、战斗循环、技能动作和程序化 UI
   resources/art/relics/   从 ai-asset-pipeline 导入的透明图
 docs/
   GAME_DESIGN.md          MVP 玩法与后续拆分建议
   ASSET_CONTRACT.md       竖切版资源目录、尺寸与验收规则
+  design/                 已确认的界面与控制设计参考
 prompts/xianxia/          可复刻当前画风与后续动画素材的生成提示词
 ```
 
