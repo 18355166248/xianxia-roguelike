@@ -19,8 +19,25 @@ import {
     Vec3,
     input,
     resources,
+    ResolutionPolicy,
+    view,
 } from 'cc';
-import { STAGES, UPGRADES, UpgradeConfig, UpgradeId, WaveConfig } from './config/GameConfig';
+import {
+    BACKGROUND_ASSET,
+    ENEMY_ASSETS,
+    PLAYER_ASSET,
+    PRELOAD_SPRITE_PATHS,
+    SpriteAssetSpec,
+} from './config/AssetCatalog';
+import {
+    EnemyBehavior,
+    EnemyKind,
+    STAGES,
+    UPGRADES,
+    UpgradeConfig,
+    UpgradeId,
+    WaveConfig,
+} from './config/GameConfig';
 
 const { ccclass } = _decorator;
 
@@ -28,6 +45,8 @@ type Phase = 'menu' | 'playing' | 'upgrade' | 'victory' | 'defeat';
 
 interface EnemyState {
     node: Node;
+    kind: EnemyKind;
+    behavior: EnemyBehavior;
     hp: number;
     maxHp: number;
     speed: number;
@@ -35,6 +54,12 @@ interface EnemyState {
     radius: number;
     xp: number;
     elite: boolean;
+    age: number;
+    strafeSign: number;
+    abilityTimer: number;
+    abilityInterval: number;
+    abilityDamage: number;
+    hpBar: Graphics;
 }
 
 interface ProjectileState {
@@ -46,6 +71,17 @@ interface ProjectileState {
     hit: Set<Node>;
 }
 
+interface BossPulseState {
+    node: Node;
+    graphics: Graphics;
+    elapsed: number;
+    triggerAt: number;
+    life: number;
+    radius: number;
+    damage: number;
+    applied: boolean;
+}
+
 @ccclass('GameBootstrap')
 export class GameBootstrap extends Component {
     private readonly designWidth = 750;
@@ -55,17 +91,21 @@ export class GameBootstrap extends Component {
     private phase: Phase = 'menu';
     private canvas!: Node;
     private world!: Node;
+    private battleLayer!: Node;
     private overlay!: Node;
     private player!: Node;
+    private backgroundSprite!: Sprite;
     private hpLabel!: Label;
     private xpLabel!: Label;
     private waveLabel!: Label;
     private enemies: EnemyState[] = [];
     private projectiles: ProjectileState[] = [];
+    private bossPulses: BossPulseState[] = [];
     private pressed = new Set<KeyCode>();
     private touchDirection = new Vec2();
     private touchOrigin?: Vec2;
     private swordFrame?: SpriteFrame;
+    private spriteFrames = new Map<string, SpriteFrame>();
 
     private hp = 100;
     private maxHp = 100;
@@ -84,8 +124,11 @@ export class GameBootstrap extends Component {
     private waveFinished = false;
 
     protected override onLoad(): void {
+        // 项目未依赖编辑器里的本机 View 配置，换设备时也固定按 750×1334 竖屏等比显示。
+        view.setDesignResolutionSize(this.designWidth, this.designHeight, ResolutionPolicy.SHOW_ALL);
         this.buildRuntimeScene();
         this.bindInput();
+        this.preloadArt();
         resources.load('art/relics/xianxia-relics_00/spriteFrame', SpriteFrame, (error, frame) => {
             if (!error) this.swordFrame = frame;
         });
@@ -102,6 +145,7 @@ export class GameBootstrap extends Component {
         this.updatePlayer(dt);
         this.updateSpawning(dt);
         this.updateEnemies(dt);
+        this.updateBossPulses(dt);
         this.updateAttacks(dt);
         this.updateProjectiles(dt);
         this.updateHud();
@@ -131,6 +175,10 @@ export class GameBootstrap extends Component {
         this.canvas.addChild(this.world);
         this.drawArena();
 
+        this.battleLayer = new Node('BattleLayer');
+        this.battleLayer.layer = Layers.Enum.UI_2D;
+        this.world.addChild(this.battleLayer);
+
         this.overlay = new Node('Overlay');
         this.overlay.layer = Layers.Enum.UI_2D;
         this.canvas.addChild(this.overlay);
@@ -146,11 +194,37 @@ export class GameBootstrap extends Component {
         graphics.fillColor = new Color('#163838');
         graphics.roundRect(this.arena.left, this.arena.bottom, 700, 950, 24);
         graphics.fill();
-        graphics.strokeColor = new Color('#537A70');
-        graphics.lineWidth = 4;
-        graphics.roundRect(this.arena.left, this.arena.bottom, 700, 950, 24);
-        graphics.stroke();
         this.world.addChild(backdrop);
+
+        const art = new Node('ArenaArt');
+        art.layer = Layers.Enum.UI_2D;
+        art.setPosition(0, (this.arena.bottom + this.arena.top) / 2);
+        art.addComponent(UITransform).setContentSize(BACKGROUND_ASSET.displayWidth, BACKGROUND_ASSET.displayHeight);
+        this.backgroundSprite = art.addComponent(Sprite);
+        this.backgroundSprite.sizeMode = Sprite.SizeMode.CUSTOM;
+        this.world.addChild(art);
+
+        const border = new Node('ArenaBorder');
+        border.layer = Layers.Enum.UI_2D;
+        const borderGraphics = border.addComponent(Graphics);
+        borderGraphics.strokeColor = new Color('#6B8F83');
+        borderGraphics.lineWidth = 4;
+        borderGraphics.roundRect(this.arena.left, this.arena.bottom, 700, 950, 24);
+        borderGraphics.stroke();
+        this.world.addChild(border);
+    }
+
+    private preloadArt(): void {
+        for (const path of PRELOAD_SPRITE_PATHS) {
+            resources.load(path, SpriteFrame, (error, frame) => {
+                if (error) {
+                    console.warn(`[art] 资源加载失败，使用程序化占位: ${path}`, error);
+                    return;
+                }
+                this.spriteFrames.set(path, frame);
+                if (path === BACKGROUND_ASSET.resourcePath) this.backgroundSprite.spriteFrame = frame;
+            });
+        }
     }
 
     private bindInput(): void {
@@ -223,20 +297,9 @@ export class GameBootstrap extends Component {
     private createPlayer(): void {
         this.player = new Node('QingLan');
         this.player.layer = Layers.Enum.UI_2D;
-        const g = this.player.addComponent(Graphics);
-        g.fillColor = new Color('#D9F1E8');
-        g.circle(0, 10, 27);
-        g.fill();
-        g.fillColor = new Color('#4A9EAA');
-        g.roundRect(-25, -42, 50, 65, 16);
-        g.fill();
-        g.strokeColor = new Color('#BDEDF2');
-        g.lineWidth = 5;
-        g.moveTo(0, -5);
-        g.lineTo(34, 36);
-        g.stroke();
+        this.attachUnitVisual(this.player, PLAYER_ASSET, 27);
         this.player.setPosition(0, -260);
-        this.world.addChild(this.player);
+        this.battleLayer.addChild(this.player);
     }
 
     private createHud(): void {
@@ -282,46 +345,113 @@ export class GameBootstrap extends Component {
     }
 
     private spawnEnemy(wave: WaveConfig): void {
-        const node = new Node(wave.elite ? 'Boss' : 'Enemy');
+        const node = new Node(wave.elite ? `Boss-${wave.enemyKind}` : `Enemy-${wave.enemyKind}`);
         node.layer = Layers.Enum.UI_2D;
-        const radius = wave.elite ? 55 : 28;
-        const g = node.addComponent(Graphics);
-        g.fillColor = new Color(wave.elite ? '#7F1D1D' : '#365C43');
-        g.circle(0, 0, radius);
-        g.fill();
-        g.strokeColor = new Color(wave.elite ? '#F59E0B' : '#86A873');
-        g.lineWidth = wave.elite ? 7 : 4;
-        g.circle(0, 0, radius);
-        g.stroke();
-        if (wave.elite) {
-            const mark = this.makeLabel('魈', 42, new Color('#FDE68A'));
-            node.addChild(mark.node);
-        }
+        const radius = wave.radius;
+        this.attachUnitVisual(node, ENEMY_ASSETS[wave.enemyKind], radius);
+        const hpBar = this.createEnemyHpBar(node, radius + (wave.elite ? 32 : 20));
         const edge = Math.floor(Math.random() * 3);
         const x = edge === 0 ? this.arena.left + radius : edge === 1 ? this.arena.right - radius : this.random(this.arena.left + 50, this.arena.right - 50);
         const y = edge < 2 ? this.random(-100, this.arena.top - 40) : this.arena.top - radius;
         node.setPosition(x, y);
-        this.world.addChild(node);
-        this.enemies.push({
+        this.battleLayer.addChild(node);
+        const enemy: EnemyState = {
             node,
+            kind: wave.enemyKind,
+            behavior: wave.behavior,
             hp: wave.hp,
             maxHp: wave.hp,
             speed: wave.speed,
             damage: wave.damage,
             radius,
-            xp: wave.elite ? 120 : 12,
+            xp: wave.xp,
             elite: Boolean(wave.elite),
-        });
+            age: 0,
+            strafeSign: Math.random() > 0.5 ? 1 : -1,
+            abilityTimer: wave.abilityInterval ?? Number.POSITIVE_INFINITY,
+            abilityInterval: wave.abilityInterval ?? Number.POSITIVE_INFINITY,
+            abilityDamage: wave.abilityDamage ?? 0,
+            hpBar,
+        };
+        this.enemies.push(enemy);
+        this.drawEnemyHp(enemy);
+    }
+
+    private attachUnitVisual(node: Node, asset: SpriteAssetSpec, fallbackRadius: number): void {
+        const frame = this.spriteFrames.get(asset.resourcePath);
+        if (frame) {
+            const sprite = node.addComponent(Sprite);
+            sprite.spriteFrame = frame;
+            sprite.sizeMode = Sprite.SizeMode.RAW;
+            const sourceHeight = Math.max(frame.originalSize.height, 1);
+            const scale = asset.displayHeight / sourceHeight;
+            node.setScale(scale, scale);
+            return;
+        }
+
+        // 资源在慢设备上尚未加载完时仍保证可玩，下一局会自动使用正式图片。
+        const graphics = node.addComponent(Graphics);
+        graphics.fillColor = new Color(asset.fallbackFill);
+        graphics.circle(0, 0, fallbackRadius);
+        graphics.fill();
+        graphics.strokeColor = new Color(asset.fallbackStroke);
+        graphics.lineWidth = 5;
+        graphics.circle(0, 0, fallbackRadius);
+        graphics.stroke();
+    }
+
+    private createEnemyHpBar(owner: Node, y: number): Graphics {
+        const node = new Node('HpBar');
+        node.layer = Layers.Enum.UI_2D;
+        node.setPosition(0, y / Math.max(owner.scale.y, 0.001));
+        const graphics = node.addComponent(Graphics);
+        owner.addChild(node);
+        node.setScale(1 / owner.scale.x, 1 / owner.scale.y);
+        return graphics;
+    }
+
+    private drawEnemyHp(enemy: EnemyState): void {
+        const width = enemy.elite ? 112 : 58;
+        const ratio = Math.max(0, enemy.hp / enemy.maxHp);
+        enemy.hpBar.clear();
+        enemy.hpBar.fillColor = new Color(8, 15, 20, 210);
+        enemy.hpBar.roundRect(-width / 2, -4, width, 8, 4);
+        enemy.hpBar.fill();
+        enemy.hpBar.fillColor = new Color(enemy.elite ? '#E6A244' : '#C65855');
+        enemy.hpBar.roundRect(-width / 2 + 2, -2, (width - 4) * ratio, 4, 2);
+        enemy.hpBar.fill();
     }
 
     private updateEnemies(dt: number): void {
         const playerPos = this.player.position;
         for (const enemy of this.enemies) {
             if (!enemy.node.isValid) continue;
+            enemy.age += dt;
             const delta = new Vec3(playerPos.x - enemy.node.position.x, playerPos.y - enemy.node.position.y);
             const distance = Math.max(delta.length(), 0.001);
             delta.multiplyScalar(1 / distance);
-            enemy.node.setPosition(enemy.node.position.clone().add(delta.multiplyScalar(enemy.speed * dt)));
+
+            if (enemy.behavior === 'weaver') {
+                // 狐妖以垂直于追击方向的摆动制造走位压力，避免所有敌人挤成同一条直线。
+                const sway = Math.sin(enemy.age * 4.6) * 0.72 * enemy.strafeSign;
+                delta.add3f(-delta.y * sway, delta.x * sway, 0).normalize();
+            }
+
+            let speedMultiplier = 1;
+            if (enemy.behavior === 'lunger') {
+                const cycle = enemy.age % 2.2;
+                speedMultiplier = cycle > 1.65 && cycle < 2.05 ? 2.25 : 0.72;
+            }
+            enemy.node.setPosition(enemy.node.position.clone().add(delta.multiplyScalar(enemy.speed * speedMultiplier * dt)));
+
+            if (enemy.behavior === 'boss') {
+                enemy.abilityTimer -= dt;
+                if (enemy.abilityTimer <= 0) {
+                    this.createBossPulse(enemy);
+                    enemy.abilityTimer = enemy.abilityInterval;
+                }
+            }
+
             if (distance < enemy.radius + 27) {
                 this.hp -= enemy.damage * dt;
                 if (this.hp <= 0) {
@@ -331,6 +461,51 @@ export class GameBootstrap extends Component {
                 }
             }
         }
+    }
+
+    private createBossPulse(enemy: EnemyState): void {
+        if (!enemy.node.isValid) return;
+        const node = new Node('BossPulse');
+        node.layer = Layers.Enum.UI_2D;
+        node.setPosition(enemy.node.position);
+        const graphics = node.addComponent(Graphics);
+        this.battleLayer.addChild(node);
+        this.bossPulses.push({
+            node,
+            graphics,
+            elapsed: 0,
+            triggerAt: 0.85,
+            life: 1.18,
+            radius: 170,
+            damage: enemy.abilityDamage,
+            applied: false,
+        });
+    }
+
+    private updateBossPulses(dt: number): void {
+        for (const pulse of this.bossPulses) {
+            pulse.elapsed += dt;
+            const progress = Math.min(pulse.elapsed / pulse.triggerAt, 1);
+            pulse.graphics.clear();
+            pulse.graphics.strokeColor = new Color(224, 87, 64, pulse.applied ? 90 : 210);
+            pulse.graphics.lineWidth = pulse.applied ? 7 : 4;
+            pulse.graphics.circle(0, 0, Math.max(8, pulse.radius * progress));
+            pulse.graphics.stroke();
+
+            if (!pulse.applied && pulse.elapsed >= pulse.triggerAt) {
+                pulse.applied = true;
+                if (Vec3.distance(this.player.position, pulse.node.position) <= pulse.radius + 27) {
+                    this.hp = Math.max(0, this.hp - pulse.damage);
+                    if (this.hp <= 0) this.finish(false);
+                }
+            }
+        }
+
+        this.bossPulses = this.bossPulses.filter((pulse) => {
+            if (pulse.elapsed < pulse.life && pulse.node.isValid) return true;
+            if (pulse.node.isValid) pulse.node.destroy();
+            return false;
+        });
     }
 
     private updateAttacks(dt: number): void {
@@ -364,7 +539,7 @@ export class GameBootstrap extends Component {
         const delta = new Vec2(target.node.position.x - node.position.x, target.node.position.y - node.position.y);
         const angle = Math.atan2(delta.y, delta.x) + spread;
         node.angle = angle * 180 / Math.PI - 45;
-        this.world.addChild(node);
+        this.battleLayer.addChild(node);
         this.projectiles.push({
             node,
             velocity: new Vec3(Math.cos(angle) * 520, Math.sin(angle) * 520),
@@ -386,7 +561,11 @@ export class GameBootstrap extends Component {
                 if (Vec3.distance(projectile.node.position, enemy.node.position) > projectile.radius + enemy.radius) continue;
                 projectile.hit.add(enemy.node);
                 enemy.hp -= projectile.damage;
-                if (enemy.hp <= 0) this.killEnemy(enemy);
+                if (enemy.hp <= 0) {
+                    this.killEnemy(enemy);
+                } else {
+                    this.drawEnemyHp(enemy);
+                }
                 projectile.life = 0;
                 break;
             }
@@ -466,6 +645,10 @@ export class GameBootstrap extends Component {
 
     private finish(victory: boolean): void {
         this.phase = victory ? 'victory' : 'defeat';
+        this.bossPulses.forEach((pulse) => {
+            if (pulse.node.isValid) pulse.node.destroy();
+        });
+        this.bossPulses = [];
         this.clearOverlay();
         const panel = this.makePanel(victory ? '渡劫成功' : '道途未竟', victory ? `青石山道已肃清\n境界：${this.level} 重` : `本次修至 ${this.level} 重\n调整构筑，再战一次`, 470, 390);
         this.overlay.addChild(panel);
@@ -491,7 +674,8 @@ export class GameBootstrap extends Component {
     private clearBattle(): void {
         this.enemies = [];
         this.projectiles = [];
-        this.world.children.slice(1).forEach((child) => child.destroy());
+        this.bossPulses = [];
+        this.battleLayer.children.slice().forEach((child) => child.destroy());
         this.canvas.getChildByName('HUD')?.destroy();
     }
 

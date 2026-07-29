@@ -9,6 +9,7 @@
 - 飞剑自动攻击最近的敌人
 - 击杀获得修为，境界提升时三选一强化
 - 四波敌人，最后一波含首领
+- 山精直追、狐妖迂回、僵尸扑进，山魈会预警震地
 - 通关 / 失败后可重新开始
 
 ## 打开与运行
@@ -31,9 +32,18 @@ assets/
   resources/art/relics/   从 ai-asset-pipeline 导入的透明图
 docs/
   GAME_DESIGN.md          MVP 玩法与后续拆分建议
+  ASSET_CONTRACT.md       竖切版资源目录、尺寸与验收规则
 ```
 
 ## 素材约定
 
 本项目只消费最终素材，不包含生成与切图逻辑。新增素材先在
 `ai-asset-pipeline` 中质检，通过后复制到 `assets/resources/art/`。
+
+当前竖切素材固定由 `assets/scripts/config/AssetCatalog.ts` 统一管理路径和显示尺寸。
+新电脑首次打开项目后，Creator 会重新生成 `temp/` 类型声明；随后可执行：
+
+```bash
+node /Applications/Cocos/Creator/3.8.8/CocosCreator.app/Contents/Resources/resources/3d/engine/node_modules/typescript/bin/tsc \
+  -p tsconfig.check.json
+```

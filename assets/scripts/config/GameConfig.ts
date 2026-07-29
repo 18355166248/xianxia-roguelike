@@ -1,10 +1,19 @@
+export type EnemyKind = 'mountainSpirit' | 'foxSpirit' | 'jiangshi' | 'shanxiao';
+export type EnemyBehavior = 'chaser' | 'weaver' | 'lunger' | 'boss';
+
 export interface WaveConfig {
+    enemyKind: EnemyKind;
+    behavior: EnemyBehavior;
     count: number;
     hp: number;
     speed: number;
     damage: number;
+    radius: number;
+    xp: number;
     spawnInterval: number;
     elite?: boolean;
+    abilityInterval?: number;
+    abilityDamage?: number;
 }
 
 export interface StageConfig {
@@ -30,10 +39,53 @@ export const STAGES: StageConfig[] = [
         chapter: '第一章',
         stageName: '青石山道',
         waves: [
-            { count: 6, hp: 24, speed: 62, damage: 8, spawnInterval: 0.55 },
-            { count: 9, hp: 34, speed: 72, damage: 9, spawnInterval: 0.45 },
-            { count: 12, hp: 44, speed: 80, damage: 11, spawnInterval: 0.38 },
-            { count: 1, hp: 520, speed: 48, damage: 18, spawnInterval: 0.1, elite: true },
+            {
+                enemyKind: 'mountainSpirit',
+                behavior: 'chaser',
+                count: 6,
+                hp: 28,
+                speed: 60,
+                damage: 8,
+                radius: 29,
+                xp: 12,
+                spawnInterval: 0.6,
+            },
+            {
+                enemyKind: 'foxSpirit',
+                behavior: 'weaver',
+                count: 9,
+                hp: 32,
+                speed: 92,
+                damage: 9,
+                radius: 25,
+                xp: 13,
+                spawnInterval: 0.48,
+            },
+            {
+                enemyKind: 'jiangshi',
+                behavior: 'lunger',
+                count: 10,
+                hp: 58,
+                speed: 56,
+                damage: 13,
+                radius: 30,
+                xp: 16,
+                spawnInterval: 0.52,
+            },
+            {
+                enemyKind: 'shanxiao',
+                behavior: 'boss',
+                count: 1,
+                hp: 620,
+                speed: 45,
+                damage: 18,
+                radius: 58,
+                xp: 120,
+                spawnInterval: 0.1,
+                elite: true,
+                abilityInterval: 3.8,
+                abilityDamage: 24,
+            },
         ],
     },
 ];

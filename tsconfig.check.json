@@ -1,16 +1,13 @@
 {
+  "extends": "./tsconfig.json",
   "compilerOptions": {
     "target": "ES2020",
-    "module": "ESNext",
-    "moduleResolution": "Node",
-    "strict": true,
-    "noImplicitOverride": true,
-    "experimentalDecorators": true,
+    "lib": ["ES2020", "DOM"],
     "skipLibCheck": true,
-    "noEmit": true
+    "isolatedModules": false
   },
   "files": [
-    "/Applications/Cocos/Creator/3.8.8/CocosCreator.app/Contents/Resources/resources/3d/engine/bin/.declarations/cc.d.ts",
+    "assets/scripts/config/AssetCatalog.ts",
     "assets/scripts/config/GameConfig.ts",
     "assets/scripts/GameBootstrap.ts"
   ]
