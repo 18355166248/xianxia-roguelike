@@ -76,7 +76,7 @@ export const STAGES: StageConfig[] = [
                 enemyKind: 'shanxiao',
                 behavior: 'boss',
                 count: 1,
-                hp: 620,
+                hp: 2400,
                 speed: 45,
                 damage: 18,
                 radius: 58,
