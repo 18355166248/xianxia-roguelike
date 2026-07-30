@@ -3,6 +3,7 @@ import {
     resolveSwordGesture,
     shouldTriggerFlickDash,
 } from '../assets/scripts/systems/PlayerActionRuntime';
+import { resolvePlayerAnimationFrame } from '../assets/scripts/systems/PlayerAnimationRuntime';
 
 function assertEqual<T>(actual: T, expected: T, message: string): void {
     if (actual !== expected) throw new Error(`${message}: expected ${String(expected)}, got ${String(actual)}`);
@@ -20,5 +21,11 @@ assertEqual(actions.enter('autoAttack', 0.2), false, 'auto attack cannot interru
 assertEqual(actions.enter('hit', 0.24), true, 'hit can interrupt charged slash');
 actions.tick(0.25, true);
 assertEqual(actions.current, 'move', 'state returns to locomotion after action');
+
+assertEqual(resolvePlayerAnimationFrame('idle', 0.21, 0).column, 1, 'idle loops by clip fps');
+assertEqual(resolvePlayerAnimationFrame('move', 0.31, 0).column, 3, 'movement loops through run frames');
+assertEqual(resolvePlayerAnimationFrame('chargedSlash', 0.35, 0.5).column, 2, 'actions follow state progress');
+assertEqual(resolvePlayerAnimationFrame('hit', 0.2, 0.75).row, 3, 'hit uses reaction row');
+assertEqual(resolvePlayerAnimationFrame('defeat', 3, 1).column, 1, 'defeat holds the deep recoil frame');
 
 console.log('PlayerActionRuntime tests passed');

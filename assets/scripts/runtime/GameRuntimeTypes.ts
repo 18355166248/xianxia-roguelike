@@ -1,7 +1,18 @@
 import type { Graphics, Label, Node, UIOpacity, Vec3 } from 'cc';
 import type { EnemyBehavior, EnemyKind } from '../config/GameConfig';
+import type { BossAbilityKind } from '../systems/BossAbilityRuntime';
 
-export type Phase = 'menu' | 'playing' | 'upgrade' | 'victory' | 'defeat';
+export type Phase =
+    | 'menu'
+    | 'stage-entry'
+    | 'playing'
+    | 'boss-finish'
+    | 'upgrade'
+    | 'map-event-prelude'
+    | 'map-event'
+    | 'route-commit'
+    | 'victory'
+    | 'defeat';
 
 export interface EnemyState {
     node: Node;
@@ -16,6 +27,7 @@ export interface EnemyState {
     radius: number;
     xp: number;
     elite: boolean;
+    champion: boolean;
     age: number;
     strafeSign: number;
     abilityTimer: number;
@@ -28,6 +40,11 @@ export interface EnemyState {
     deathTimer: number;
     spawnTimer: number;
     castTimer: number;
+    bossPhase: 1 | 2;
+    enrageTimer: number;
+    encounterStaggerTimer: number;
+    encounterCollisionCooldown: number;
+    animationFrameIndex: number;
     dead: boolean;
 }
 
@@ -44,10 +61,27 @@ export interface ProjectileState {
 export interface BossPulseState {
     node: Node;
     graphics: Graphics;
+    kind: BossAbilityKind;
+    sequenceIndex: number;
     elapsed: number;
     triggerAt: number;
     life: number;
     radius: number;
+    damage: number;
+    applied: boolean;
+}
+
+export interface BossPincerState {
+    node: Node;
+    graphics: Graphics;
+    opacity: UIOpacity;
+    elapsed: number;
+    triggerAt: number;
+    life: number;
+    gapCenterX: number;
+    gapHalfWidth: number;
+    minY: number;
+    maxY: number;
     damage: number;
     applied: boolean;
 }

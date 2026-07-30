@@ -1,6 +1,7 @@
 # 青岚角色动画表
 
-状态：等待图片生成服务恢复后执行。先只验收玩家动画，合格后再复用同一规格生成敌人。
+状态：玩家动画已生成并接入。当前资源为
+`assets/resources/art/characters/qinglan-actions.png`，后续可复用同一规格生成敌人。
 
 参考图：`assets/resources/art/characters/qinglan.png`
 
