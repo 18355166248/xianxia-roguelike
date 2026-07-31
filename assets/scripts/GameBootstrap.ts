@@ -21,8 +21,10 @@ import {
     Vec2,
     Vec3,
     input,
+    profiler,
     resources,
     ResolutionPolicy,
+    screen,
     view,
 } from 'cc';
 import {
@@ -418,6 +420,8 @@ export class GameBootstrap extends Component {
     protected override onLoad(): void {
         // 项目未依赖编辑器里的本机 View 配置，换设备时也固定按 750×1334 竖屏等比显示。
         view.setDesignResolutionSize(this.designWidth, this.designHeight, ResolutionPolicy.SHOW_ALL);
+        // 调试构建也交付干净游戏画面；性能数据保留给开发工具，不在玩家视口叠加引擎统计面板。
+        profiler.hideStats();
         this.buildRuntimeScene();
         this.bindInput();
         this.preloadArt();
@@ -499,11 +503,12 @@ export class GameBootstrap extends Component {
     }
 
     private drawArena(): void {
+        const viewportWidth = this.visibleDesignWidth();
         const backdrop = new Node('Backdrop');
         backdrop.layer = Layers.Enum.UI_2D;
         const graphics = backdrop.addComponent(Graphics);
         graphics.fillColor = new Color('#071719');
-        graphics.roundRect(-375, -667, 750, 1334, 0);
+        graphics.roundRect(-viewportWidth / 2, -667, viewportWidth, 1334, 0);
         graphics.fill();
         this.world.addChild(backdrop);
 
@@ -518,24 +523,19 @@ export class GameBootstrap extends Component {
     }
 
     private createArenaAmbience(): void {
+        const viewportWidth = this.visibleDesignWidth();
         const vignette = new Node('ArenaVignette');
         vignette.layer = Layers.Enum.UI_2D;
         const g = vignette.addComponent(Graphics);
-        // 用宽描边与上下暗幕把全屏背景压回战斗中心，HUD 仍能保持稳定对比度。
-        g.strokeColor = new Color(2, 10, 12, 155);
-        g.lineWidth = 46;
-        g.rect(-372, -664, 744, 1328);
-        g.stroke();
-        g.fillColor = new Color(3, 12, 15, 116);
-        g.rect(-375, 515, 750, 152);
-        g.fill();
-        g.fillColor = new Color(3, 12, 15, 100);
-        g.rect(-375, -667, 750, 190);
+        // 暗幕必须覆盖 SHOW_ALL 暴露出的完整可视宽度，否则宽屏两侧会形成独立贴图般的硬接缝。
+        // 保留轻量边界压暗：重点降低上下边缘压迫感，避免左右与底部形成明显阴影块。
+        g.fillColor = new Color(3, 12, 15, 28);
+        g.rect(-viewportWidth / 2 + 8, 515, viewportWidth - 16, 96);
         g.fill();
         g.strokeColor = new Color(123, 215, 189, 46);
         g.lineWidth = 2;
-        g.moveTo(-340, 508);
-        g.lineTo(340, 508);
+        g.moveTo(-viewportWidth / 2 + 35, 508);
+        g.lineTo(viewportWidth / 2 - 35, 508);
         g.stroke();
         this.world.addChild(vignette);
 
@@ -577,7 +577,7 @@ export class GameBootstrap extends Component {
                 }
                 this.spriteFrames.set(path, frame);
                 if (path === BACKGROUND_ASSETS[this.currentStage.mapId].resourcePath) {
-                    this.applyStageVisual();
+                    this.applyStageVisual(this.phase === 'menu');
                 }
                 if (path === PLAYER_ANIMATION_ASSET.resourcePath) {
                     this.playerAnimationFrames = this.slicePlayerAnimationSheet(frame);
@@ -663,11 +663,25 @@ export class GameBootstrap extends Component {
         }
     }
 
-    private applyStageVisual(): void {
+    private visibleDesignWidth(): number {
+        const frame = screen.windowSize;
+        if (frame.width <= 0 || frame.height <= 0) return this.designWidth;
+        // SHOW_ALL 会固定设计高度并在横向暴露额外世界坐标，需由真实画布比例反推，而不是读取仍为 750 的设计宽。
+        return Math.max(this.designWidth, this.designHeight * frame.width / frame.height);
+    }
+
+    private applyStageVisual(coverMenuViewport = false): void {
         const asset = BACKGROUND_ASSETS[this.currentStage.mapId] ?? BACKGROUND_ASSET;
         const frame = this.spriteFrames.get(asset.resourcePath);
         const transform = this.backgroundSprite.node.getComponent(UITransform);
-        transform?.setContentSize(asset.displayWidth, asset.displayHeight);
+        const coverScale = coverMenuViewport
+            ? Math.max(1, this.visibleDesignWidth() / asset.displayWidth)
+            : 1;
+        // 菜单背景使用 cover 规则铺满宽屏；进入战斗后恢复关卡标定尺寸，避免地形图与碰撞坐标错位。
+        transform?.setContentSize(
+            asset.displayWidth * coverScale,
+            asset.displayHeight * coverScale,
+        );
         if (frame) this.backgroundSprite.spriteFrame = frame;
     }
 
@@ -766,10 +780,13 @@ export class GameBootstrap extends Component {
         if (this.phase !== 'playing') return;
         const p = event.getUILocation();
         if (p.y > this.designHeight * 0.55) return;
+        if (this.joystick?.isValid) {
+            this.joystick.active = true;
+            this.joystickOpacity.opacity = 220;
+        }
         this.touchOrigin = new Vec2(p.x, p.y);
         this.joystickGestureStartedAt = this.elapsed;
         this.joystickMaxDrag = 0;
-        this.joystickOpacity.opacity = 220;
     }
 
     private onTouchMove(event: EventTouch): void {
@@ -788,7 +805,8 @@ export class GameBootstrap extends Component {
         this.touchOrigin = undefined;
         this.touchDirection.set(0, 0);
         if (this.joystickKnob?.isValid) this.joystickKnob.setPosition(0, 0);
-        if (this.joystickOpacity?.isValid) this.joystickOpacity.opacity = 125;
+        if (this.joystick?.isValid) this.joystick.active = false;
+        if (this.joystickOpacity?.isValid) this.joystickOpacity.opacity = 185;
         this.joystickMaxDrag = 0;
         if (shouldDash) this.tryDash();
     }
@@ -804,9 +822,9 @@ export class GameBootstrap extends Component {
         // 结算页返回路线图时必须清掉上一局 HUD 与战斗节点，否则菜单会叠在旧战场状态上。
         this.clearBattle();
         this.clearOverlay();
-        this.applyStageVisual();
+        this.applyStageVisual(true);
         this.bringOverlayToFront();
-        const shade = this.makeRect(750, 1334, new Color(3, 13, 16, 126));
+        const shade = this.makeRect(this.visibleDesignWidth(), 1334, new Color(3, 13, 16, 126));
         this.overlay.addChild(shade);
 
         const title = this.makeLabel('仙 途 劫', 58, new Color('#FFF0BE'));
@@ -932,7 +950,7 @@ export class GameBootstrap extends Component {
 
     private makeStagePreview(stage: StageConfig): Node {
         const accent = new Color(stage.accent);
-        const panel = this.makeRect(646, 532, new Color(5, 25, 29, 246), accent, 26, 2);
+        const panel = this.makeRect(646, 548, new Color(5, 25, 29, 246), accent, 26, 2);
         panel.name = 'StagePreview';
         panel.setPosition(0, -246);
 
@@ -1068,7 +1086,7 @@ export class GameBootstrap extends Component {
                 9,
                 1,
             );
-            rewardIconBacking.setPosition(-210, -178);
+            rewardIconBacking.setPosition(-210, -188);
             rewardIconBacking.addChild(this.createResourceSprite(reward.iconResourcePath, 23));
             panel.addChild(rewardIconBacking);
             const rewardLabel = this.makeLabel(
@@ -1082,7 +1100,7 @@ export class GameBootstrap extends Component {
                 ),
             );
             rewardLabel.horizontalAlign = Label.HorizontalAlign.LEFT;
-            rewardLabel.node.setPosition(28, -178);
+            rewardLabel.node.setPosition(28, -188);
             rewardLabel.node.getComponent(UITransform)?.setContentSize(430, 26);
             panel.addChild(rewardLabel.node);
         }
@@ -1095,7 +1113,7 @@ export class GameBootstrap extends Component {
             70,
             new Color(16, 70, 62, 245),
         );
-        enter.setPosition(0, -225);
+        enter.setPosition(0, -202);
         panel.addChild(enter);
         return panel;
     }
@@ -1236,7 +1254,7 @@ export class GameBootstrap extends Component {
         });
 
         const note = this.makeLabel('点击路线切换地图落点 · 入场后于波次间正式抉择', 11, new Color(139, 168, 160, 225));
-        note.node.setPosition(0, -179);
+        note.node.setPosition(0, -190);
         note.node.getComponent(UITransform)?.setContentSize(420, 22);
         panel.addChild(note.node);
     }
@@ -1484,7 +1502,7 @@ export class GameBootstrap extends Component {
 
     private startStage(stageIndex = this.selectedStageIndex): void {
         this.selectedStageIndex = Math.max(0, Math.min(STAGES.length - 1, stageIndex));
-        this.applyStageVisual();
+        this.applyStageVisual(false);
         const directBattlePreview = this.shouldStartBossPreview() || this.shouldStartElitePreview();
         this.phase = directBattlePreview ? 'playing' : 'stage-entry';
         this.lastStageVictory = undefined;
@@ -2244,7 +2262,7 @@ export class GameBootstrap extends Component {
         this.routeChoiceBacking.addChild(this.routeChoiceLabel.node);
         hud.addChild(this.routeChoiceBacking);
 
-        const bottomBacking = this.makeRect(750, 274, new Color(3, 14, 18, 150), new Color(80, 145, 131, 55), 0, 2);
+        const bottomBacking = this.makeRect(750, 274, new Color(3, 14, 18, 32));
         bottomBacking.setPosition(0, -532);
         hud.addChild(bottomBacking);
         this.buildLabel = this.makeLabel('', 17, new Color('#D4E6DF'));
@@ -2495,6 +2513,7 @@ export class GameBootstrap extends Component {
         this.joystick = new Node('VirtualJoystick');
         this.joystick.layer = Layers.Enum.UI_2D;
         this.joystick.setPosition(-274, -560);
+        this.joystick.active = false;
         this.joystickOpacity = this.joystick.addComponent(UIOpacity);
         this.joystickOpacity.opacity = 185;
         const ring = this.joystick.addComponent(Graphics);

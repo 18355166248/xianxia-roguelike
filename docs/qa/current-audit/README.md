@@ -516,3 +516,56 @@
 - `214-opening-objective-release.jpg` 为最终非调试 Web Mobile 构建中的寒潭首境动作：
   封脉圈、首潮倒计时、上方来敌与完整底部操作区同时可读，性能统计面板已移除，浏览器
   error / warning / warn 为 0。
+
+## 2026-07-31 三章第二境联动验收收口
+
+### 规则与验收范围
+
+- 目标：三章第二境（`?qaElite=1`）完整通过，且玩法反馈与 HUD 持续一致。
+- 重点章节：青石 / 竹林 / 寒潭二境；
+  竹林二境必须验证「镇守冲锋撞击竹障」并推进目标；
+  寒潭二境验证「寒潮截断冻尸」；
+  青石二境验证「引灵后击杀目标」。
+- 交付门槛：`npm run test:skills` 全量通过（20 组测试）和 `git diff --check` 清空；
+  `TypeScript` 检查以 `tsconfig.skill-tests.json` 为准通过；正式构建产物存在且
+  `build Task (web-mobile) Finished` 存在于日志；浏览器 error / warning / warn 需归类为
+  产品问题或可接受。
+
+### 对照证据（新增）
+
+- `222-qingshi-elite-encounter.jpg`、`223-bamboo-elite-encounter.jpg`、`224-frost-elite-encounter.jpg`
+  分别展示三章二境联动前后场景状态与目标条，竹林二境可见冲锋撞击后竹障残存，完成后反馈仍可识别。
+- `217-frost-elite-current.jpg`、`215-qingshi-elite-current.jpg`、`216-bamboo-elite-current.jpg`
+  为最小本地验收截图：参数固定在 `?qaElite=1`；
+  主要对照点为二境目标开始、推进、完成短时反馈、波次衔接 HUD。
+- `221-dead-cells-elite-lane-reference.jpg`、`219-ravenswatch-elite-reference.jpg`、`220-hades2-elite-telegraph-reference.jpg`
+  为外部参考，对应入口承诺与环境压迫节奏，不作为功能实现依赖。
+- `206-qingshi-opening-objective.jpg`、`208-bamboo-opening-objective-final.jpg`、`209-frost-opening-objective.jpg`
+  与 `214-opening-objective-release.jpg` 保持一体化闭环：二境开启前后的目标引导与后续入场回归一致。
+- `158-frost-boss-ability-release.jpg`、`168-frost-boss-finish-release.jpg`、`182-frost-victory-reward-release.jpg`
+  与 `214` 共同覆盖三章完成反馈→终局→战报的连续链路，均为非调试构建且未出现 `profiler`。
+
+### 本轮结论
+
+- 青石、竹林、寒潭二境均可完成；目标条与场内真实实体反馈可核对闭环。
+- 三章在完成时保留可识别反馈实体，避免进入下个波次后“目标消失”的视觉断档。
+- `20` 组技能/系统测试通过；`git diff --check` 无 whitespace 问题。
+- TypeScript 规则检查（`tsconfig.skill-tests.json`）通过；`tsconfig.json` 全量检查因引擎声明版本不匹配
+ （`@types/jsb.d.ts` 与 `cc.d.ts`）保留为历史环境问题，不归因于本轮联动逻辑变更。
+- 本轮无新增阻断问题；未引入新的可阻断 error。warning 在本轮未复现为阻断项，
+  仅作为后续可视化信息层级优化候选项，优先级低于当前交付路径。
+
+## 2026-07-31 菜单宽屏背景一体化
+
+- 用户来源图：`codex-clipboard-7895f743-3467-4fe8-aeed-fcd3fa41cc35.png`（`1062×1498`），
+  显示固定 750 设计宽的遮罩与宽屏背景之间存在左右硬接缝。
+- `230-menu-background-cohesive-qingshi.png`：青石调试构建宽屏修复。
+- `231-menu-background-cohesive-bamboo.png`：竹林切换状态，背景连续且无独立侧栏。
+- `232-menu-background-cohesive-frost.png`：寒潭切换状态，菜单 cover 后无黑边或贴图断层。
+- `235-menu-background-cohesive-release.png`：`830×1170` 同比例正式构建截图，无 profiler，
+  浏览器 error / warning / warn 为 0。
+- `236-menu-background-before-after-release.png`：来源图与正式构建归一化后的并排对照。
+- `237-debug-profiler-hidden.png`：调试 Web Mobile 构建；左下角引擎性能统计已隐藏，浏览器
+  error / warning / warn 为 0。
+- 结论：不重生成地图图片；根因是 `SHOW_ALL` 宽屏坐标与固定遮罩宽度不一致。菜单背景按
+  可视区 cover，战斗仍使用关卡标定尺寸，视觉修复不会改变碰撞和机关坐标。
