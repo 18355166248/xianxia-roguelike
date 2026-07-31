@@ -2140,7 +2140,15 @@ export class GameBootstrap extends Component {
                 swordVein ? '剑脉共鸣 · 剑伤提升' : '灵泉共鸣 · 持续回气',
                 new Color(swordVein ? '#FDE68A' : '#A7F3D0'),
             );
-            this.createScreenFlash(new Color(swordVein ? '#F0C96B' : '#6EE7B7'), 0.28);
+            this.createSpiritVeinClaimPulse(
+                visual.node.position,
+                new Color(
+                    swordVein ? 240 : 110,
+                    swordVein ? 201 : 231,
+                    swordVein ? 107 : 183,
+                    170,
+                ),
+            );
             this.playerInvulnerableTimer = Math.max(this.playerInvulnerableTimer, 0.35);
         }
         const regen = this.spiritVein.vitalityRegenPerSecond(this.maxHp);
@@ -5994,6 +6002,32 @@ export class GameBootstrap extends Component {
             life,
             update: (progress) => {
                 opacity.opacity = Math.round(255 * (1 - progress));
+            },
+        });
+    }
+
+    private createSpiritVeinClaimPulse(position: Readonly<Vec3>, color: Color): void {
+        const node = new Node('SpiritVeinClaimPulse');
+        node.layer = Layers.Enum.UI_2D;
+        node.setPosition(position);
+        const opacity = node.addComponent(UIOpacity);
+        const ring = node.addComponent(Graphics);
+        const baseRadius = 24;
+        this.effectsLayer.addChild(node);
+        this.effects.push({
+            node,
+            elapsed: 0,
+            life: 0.56,
+            update: (progress) => {
+                const p = Math.min(progress, 1);
+                const faded = 1 - p;
+                node.setScale(0.72 + p * 1.72, 0.72 + p * 1.72);
+                opacity.opacity = Math.round(200 * faded * faded);
+                ring.clear();
+                ring.strokeColor = new Color(color.r, color.g, color.b, Math.round(150 * faded));
+                ring.lineWidth = 3.4 + 2.8 * p;
+                ring.circle(0, 0, baseRadius);
+                ring.stroke();
             },
         });
     }
