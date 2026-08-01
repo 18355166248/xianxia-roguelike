@@ -3,10 +3,13 @@
   "version": "0.1.0",
   "description": "仙侠闯关制动作 Roguelike，基于 Cocos Creator 3.8.8",
   "scripts": {
-    "test:skills": "node /Applications/Cocos/Creator/3.8.8/CocosCreator.app/Contents/Resources/resources/3d/engine/node_modules/typescript/bin/tsc -p tsconfig.skill-tests.json && node temp/skill-tests/tests/PlayerActionRuntime.test.js && node temp/skill-tests/tests/SpiritVeinRuntime.test.js && node temp/skill-tests/tests/MapObstacleRuntime.test.js && node temp/skill-tests/tests/QingshiRouteRuntime.test.js && node temp/skill-tests/tests/BambooRouteRuntime.test.js && node temp/skill-tests/tests/EnemyAnimationRuntime.test.js && node temp/skill-tests/tests/BossAbilityRuntime.test.js && node temp/skill-tests/tests/BossFinishRuntime.test.js && node temp/skill-tests/tests/BossPhaseRuntime.test.js && node temp/skill-tests/tests/FrostTideRuntime.test.js && node temp/skill-tests/tests/FrostRouteRuntime.test.js && node temp/skill-tests/tests/UpgradeChoiceRuntime.test.js && node temp/skill-tests/tests/MapEventRuntime.test.js && node temp/skill-tests/tests/RunStatsRuntime.test.js && node temp/skill-tests/tests/StageProgressRuntime.test.js && node temp/skill-tests/tests/StageEntryPresentationRuntime.test.js && node temp/skill-tests/tests/OpeningObjectiveRuntime.test.js && node temp/skill-tests/tests/EliteEncounterRuntime.test.js && node temp/skill-tests/tests/ResultPresentationRuntime.test.js && node temp/skill-tests/tests/SkillRuntime.test.js"
+    "test:skills": "node scripts/run-skill-tests.cjs"
   },
   "creator": {
     "version": "3.8.8"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.3"
   },
   "uuid": "7ea42f82-f25f-4af4-bcb7-4bf07485d23e"
 }
