@@ -47,16 +47,30 @@ export const BAMBOO_BARRICADE_ASSET: SpriteAssetSpec = {
 
 export const PLAYER_ASSET: SpriteAssetSpec = {
     resourcePath: 'art/characters/qinglan/spriteFrame',
-    displayHeight: 104,
+    displayHeight: 126,
     fallbackFill: '#D9F1E8',
     fallbackStroke: '#4A9EAA',
 };
 
 export const PLAYER_ANIMATION_ASSET: SpriteAnimationAssetSpec = {
     resourcePath: 'art/characters/qinglan-actions/spriteFrame',
-    displayHeight: 104,
+    displayHeight: 126,
     columns: 4,
     rows: 4,
+};
+
+export const HUD_PORTRAIT_ASSET: SpriteAssetSpec = {
+    resourcePath: 'art/ui/qinglan-hud-portrait-transparent-v2/spriteFrame',
+    displayHeight: 122,
+    fallbackFill: '#07171C',
+    fallbackStroke: '#8AB8A9',
+};
+
+export const WAVE_CREST_ASSET: SpriteAssetSpec = {
+    resourcePath: 'art/ui/wave-crest-v1/spriteFrame',
+    displayHeight: 106,
+    fallbackFill: '#0B292B',
+    fallbackStroke: '#78CDBB',
 };
 
 export const BOSS_ANIMATION_ASSET: SpriteAnimationAssetSpec = {
@@ -126,25 +140,25 @@ export const FROST_SEAL_COMMIT_ANIMATION_ASSET: SpriteAnimationAssetSpec = {
 export const ENEMY_ASSETS: Record<EnemyKind, SpriteAssetSpec> = {
     mountainSpirit: {
         resourcePath: 'art/enemies/mountain-spirit/spriteFrame',
-        displayHeight: 84,
+        displayHeight: 110,
         fallbackFill: '#365C43',
         fallbackStroke: '#86A873',
     },
     bambooWarden: {
         resourcePath: 'art/enemies/bamboo-warden/spriteFrame',
-        displayHeight: 112,
+        displayHeight: 134,
         fallbackFill: '#314C3E',
         fallbackStroke: '#D8B45D',
     },
     foxSpirit: {
         resourcePath: 'art/enemies/fox-spirit/spriteFrame',
-        displayHeight: 76,
+        displayHeight: 98,
         fallbackFill: '#9A4B2E',
         fallbackStroke: '#F2B36F',
     },
     jiangshi: {
         resourcePath: 'art/enemies/jiangshi/spriteFrame',
-        displayHeight: 94,
+        displayHeight: 116,
         fallbackFill: '#283A56',
         fallbackStroke: '#8AA4B8',
     },
@@ -161,6 +175,8 @@ export const PRELOAD_SPRITE_PATHS = [
     BAMBOO_BARRICADE_ASSET.resourcePath,
     PLAYER_ASSET.resourcePath,
     PLAYER_ANIMATION_ASSET.resourcePath,
+    HUD_PORTRAIT_ASSET.resourcePath,
+    WAVE_CREST_ASSET.resourcePath,
     BOSS_ANIMATION_ASSET.resourcePath,
     FROZEN_BOSS_ANIMATION_ASSET.resourcePath,
     FROST_IMPACT_ANIMATION_ASSET.resourcePath,

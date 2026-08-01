@@ -39,12 +39,14 @@ import {
     FROST_IMPACT_ANIMATION_ASSET,
     FROST_SEAL_COMMIT_ANIMATION_ASSET,
     FROST_TIDE_COMMIT_ANIMATION_ASSET,
+    HUD_PORTRAIT_ASSET,
     PLAYER_ANIMATION_ASSET,
     PLAYER_ASSET,
     PRELOAD_SPRITE_PATHS,
     QINGSHI_SPRING_COMMIT_ANIMATION_ASSET,
     QINGSHI_STELE_COMMIT_ANIMATION_ASSET,
     SpriteAssetSpec,
+    WAVE_CREST_ASSET,
 } from './config/AssetCatalog';
 import {
     type EnemyKind,
@@ -325,9 +327,7 @@ export class GameBootstrap extends Component {
     private attackIconOpacity!: UIOpacity;
     private dashHud!: SkillHud;
     private formationHud!: SkillHud;
-    private tribulationHud!: Graphics;
-    private tribulationHudLabel!: Label;
-    private tribulationHudNode!: Node;
+    private tribulationHud!: SkillHud;
     private joystick!: Node;
     private joystickKnob!: Node;
     private joystickOpacity!: UIOpacity;
@@ -824,50 +824,50 @@ export class GameBootstrap extends Component {
         this.clearOverlay();
         this.applyStageVisual(true);
         this.bringOverlayToFront();
-        const shade = this.makeRect(this.visibleDesignWidth(), 1334, new Color(3, 13, 16, 126));
+        const shade = this.makeRect(this.visibleDesignWidth(), 1334, new Color(3, 13, 16, 146));
         this.overlay.addChild(shade);
 
-        const title = this.makeLabel('仙 途 劫', 58, new Color('#FFF0BE'));
-        title.node.setPosition(0, 520);
+        const title = this.makeLabel('仙 途 劫', 62, new Color('#FFF0BE'));
+        title.node.setPosition(0, 558);
         this.overlay.addChild(title.node);
         const titleRule = new Node('TitleRule');
         titleRule.layer = Layers.Enum.UI_2D;
-        titleRule.setPosition(0, 477);
+        titleRule.setPosition(0, 510);
         const rule = titleRule.addComponent(Graphics);
         rule.strokeColor = new Color(239, 202, 118, 175);
         rule.lineWidth = 2;
-        rule.moveTo(-178, 0);
-        rule.lineTo(-34, 0);
-        rule.moveTo(34, 0);
-        rule.lineTo(178, 0);
+        rule.moveTo(-206, 0);
+        rule.lineTo(-42, 0);
+        rule.moveTo(42, 0);
+        rule.lineTo(206, 0);
         rule.stroke();
         rule.fillColor = new Color(239, 202, 118, 220);
         rule.circle(0, 0, 4);
         rule.fill();
         this.overlay.addChild(titleRule);
 
-        const subtitle = this.makeLabel('御剑破劫 · 三境问道', 20, new Color('#CFE5DB'));
-        subtitle.node.setPosition(0, 445);
+        const subtitle = this.makeLabel('御 剑 破 劫  ·  三 境 问 道', 18, new Color('#CFE5DB'));
+        subtitle.node.setPosition(0, 478);
         this.overlay.addChild(subtitle.node);
 
         const heroGlow = new Node('HeroGlow');
         heroGlow.layer = Layers.Enum.UI_2D;
-        heroGlow.setPosition(0, 312);
+        heroGlow.setPosition(0, 365);
         const glow = heroGlow.addComponent(Graphics);
         glow.fillColor = new Color(76, 190, 167, 28);
-        glow.circle(0, 0, 101);
+        glow.circle(0, 0, 96);
         glow.fill();
         glow.strokeColor = new Color(126, 224, 197, 62);
         glow.lineWidth = 2;
-        glow.circle(0, 0, 88);
+        glow.circle(0, 0, 82);
         glow.stroke();
         this.overlay.addChild(heroGlow);
-        const hero = this.createResourceSprite(PLAYER_ASSET.resourcePath, 190);
-        hero.setPosition(0, 305);
+        const hero = this.createResourceSprite(PLAYER_ASSET.resourcePath, 176);
+        hero.setPosition(0, 356);
         this.overlay.addChild(hero);
 
-        const routeTitle = this.makeLabel('试 炼 路 线', 20, new Color('#E8D9AF'));
-        routeTitle.node.setPosition(0, 194);
+        const routeTitle = this.makeLabel('三 境 试 炼', 19, new Color('#E8D9AF'));
+        routeTitle.node.setPosition(0, 244);
         this.overlay.addChild(routeTitle.node);
         this.overlay.addChild(this.makeChapterRoute());
         this.overlay.addChild(this.makeStagePreview(this.currentStage));
@@ -876,7 +876,7 @@ export class GameBootstrap extends Component {
     private makeChapterRoute(): Node {
         const route = new Node('ChapterRoute');
         route.layer = Layers.Enum.UI_2D;
-        route.setPosition(0, 108);
+        route.setPosition(0, 151);
         const graphics = route.addComponent(Graphics);
         graphics.strokeColor = new Color(95, 153, 139, 145);
         graphics.lineWidth = 3;
@@ -950,13 +950,24 @@ export class GameBootstrap extends Component {
 
     private makeStagePreview(stage: StageConfig): Node {
         const accent = new Color(stage.accent);
-        const panel = this.makeRect(646, 548, new Color(5, 25, 29, 246), accent, 26, 2);
+        const panel = this.makeRect(660, 530, new Color(4, 24, 29, 242), new Color(accent.r, accent.g, accent.b, 190), 30, 2);
         panel.name = 'StagePreview';
-        panel.setPosition(0, -246);
+        panel.setPosition(0, -263);
 
-        const thumbnailBacking = this.makeRect(168, 158, new Color(3, 14, 18, 240), accent, 20, 1.5);
-        thumbnailBacking.setPosition(-210, 147);
-        const thumbnail = this.createResourceSprite(BACKGROUND_ASSETS[stage.mapId].resourcePath, 154);
+        const headerSurface = this.makeRect(
+            624,
+            178,
+            new Color(2, 15, 19, 188),
+            new Color(accent.r, accent.g, accent.b, 76),
+            22,
+            1,
+        );
+        headerSurface.setPosition(0, 158);
+        panel.addChild(headerSurface);
+
+        const thumbnailBacking = this.makeRect(150, 144, new Color(3, 14, 18, 240), accent, 20, 1.5);
+        thumbnailBacking.setPosition(-222, 158);
+        const thumbnail = this.createResourceSprite(BACKGROUND_ASSETS[stage.mapId].resourcePath, 140);
         thumbnailBacking.addChild(thumbnail);
         if (this.chapterBriefOpen && this.chapterBriefPreviewChoiceId) {
             this.createChapterRouteSpatialPreview(stage, thumbnailBacking);
@@ -967,41 +978,43 @@ export class GameBootstrap extends Component {
 
         const chapter = this.makeLabel(stage.chapter, 16, new Color(accent.r, accent.g, accent.b, 245));
         chapter.horizontalAlign = Label.HorizontalAlign.LEFT;
-        chapter.node.setPosition(24, 190);
+        chapter.node.setPosition(16, 206);
         chapter.node.getComponent(UITransform)?.setContentSize(220, 28);
         panel.addChild(chapter.node);
-        const name = this.makeLabel(stage.stageName, 34, new Color('#FFF2CC'));
+        const name = this.makeLabel(stage.stageName, 36, new Color('#FFF2CC'));
         name.horizontalAlign = Label.HorizontalAlign.LEFT;
-        name.node.setPosition(46, 151);
+        name.node.setPosition(50, 161);
         name.node.getComponent(UITransform)?.setContentSize(300, 50);
         panel.addChild(name.node);
         const tagline = this.makeLabel(stage.tagline, 18, new Color(184, 215, 204, 240));
         tagline.horizontalAlign = Label.HorizontalAlign.LEFT;
-        tagline.node.setPosition(40, 111);
+        tagline.node.setPosition(44, 119);
         tagline.node.getComponent(UITransform)?.setContentSize(300, 32);
         panel.addChild(tagline.node);
 
         const risk = this.makeRect(82, 30, new Color(111, 55, 35, 238), accent, 11, 1);
-        risk.setPosition(255, 202);
+        risk.setPosition(255, 213);
         const riskLabel = this.makeLabel(stage.riskLabel, 14, new Color('#FFF0BE'));
         risk.addChild(riskLabel.node);
         panel.addChild(risk);
 
-        const goal = this.makeLabel(`试炼目标 · ${stage.goal}`, 17, new Color(211, 232, 223, 245));
+        const goalBacking = this.makeRect(590, 44, new Color(3, 17, 21, 174), new Color(accent.r, accent.g, accent.b, 72), 14, 1);
+        goalBacking.setPosition(0, 48);
+        const goal = this.makeLabel(`试炼目标  ·  ${stage.goal}`, 16, new Color(211, 232, 223, 245));
         goal.horizontalAlign = Label.HorizontalAlign.LEFT;
-        goal.node.setPosition(0, 56);
-        goal.node.getComponent(UITransform)?.setContentSize(560, 32);
-        panel.addChild(goal.node);
+        goal.node.getComponent(UITransform)?.setContentSize(548, 30);
+        goalBacking.addChild(goal.node);
+        panel.addChild(goalBacking);
 
         if (this.chapterBriefOpen) {
             this.addChapterRouteBrief(stage, panel, accent);
         } else {
             const routeLabel = this.makeLabel('本 章 道 途', 14, new Color(accent.r, accent.g, accent.b, 225));
-            routeLabel.node.setPosition(0, 18);
+            routeLabel.node.setPosition(0, 10);
             panel.addChild(routeLabel.node);
             const pathLine = new Node('StagePathLine');
             pathLine.layer = Layers.Enum.UI_2D;
-            pathLine.setPosition(0, -66);
+            pathLine.setPosition(0, -54);
             const line = pathLine.addComponent(Graphics);
             line.strokeColor = new Color(accent.r, accent.g, accent.b, 100);
             line.lineWidth = 2;
@@ -1024,7 +1037,7 @@ export class GameBootstrap extends Component {
                     18,
                     index === 1 ? 2 : 1,
                 );
-                item.setPosition((index - 1) * 188, -66);
+                item.setPosition((index - 1) * 188, -54);
                 const roleLabel = this.makeLabel(
                     index === 1 ? `${role} · 点此预览` : role,
                     13,
@@ -1059,7 +1072,7 @@ export class GameBootstrap extends Component {
                 16,
                 new Color(accent.r, accent.g, accent.b, 242),
             );
-            mechanicText.node.setPosition(0, -126);
+            mechanicText.node.setPosition(0, -112);
             panel.addChild(mechanicText.node);
 
             const stageRecord = this.stageProgress.recordFor(stage.mapId);
@@ -1073,7 +1086,7 @@ export class GameBootstrap extends Component {
                     235,
                 ),
             );
-            recordLabel.node.setPosition(0, -151);
+            recordLabel.node.setPosition(0, -139);
             recordLabel.node.getComponent(UITransform)?.setContentSize(430, 28);
             panel.addChild(recordLabel.node);
 
@@ -1086,7 +1099,7 @@ export class GameBootstrap extends Component {
                 9,
                 1,
             );
-            rewardIconBacking.setPosition(-210, -188);
+            rewardIconBacking.setPosition(-210, -158);
             rewardIconBacking.addChild(this.createResourceSprite(reward.iconResourcePath, 23));
             panel.addChild(rewardIconBacking);
             const rewardLabel = this.makeLabel(
@@ -1100,7 +1113,7 @@ export class GameBootstrap extends Component {
                 ),
             );
             rewardLabel.horizontalAlign = Label.HorizontalAlign.LEFT;
-            rewardLabel.node.setPosition(28, -188);
+            rewardLabel.node.setPosition(28, -158);
             rewardLabel.node.getComponent(UITransform)?.setContentSize(430, 26);
             panel.addChild(rewardLabel.node);
         }
@@ -1109,11 +1122,11 @@ export class GameBootstrap extends Component {
             `踏入${stage.stageName}`,
             accent,
             () => this.startStage(this.selectedStageIndex),
-            530,
-            70,
-            new Color(16, 70, 62, 245),
+            554,
+            68,
+            new Color(10, 58, 54, 248),
         );
-        enter.setPosition(0, -202);
+        enter.setPosition(0, -218);
         panel.addChild(enter);
         return panel;
     }
@@ -1516,9 +1529,9 @@ export class GameBootstrap extends Component {
         this.swordDamage = 18 + metaBonuses.swordDamage;
         this.swordCount = 1;
         this.attackInterval = 0.72;
-        this.attackTimer = this.shouldStartElitePreview()
-            ? Number.POSITIVE_INFINITY
-            : 0;
+        // QA 的第二波直达入口也必须保留真实战斗行为；Infinity 会让
+        // updateAttacks() 永远提前返回，表现为敌人贴身后仍不自动御剑。
+        this.attackTimer = 0;
         this.level = 1;
         this.xp = 0;
         this.xpNeed = 50;
@@ -2192,65 +2205,76 @@ export class GameBootstrap extends Component {
         hud.layer = Layers.Enum.UI_2D;
         this.canvas.addChild(hud);
 
-        const backing = this.makeRect(716, 124, new Color(3, 16, 20, 218), new Color(91, 151, 137, 130), 18, 2);
+        const backing = this.makeRect(716, 142, new Color(3, 16, 20, 76), new Color(91, 151, 137, 52), 20, 1);
         backing.name = 'HudBacking';
-        backing.setPosition(0, 592);
+        backing.setPosition(0, 596);
         hud.addChild(backing);
 
-        const avatarBacking = this.makeRect(76, 82, new Color(12, 48, 48, 240), new Color('#DCC47C'), 18, 3);
-        avatarBacking.setPosition(-310, 595);
-        hud.addChild(avatarBacking);
-        const portrait = this.createResourceSprite(PLAYER_ASSET.resourcePath, 62);
-        portrait.setPosition(0, -3);
-        avatarBacking.addChild(portrait);
+        const portrait = this.createResourceSprite(
+            HUD_PORTRAIT_ASSET.resourcePath,
+            HUD_PORTRAIT_ASSET.displayHeight,
+        );
+        portrait.setPosition(-298, 594);
+        hud.addChild(portrait);
+
+        const gameTitle = this.makeLabel('仙 途 劫', 28, new Color('#F8D992'));
+        gameTitle.horizontalAlign = Label.HorizontalAlign.LEFT;
+        gameTitle.node.setPosition(-104, 642);
+        gameTitle.node.getComponent(UITransform)?.setContentSize(250, 38);
+        hud.addChild(gameTitle.node);
 
         const hpBarNode = new Node('HpBar');
         hpBarNode.layer = Layers.Enum.UI_2D;
-        hpBarNode.setPosition(-145, 600);
+        hpBarNode.setPosition(-104, 592);
         this.hpBar = hpBarNode.addComponent(Graphics);
         hud.addChild(hpBarNode);
 
         const xpBarNode = new Node('XpBar');
         xpBarNode.layer = Layers.Enum.UI_2D;
-        xpBarNode.setPosition(-145, 563);
+        xpBarNode.setPosition(-104, 541);
         this.xpBar = xpBarNode.addComponent(Graphics);
         hud.addChild(xpBarNode);
 
-        this.hpLabel = this.makeLabel('', 21, new Color('#FFD5C5'));
-        this.hpLabel.node.setPosition(-145, 628);
+        this.hpLabel = this.makeLabel('', 18, new Color('#FFE3D5'));
+        this.hpLabel.horizontalAlign = Label.HorizontalAlign.LEFT;
+        this.hpLabel.node.setPosition(-104, 614);
         this.hpLabel.node.getComponent(UITransform)?.setContentSize(232, 42);
         hud.addChild(this.hpLabel.node);
-        this.xpLabel = this.makeLabel('', 18, new Color('#A7F3D0'));
-        this.xpLabel.node.setPosition(-145, 578);
+        this.xpLabel = this.makeLabel('', 16, new Color('#A7F3D0'));
+        this.xpLabel.horizontalAlign = Label.HorizontalAlign.LEFT;
+        this.xpLabel.node.setPosition(-104, 561);
         this.xpLabel.node.getComponent(UITransform)?.setContentSize(232, 32);
         hud.addChild(this.xpLabel.node);
 
-        const waveBacking = this.makeRect(162, 82, new Color(19, 48, 45, 235), new Color(206, 177, 100, 175), 18, 2);
-        waveBacking.setPosition(264, 594);
-        hud.addChild(waveBacking);
-        this.waveLabel = this.makeLabel('', 21, new Color('#FDE6A6'));
-        this.waveLabel.node.setPosition(0, 0);
-        this.waveLabel.node.getComponent(UITransform)?.setContentSize(150, 70);
-        waveBacking.addChild(this.waveLabel.node);
+        const waveCrest = this.createResourceSprite(
+            WAVE_CREST_ASSET.resourcePath,
+            WAVE_CREST_ASSET.displayHeight,
+        );
+        waveCrest.setPosition(260, 596);
+        hud.addChild(waveCrest);
+        this.waveLabel = this.makeLabel('', 23, new Color('#FFE8A6'));
+        this.waveLabel.node.setPosition(260, 596);
+        this.waveLabel.node.getComponent(UITransform)?.setContentSize(188, 82);
+        hud.addChild(this.waveLabel.node);
 
         this.objectiveBacking = this.makeRect(
-            570,
-            46,
-            new Color(3, 18, 22, 205),
-            new Color(105, 205, 177, 115),
+            620,
+            42,
+            new Color(3, 18, 22, 150),
+            new Color(105, 205, 177, 112),
             18,
             2,
         );
         this.objectiveBacking.name = 'WaveObjective';
-        this.objectiveBacking.setPosition(0, 510);
+        this.objectiveBacking.setPosition(0, 496);
         hud.addChild(this.objectiveBacking);
-        this.objectiveLabel = this.makeLabel('', 18, new Color('#D8F3E9'));
-        this.objectiveLabel.node.getComponent(UITransform)?.setContentSize(548, 38);
+        this.objectiveLabel = this.makeLabel('', 16, new Color('#D8F3E9'));
+        this.objectiveLabel.node.getComponent(UITransform)?.setContentSize(598, 34);
         this.objectiveBacking.addChild(this.objectiveLabel.node);
 
         const waveRouteNode = new Node('WaveRoute');
         waveRouteNode.layer = Layers.Enum.UI_2D;
-        waveRouteNode.setPosition(62, 542);
+        waveRouteNode.setPosition(260, 542);
         this.waveRouteGraphics = waveRouteNode.addComponent(Graphics);
         hud.addChild(waveRouteNode);
         this.drawWaveRoute();
@@ -2270,12 +2294,13 @@ export class GameBootstrap extends Component {
         this.routeChoiceBacking.addChild(this.routeChoiceLabel.node);
         hud.addChild(this.routeChoiceBacking);
 
-        const bottomBacking = this.makeRect(750, 274, new Color(3, 14, 18, 32));
-        bottomBacking.setPosition(0, -532);
+        const bottomBacking = this.makeRect(750, 236, new Color(3, 14, 18, 18));
+        bottomBacking.setPosition(0, -551);
         hud.addChild(bottomBacking);
         this.buildLabel = this.makeLabel('', 17, new Color('#D4E6DF'));
-        this.buildLabel.node.setPosition(0, -638);
+        this.buildLabel.node.setPosition(0, -646);
         this.buildLabel.node.getComponent(UITransform)?.setContentSize(310, 48);
+        this.buildLabel.node.active = false;
         hud.addChild(this.buildLabel.node);
 
         this.createAttackHud(hud);
@@ -2288,17 +2313,18 @@ export class GameBootstrap extends Component {
     private createAttackHud(hud: Node): void {
         const node = new Node('AttackHud');
         node.layer = Layers.Enum.UI_2D;
-        node.addComponent(UITransform).setContentSize(144, 144);
-        node.setPosition(286, -564);
+        node.addComponent(UITransform).setContentSize(166, 166);
+        node.setPosition(284, -534);
         this.attackHud = node.addComponent(Graphics);
         hud.addChild(node);
-        const sword = this.createResourceSprite('art/relics/xianxia-relics_00/spriteFrame', 68);
+        const sword = this.createResourceSprite('art/relics/xianxia-relics_00/spriteFrame', 80);
         sword.setRotationFromEuler(0, 0, -8);
         this.attackIconOpacity = sword.addComponent(UIOpacity);
+        sword.setPosition(0, 5);
         node.addChild(sword);
-        this.attackHudLabel = this.makeLabel('', 17, new Color('#FFF0BE'));
-        this.attackHudLabel.node.setPosition(0, -48);
-        this.attackHudLabel.node.getComponent(UITransform)?.setContentSize(130, 30);
+        this.attackHudLabel = this.makeLabel('', 16, new Color('#FFF0BE'));
+        this.attackHudLabel.node.setPosition(0, -63);
+        this.attackHudLabel.node.getComponent(UITransform)?.setContentSize(140, 30);
         node.addChild(this.attackHudLabel.node);
         node.on(Node.EventType.TOUCH_START, (event: EventTouch) => {
             event.propagationStopped = true;
@@ -2407,23 +2433,23 @@ export class GameBootstrap extends Component {
         const connector = new Node('SkillArc');
         connector.layer = Layers.Enum.UI_2D;
         const arc = connector.addComponent(Graphics);
-        arc.strokeColor = new Color(96, 224, 205, 90);
-        arc.lineWidth = 3;
-        arc.moveTo(286, -564);
-        arc.bezierCurveTo(255, -500, 205, -462, 176, -410);
+        arc.strokeColor = new Color(96, 224, 205, 30);
+        arc.lineWidth = 2;
+        arc.moveTo(284, -534);
+        arc.bezierCurveTo(250, -508, 224, -470, 270, -396);
         arc.stroke();
         arc.fillColor = new Color(105, 235, 214, 145);
-        arc.circle(246, -492, 5);
+        arc.circle(238, -502, 4);
         arc.fill();
-        arc.circle(205, -454, 5);
+        arc.circle(245, -456, 4);
         arc.fill();
         hud.addChild(connector);
 
         this.dashHud = this.createSkillHud(
             hud,
             'DashHud',
-            new Vec3(222, -484),
-            43,
+            new Vec3(205, -474),
+            50,
             '踏云',
             'art/relics/xianxia-relics_23/spriteFrame',
             () => this.tryDash(),
@@ -2431,31 +2457,49 @@ export class GameBootstrap extends Component {
         this.formationHud = this.createSkillHud(
             hud,
             'FormationHud',
-            new Vec3(172, -395),
-            48,
+            new Vec3(274, -390),
+            50,
             '剑阵',
             'art/relics/xianxia-relics_05/spriteFrame',
             () => this.trySwordFormation(),
         );
 
-        this.tribulationHudNode = new Node('TribulationHud');
-        this.tribulationHudNode.layer = Layers.Enum.UI_2D;
-        this.tribulationHudNode.addComponent(UITransform).setContentSize(350, 58);
-        this.tribulationHudNode.setPosition(0, -594);
-        this.tribulationHud = this.tribulationHudNode.addComponent(Graphics);
-        this.tribulationHudLabel = this.makeLabel('', 20, new Color('#E9FFF8'));
-        this.tribulationHudLabel.node.getComponent(UITransform)?.setContentSize(330, 48);
-        this.tribulationHudNode.addChild(this.tribulationHudLabel.node);
-        this.tribulationHudNode.on(Node.EventType.TOUCH_START, (event: EventTouch) => {
+        const tribulationNode = new Node('TribulationHud');
+        tribulationNode.layer = Layers.Enum.UI_2D;
+        const tribulationRadius = 50;
+        tribulationNode.addComponent(UITransform).setContentSize(tribulationRadius * 2 + 14, tribulationRadius * 2 + 14);
+        tribulationNode.setPosition(150, -540);
+        const tribulationGraphics = tribulationNode.addComponent(Graphics);
+        const tribulationIcon = this.createResourceSprite('art/relics/xianxia-relics_11/spriteFrame', 56);
+        const tribulationIconOpacity = tribulationIcon.addComponent(UIOpacity);
+        tribulationIcon.setPosition(0, 5);
+        tribulationNode.addChild(tribulationIcon);
+        const tribulationLabel = this.makeLabel('天劫', 16, new Color('#FFF0BE'));
+        tribulationLabel.node.setPosition(0, -tribulationRadius - 14);
+        tribulationLabel.node.getComponent(UITransform)?.setContentSize(106, 26);
+        tribulationNode.addChild(tribulationLabel.node);
+        tribulationNode.on(Node.EventType.TOUCH_START, (event: EventTouch) => {
             event.propagationStopped = true;
+            tribulationNode.setScale(0.95, 0.95);
             this.startTribulationHold();
         });
-        this.tribulationHudNode.on(Node.EventType.TOUCH_END, (event: EventTouch) => {
+        tribulationNode.on(Node.EventType.TOUCH_END, (event: EventTouch) => {
             event.propagationStopped = true;
+            tribulationNode.setScale(1, 1);
             this.releaseTribulationHold();
         });
-        this.tribulationHudNode.on(Node.EventType.TOUCH_CANCEL, () => this.releaseTribulationHold());
-        hud.addChild(this.tribulationHudNode);
+        tribulationNode.on(Node.EventType.TOUCH_CANCEL, () => {
+            tribulationNode.setScale(1, 1);
+            this.releaseTribulationHold();
+        });
+        hud.addChild(tribulationNode);
+        this.tribulationHud = {
+            node: tribulationNode,
+            graphics: tribulationGraphics,
+            label: tribulationLabel,
+            iconOpacity: tribulationIconOpacity,
+            radius: tribulationRadius,
+        };
     }
 
     private createSkillHud(
@@ -2472,13 +2516,13 @@ export class GameBootstrap extends Component {
         node.addComponent(UITransform).setContentSize(radius * 2 + 14, radius * 2 + 14);
         node.setPosition(position);
         const graphics = node.addComponent(Graphics);
-        const icon = this.createResourceSprite(iconResourcePath, radius * 1.08);
+        const icon = this.createResourceSprite(iconResourcePath, radius * 1.16);
         const iconOpacity = icon.addComponent(UIOpacity);
-        icon.setPosition(0, 4);
+        icon.setPosition(0, 5);
         node.addChild(icon);
         const label = this.makeLabel(labelText, 16, new Color('#FFF0BE'));
-        label.node.setPosition(0, -radius + 10);
-        label.node.getComponent(UITransform)?.setContentSize(radius * 2, 26);
+        label.node.setPosition(0, -radius - 14);
+        label.node.getComponent(UITransform)?.setContentSize(radius * 2 + 12, 26);
         node.addChild(label.node);
         node.on(Node.EventType.TOUCH_START, (event: EventTouch) => {
             event.propagationStopped = true;
@@ -2520,56 +2564,30 @@ export class GameBootstrap extends Component {
     private createJoystick(hud: Node): void {
         this.joystick = new Node('VirtualJoystick');
         this.joystick.layer = Layers.Enum.UI_2D;
-        this.joystick.setPosition(-274, -560);
+        this.joystick.setPosition(-270, -555);
         this.joystick.active = false;
         this.joystickOpacity = this.joystick.addComponent(UIOpacity);
         this.joystickOpacity.opacity = 185;
         const ring = this.joystick.addComponent(Graphics);
-        ring.fillColor = new Color(6, 24, 29, 165);
-        ring.circle(0, 0, 72);
+        ring.fillColor = new Color(6, 24, 29, 118);
+        ring.circle(0, 0, 90);
         ring.fill();
-        ring.strokeColor = new Color(167, 221, 202, 190);
-        ring.lineWidth = 3;
-        ring.circle(0, 0, 72);
+        ring.strokeColor = new Color(167, 221, 202, 130);
+        ring.lineWidth = 2.5;
+        ring.circle(0, 0, 90);
         ring.stroke();
-        ring.strokeColor = new Color(139, 201, 183, 105);
-        ring.lineWidth = 2;
-        for (let index = 0; index < 4; index += 1) {
-            const angle = index * Math.PI / 2;
-            ring.moveTo(Math.cos(angle) * 53, Math.sin(angle) * 53);
-            ring.lineTo(Math.cos(angle) * 64, Math.sin(angle) * 64);
-            ring.stroke();
-        }
 
         this.joystickKnob = new Node('Knob');
         this.joystickKnob.layer = Layers.Enum.UI_2D;
         const knob = this.joystickKnob.addComponent(Graphics);
-        knob.fillColor = new Color(89, 190, 161, 205);
-        knob.circle(0, 0, 27);
+        knob.fillColor = new Color(89, 190, 161, 178);
+        knob.circle(0, 0, 32);
         knob.fill();
-        knob.strokeColor = new Color(209, 250, 229, 195);
-        knob.lineWidth = 3;
-        knob.circle(0, 0, 27);
+        knob.strokeColor = new Color(209, 250, 229, 145);
+        knob.lineWidth = 2;
+        knob.circle(0, 0, 32);
         knob.stroke();
         this.joystick.addChild(this.joystickKnob);
-        const dashHint = new Node('DashGestureHint');
-        dashHint.layer = Layers.Enum.UI_2D;
-        dashHint.setPosition(91, 0);
-        const hint = dashHint.addComponent(Graphics);
-        hint.strokeColor = new Color(174, 237, 213, 150);
-        hint.lineWidth = 5;
-        hint.moveTo(-12, -15);
-        hint.lineTo(3, 0);
-        hint.lineTo(-12, 15);
-        hint.moveTo(7, -15);
-        hint.lineTo(22, 0);
-        hint.lineTo(7, 15);
-        hint.stroke();
-        this.joystick.addChild(dashHint);
-        const gestureLabel = this.makeLabel('滑动走位', 14, new Color(161, 203, 190, 195));
-        gestureLabel.node.setPosition(0, -91);
-        gestureLabel.node.getComponent(UITransform)?.setContentSize(150, 24);
-        this.joystick.addChild(gestureLabel.node);
         hud.addChild(this.joystick);
     }
 
@@ -3175,7 +3193,13 @@ export class GameBootstrap extends Component {
         node.layer = Layers.Enum.UI_2D;
         const radius = wave.radius;
         const unit = this.attachUnitVisual(node, ENEMY_ASSETS[wave.enemyKind], radius);
-        const hpBar = this.createEnemyHpBar(node, radius + (wave.elite ? 32 : champion ? 26 : 20));
+        const hpBar = this.createEnemyHpBar(
+            node,
+            Math.max(
+                radius + (wave.elite ? 32 : champion ? 26 : 20),
+                ENEMY_ASSETS[wave.enemyKind].displayHeight * 0.56,
+            ),
+        );
         if (this.bossArenaActive) {
             if (wave.arena === 'boss-clearing') {
                 node.setPosition(0, 392);
@@ -3386,7 +3410,7 @@ export class GameBootstrap extends Component {
     }
 
     private drawEnemyHp(enemy: EnemyState): void {
-        const width = enemy.elite ? 112 : enemy.champion ? 86 : 58;
+        const width = enemy.elite ? 118 : enemy.champion ? 92 : 72;
         const ratio = Math.max(0, enemy.hp / enemy.maxHp);
         enemy.hpBar.clear();
         enemy.hpBar.fillColor = new Color(8, 15, 20, 210);
@@ -4310,41 +4334,50 @@ export class GameBootstrap extends Component {
         this.createDeathBurst(this.player.position, 58);
         this.clearOverlay();
         this.bringOverlayToFront();
-        const shade = this.makeRect(750, 1334, new Color(2, 10, 14, 218), undefined, 0);
-        this.overlay.addChild(shade);
-        const halo = new Node('UpgradeHalo');
-        halo.layer = Layers.Enum.UI_2D;
-        halo.setPosition(0, 385);
-        const haloGraphics = halo.addComponent(Graphics);
-        haloGraphics.fillColor = new Color(86, 210, 174, 26);
-        haloGraphics.circle(0, 0, 112);
-        haloGraphics.fill();
-        haloGraphics.strokeColor = new Color(244, 211, 126, 145);
-        haloGraphics.lineWidth = 2;
-        haloGraphics.circle(0, 0, 86);
-        haloGraphics.stroke();
-        this.overlay.addChild(halo);
-        const title = this.makeLabel('破  境', 58, new Color('#FFE4A0'));
-        title.node.setPosition(0, 402);
-        this.overlay.addChild(title.node);
-        const eyebrow = this.makeLabel('三 脉 择 一', 16, new Color('#D9C994'));
-        eyebrow.node.setPosition(0, 474);
-        eyebrow.node.getComponent(UITransform)?.setContentSize(180, 30);
-        this.overlay.addChild(eyebrow.node);
-        const subtitle = this.makeLabel(`境界提升至 ${this.level} 重  ·  定下一脉道途`, 23, new Color('#BFE0D4'));
-        subtitle.node.setPosition(0, 334);
-        this.overlay.addChild(subtitle.node);
-        const choices = this.pickUpgrades(3);
+        const panel = this.makeRect(
+            500,
+            290,
+            new Color(4, 25, 30, 246),
+            new Color(218, 190, 112, 205),
+            28,
+            2.5,
+        );
+        panel.setPosition(0, -260);
+        this.overlay.addChild(panel);
+        const title = this.makeLabel('残 碑 问 剑', 34, new Color('#FFE4A0'));
+        title.node.setPosition(0, 105);
+        panel.addChild(title.node);
+        const titleRule = new Node('UpgradeTitleRule');
+        titleRule.layer = Layers.Enum.UI_2D;
+        titleRule.setPosition(0, 79);
+        const titleRuleGraphics = titleRule.addComponent(Graphics);
+        titleRuleGraphics.strokeColor = new Color(218, 190, 112, 118);
+        titleRuleGraphics.lineWidth = 1.5;
+        titleRuleGraphics.moveTo(-138, 0);
+        titleRuleGraphics.lineTo(-34, 0);
+        titleRuleGraphics.moveTo(34, 0);
+        titleRuleGraphics.lineTo(138, 0);
+        titleRuleGraphics.stroke();
+        titleRuleGraphics.fillColor = new Color(218, 190, 112, 210);
+        titleRuleGraphics.circle(0, 0, 3.5);
+        titleRuleGraphics.fill();
+        panel.addChild(titleRule);
+        const subtitle = this.makeLabel(`境界 ${this.level} 重  ·  选择一项立即生效`, 14, new Color('#B9D8CD'));
+        subtitle.node.setPosition(0, 58);
+        panel.addChild(subtitle.node);
+        const choices = this.pickUpgrades(2);
         choices.forEach((choice, index) => {
             const button = this.makeUpgradeButton(choice, () => {
                 this.applyUpgrade(choice.id);
                 this.clearOverlay();
                 this.phase = 'playing';
             });
-            button.setPosition(0, 164 - index * 172);
-            this.overlay.addChild(button);
+            button.setPosition(index === 0 ? -113 : 113, -20);
+            panel.addChild(button);
         });
-        this.overlay.addChild(this.makeUpgradePathSummary());
+        const hint = this.makeLabel('选择后消失', 14, new Color(139, 174, 164, 220));
+        hint.node.setPosition(0, -121);
+        panel.addChild(hint.node);
     }
 
     private showMapEvent(advanceAfterChoice: boolean, qa = false): void {
@@ -4356,75 +4389,50 @@ export class GameBootstrap extends Component {
         this.clearOverlay();
         this.bringOverlayToFront();
 
-        const shade = this.makeRect(750, 1334, new Color(2, 10, 14, 226), undefined, 0);
-        this.overlay.addChild(shade);
+        const localVeil = this.makeRect(630, 300, new Color(2, 10, 14, 72), undefined, 30);
+        localVeil.setPosition(0, -205);
+        this.overlay.addChild(localVeil);
         const panel = this.makeRect(
-            642,
-            1030,
-            new Color(4, 23, 28, 248),
-            new Color(accent.r, accent.g, accent.b, 200),
-            30,
-            2.5,
+            592,
+            276,
+            new Color(4, 23, 28, 226),
+            new Color(accent.r, accent.g, accent.b, 165),
+            24,
+            2,
         );
-        panel.setPosition(0, -12);
+        // 临时选择浮层停在固定操作区上方；显示与消失都不推动摇杆或技能簇。
+        panel.setPosition(0, -205);
         this.overlay.addChild(panel);
         const inner = this.makeRect(
-            618,
-            1006,
+            574,
+            258,
             new Color(5, 24, 28, 0),
-            new Color(244, 211, 126, 72),
-            25,
+            new Color(244, 211, 126, 48),
+            20,
             1,
         );
         panel.addChild(inner);
 
-        const eyebrow = this.makeLabel(`${this.currentStage.chapter}  ·  ${scenario.eyebrow}`, 16, accent);
-        eyebrow.node.setPosition(0, 435);
-        eyebrow.node.getComponent(UITransform)?.setContentSize(390, 28);
-        panel.addChild(eyebrow.node);
-        const title = this.makeLabel(scenario.title, 52, new Color('#FFF0BE'));
-        title.node.setPosition(0, 374);
+        const title = this.makeLabel(scenario.title, 30, new Color('#FFF0BE'));
+        title.node.setPosition(0, 101);
+        title.node.getComponent(UITransform)?.setContentSize(360, 42);
         panel.addChild(title.node);
-        const rule = new Node('MapEventRule');
-        rule.layer = Layers.Enum.UI_2D;
-        rule.setPosition(0, 330);
-        const ruleGraphics = rule.addComponent(Graphics);
-        ruleGraphics.strokeColor = new Color(accent.r, accent.g, accent.b, 145);
-        ruleGraphics.lineWidth = 2;
-        ruleGraphics.moveTo(-206, 0);
-        ruleGraphics.lineTo(-26, 0);
-        ruleGraphics.moveTo(26, 0);
-        ruleGraphics.lineTo(206, 0);
-        ruleGraphics.stroke();
-        ruleGraphics.fillColor = new Color('#F1D587');
-        ruleGraphics.circle(0, 0, 4);
-        ruleGraphics.fill();
-        panel.addChild(rule);
-        const story = this.makeLabel(scenario.story, 21, new Color('#C9E1D8'));
-        story.node.setPosition(0, 264);
-        story.node.getComponent(UITransform)?.setContentSize(548, 86);
-        panel.addChild(story.node);
-
-        const nextWave = this.currentStage.waves[
-            Math.min(this.currentStage.waves.length - 1, this.waveIndex + 1)
-        ];
         scenario.choices.forEach((choice, index) => {
             const card = this.makeMapEventChoice(
                 choice,
-                nextWave?.title ?? '下一境',
                 () => this.resolveMapEvent(choice),
             );
-            card.setPosition(0, 90 - index * 246);
+            card.setPosition(index === 0 ? -140 : 140, -8);
             panel.addChild(card);
         });
 
         const route = this.makeLabel(
-            `下一境「${nextWave?.title ?? '关隘'}」 ·  效果立即生效  ·  本局仅择一次`,
-            15,
+            '选择后消失  ·  效果立即生效',
+            14,
             new Color(145, 181, 170, 225),
         );
-        route.node.setPosition(0, -382);
-        route.node.getComponent(UITransform)?.setContentSize(580, 30);
+        route.node.setPosition(0, -116);
+        route.node.getComponent(UITransform)?.setContentSize(420, 26);
         panel.addChild(route.node);
     }
 
@@ -4446,7 +4454,7 @@ export class GameBootstrap extends Component {
         const veil = this.makeRect(
             this.designWidth,
             this.designHeight,
-            new Color(2, 12, 16, 112),
+            new Color(2, 12, 16, 64),
         );
         reveal.addChild(veil);
 
@@ -4532,94 +4540,43 @@ export class GameBootstrap extends Component {
         }, 0.72);
     }
 
-    private makeMapEventChoice(choice: MapEventChoice, nextWaveTitle: string, onClick: () => void): Node {
+    private makeMapEventChoice(choice: MapEventChoice, onClick: () => void): Node {
         const accent = new Color(MAP_EVENT_TONE_COLORS[choice.tone]);
         const node = this.makeRect(
-            574,
-            230,
-            new Color(5, 31, 35, 250),
-            new Color(accent.r, accent.g, accent.b, 210),
-            24,
-            2,
-        );
-        const iconBacking = this.makeRect(
-            112,
-            112,
-            new Color(2, 16, 20, 245),
-            new Color(accent.r, accent.g, accent.b, 185),
-            24,
+            266,
+            142,
+            new Color(5, 31, 35, 218),
+            new Color(accent.r, accent.g, accent.b, 168),
+            18,
             1.5,
         );
-        iconBacking.setPosition(-208, 9);
-        const icon = this.createResourceSprite(choice.iconResourcePath, 84);
+        const iconBacking = this.makeRect(
+            62,
+            62,
+            new Color(2, 16, 20, 205),
+            new Color(accent.r, accent.g, accent.b, 150),
+            16,
+            1,
+        );
+        iconBacking.setPosition(-90, 10);
+        const icon = this.createResourceSprite(choice.iconResourcePath, 46);
         iconBacking.addChild(icon);
         node.addChild(iconBacking);
 
-        const role = this.makeLabel(choice.role, 15, accent);
-        role.horizontalAlign = Label.HorizontalAlign.LEFT;
-        role.node.setPosition(-28, 70);
-        role.node.getComponent(UITransform)?.setContentSize(250, 28);
-        node.addChild(role.node);
-        const title = this.makeLabel(choice.title, 29, new Color('#FFF1C5'));
+        const title = this.makeLabel(choice.title, 22, new Color('#FFF1C5'));
         title.horizontalAlign = Label.HorizontalAlign.LEFT;
-        title.node.setPosition(-28, 35);
-        title.node.getComponent(UITransform)?.setContentSize(250, 42);
+        title.node.setPosition(42, 30);
+        title.node.getComponent(UITransform)?.setContentSize(150, 34);
         node.addChild(title.node);
-        const description = this.makeLabel(choice.description, 17, new Color(193, 220, 211, 240));
-        description.horizontalAlign = Label.HorizontalAlign.LEFT;
-        description.node.setPosition(58, -6);
-        description.node.getComponent(UITransform)?.setContentSize(350, 38);
-        node.addChild(description.node);
-
-        const outcomeBacking = this.makeRect(
-            386,
-            40,
-            new Color(accent.r, accent.g, accent.b, 22),
-            new Color(accent.r, accent.g, accent.b, 105),
-            13,
-            1,
-        );
-        outcomeBacking.setPosition(79, -54);
-        const outcome = this.makeLabel(choice.outcome, 17, accent);
-        outcome.node.getComponent(UITransform)?.setContentSize(368, 31);
-        outcomeBacking.addChild(outcome.node);
-        node.addChild(outcomeBacking);
-
-        const nextWave = this.makeRect(
-            386,
-            32,
-            new Color(2, 18, 22, 225),
-            new Color(accent.r, accent.g, accent.b, 78),
-            11,
-            1,
-        );
-        nextWave.setPosition(79, -91);
-        const nextWaveLabel = this.makeLabel(
-            [
-                `下境 · ${nextWaveTitle}`,
-                choice.geometryPreview,
-                describeNextWaveModifiers(choice.effect.nextWave),
-            ].filter(Boolean).join(' · '),
-            13,
-            new Color('#CDE5DC'),
-        );
-        nextWaveLabel.node.getComponent(UITransform)?.setContentSize(372, 25);
-        nextWave.addChild(nextWaveLabel.node);
-        node.addChild(nextWave);
-
-        const risk = this.makeRect(
-            126,
-            32,
-            new Color(choice.tone === 'ember' ? '#5B2B24' : '#173A36'),
-            new Color(accent.r, accent.g, accent.b, 170),
-            11,
-            1,
-        );
-        risk.setPosition(214, 72);
-        const riskLabel = this.makeLabel(choice.riskLabel, 13, new Color('#F7E7C0'));
-        riskLabel.node.getComponent(UITransform)?.setContentSize(118, 25);
-        risk.addChild(riskLabel.node);
-        node.addChild(risk);
+        const outcome = this.makeLabel(choice.outcome, 14, accent);
+        outcome.horizontalAlign = Label.HorizontalAlign.LEFT;
+        outcome.node.setPosition(42, -6);
+        outcome.node.getComponent(UITransform)?.setContentSize(150, 40);
+        node.addChild(outcome.node);
+        const risk = this.makeLabel(choice.riskLabel, 12, new Color(202, 224, 216, 210));
+        risk.node.setPosition(0, -50);
+        risk.node.getComponent(UITransform)?.setContentSize(238, 24);
+        node.addChild(risk.node);
 
         node.on(Node.EventType.TOUCH_START, (event: EventTouch) => {
             event.propagationStopped = true;
@@ -5622,7 +5579,7 @@ export class GameBootstrap extends Component {
         const remaining = wave ? Math.max(0, wave.count - this.spawned + alive) : 0;
         this.hpLabel.string = `气血  ${Math.ceil(this.hp)} / ${this.maxHp}`;
         this.xpLabel.string = `境界 ${this.level} 重    修为 ${this.xp} / ${this.xpNeed}`;
-        this.waveLabel.string = `${wave?.title ?? this.currentStage.stageName}\n余敌 ${remaining} · ${this.waveIndex + 1}/${this.currentStage.waves.length}`;
+        this.waveLabel.string = `第 ${this.waveIndex + 1} 波\n余敌 ${remaining}`;
         this.drawWaveRoute();
         if (this.objectiveLabel) {
             const openingObjectiveVisible = this.waveIndex === 0
@@ -5697,6 +5654,9 @@ export class GameBootstrap extends Component {
             this.routeChoiceLabel.color = choice
                 ? new Color(MAP_EVENT_TONE_COLORS[choice.tone])
                 : new Color('#CDE9DF');
+            if (choice && this.objectiveLabel && this.routeChoiceLabel.string) {
+                this.objectiveLabel.string = `${this.routeChoiceLabel.string}  ·  ${this.objectiveLabel.string}`;
+            }
         }
         this.buildLabel.string = `飞剑 ${this.swordCount}柄  ·  剑伤 ${Math.round(this.currentSwordDamage())}  ·  间隔 ${this.attackInterval.toFixed(2)}秒`;
         const cooldownRatio = this.enemies.length === 0
@@ -5724,16 +5684,16 @@ export class GameBootstrap extends Component {
         }
         this.attackIconOpacity.opacity = 245;
         this.attackHud.clear();
-        this.attackHud.fillColor = new Color(5, 22, 27, 205);
-        this.attackHud.circle(0, 0, 62);
+        this.attackHud.fillColor = new Color(4, 28, 34, 238);
+        this.attackHud.circle(0, 0, 74);
         this.attackHud.fill();
         this.attackHud.strokeColor = new Color(241, 211, 134, 225);
         this.attackHud.lineWidth = 6;
-        this.attackHud.arc(0, 0, 62, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * cooldownRatio, false);
+        this.attackHud.arc(0, 0, 74, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * cooldownRatio, false);
         this.attackHud.stroke();
-        this.attackHud.strokeColor = new Color(142, 207, 187, 85);
-        this.attackHud.lineWidth = 2;
-        this.attackHud.circle(0, 0, 52);
+        this.attackHud.strokeColor = new Color(112, 231, 211, 125);
+        this.attackHud.lineWidth = 2.5;
+        this.attackHud.circle(0, 0, 62);
         this.attackHud.stroke();
         if (this.attackGestureOrigin && swordLevel >= 3) {
             const chargeRatio = Math.min(1, gestureHold / 0.55);
@@ -5742,7 +5702,7 @@ export class GameBootstrap extends Component {
             this.attackHud.arc(
                 0,
                 0,
-                48,
+                60,
                 -Math.PI / 2,
                 -Math.PI / 2 + Math.PI * 2 * chargeRatio,
                 false,
@@ -5753,7 +5713,7 @@ export class GameBootstrap extends Component {
             this.attackHud.fillColor = index < swordLevel
                 ? new Color(135, 238, 215, 235)
                 : new Color(45, 76, 74, 190);
-            this.attackHud.circle(-18 + index * 18, 68, 5.5);
+            this.attackHud.circle(-18 + index * 18, 80, 5.5);
             this.attackHud.fill();
         }
 
@@ -5773,7 +5733,7 @@ export class GameBootstrap extends Component {
             this.skills.formationCooldown,
             formationLevel > 0 ? getFormationSpec(formationLevel).cooldown : 1,
         );
-        drawTribulationHud(this.tribulationHud, this.tribulationHudLabel, this.skills);
+        drawTribulationHud(this.tribulationHud, this.skills);
 
         const hpRatio = Math.max(0, this.hp / this.maxHp);
         this.hpBar.clear();
@@ -5800,7 +5760,7 @@ export class GameBootstrap extends Component {
         const boss = this.enemies.find((enemy) => enemy.elite && enemy.node.isValid && !enemy.dead);
         this.bossHud.active = Boolean(boss);
         this.objectiveBacking.active = !boss;
-        this.routeChoiceBacking.active = !boss;
+        this.routeChoiceBacking.active = false;
         if (boss) {
             const ratio = Math.max(0, boss.hp / boss.maxHp);
             const presentation = bossPhasePresentationFor(this.currentStage.mapId, boss.bossPhase);
@@ -6558,14 +6518,28 @@ export class GameBootstrap extends Component {
 
     private makeUpgradeButton(choice: UpgradeConfig, onClick: () => void): Node {
         const pathColor = new Color(UPGRADE_PATH_COLORS[choice.path]);
-        const node = this.makeRect(604, 148, new Color(7, 30, 35, 248), pathColor, 22, 2.5);
-        const iconBacking = this.makeRect(104, 104, new Color(3, 17, 22, 238), new Color(choice.accent), 21, 1.5);
-        iconBacking.setPosition(-232, 0);
+        const node = this.makeRect(214, 132, new Color(6, 31, 36, 242), new Color(pathColor.r, pathColor.g, pathColor.b, 218), 18, 1.8);
+        const iconBacking = new Node('UpgradeIconRing');
+        iconBacking.layer = Layers.Enum.UI_2D;
+        iconBacking.addComponent(UITransform).setContentSize(72, 72);
+        iconBacking.setPosition(-67, 0);
+        const iconRing = iconBacking.addComponent(Graphics);
+        iconRing.fillColor = new Color(2, 18, 23, 238);
+        iconRing.circle(0, 0, 34);
+        iconRing.fill();
+        iconRing.strokeColor = new Color(pathColor.r, pathColor.g, pathColor.b, 225);
+        iconRing.lineWidth = 3;
+        iconRing.circle(0, 0, 34);
+        iconRing.stroke();
+        iconRing.strokeColor = new Color(121, 221, 199, 90);
+        iconRing.lineWidth = 1.5;
+        iconRing.circle(0, 0, 28);
+        iconRing.stroke();
         node.addChild(iconBacking);
 
         const icon = new Node(`UpgradeIcon-${choice.id}`);
         icon.layer = Layers.Enum.UI_2D;
-        icon.addComponent(UITransform).setContentSize(86, 86);
+        icon.addComponent(UITransform).setContentSize(52, 52);
         const sprite = icon.addComponent(Sprite);
         sprite.sizeMode = Sprite.SizeMode.CUSTOM;
         iconBacking.addChild(icon);
@@ -6583,38 +6557,31 @@ export class GameBootstrap extends Component {
         const realm = level === 1 ? '初悟' : level === 2 ? '进阶' : '圆满';
         const activeIds: ReadonlyArray<UpgradeId> = ['sword', 'dash', 'formation', 'tribulation'];
         const category = activeIds.includes(choice.id) ? '功法' : '心法';
-        const title = this.makeLabel(choice.title, 28, new Color('#FFF5DC'));
+        const title = this.makeLabel(choice.title, 18, new Color('#FFF5DC'));
         title.horizontalAlign = Label.HorizontalAlign.LEFT;
-        title.node.setPosition(-5, 18);
-        title.node.getComponent(UITransform)?.setContentSize(285, 42);
+        title.node.setPosition(40, 15);
+        title.node.getComponent(UITransform)?.setContentSize(108, 30);
         node.addChild(title.node);
-        const role = this.makeLabel(`${category} · ${choice.role}`, 15, new Color(pathColor.r, pathColor.g, pathColor.b, 238));
+        const role = this.makeLabel(`${category} · ${choice.role}`, 10, new Color(pathColor.r, pathColor.g, pathColor.b, 238));
         role.horizontalAlign = Label.HorizontalAlign.LEFT;
-        role.node.setPosition(-5, 49);
-        role.node.getComponent(UITransform)?.setContentSize(280, 28);
+        role.node.setPosition(40, 43);
+        role.node.getComponent(UITransform)?.setContentSize(108, 20);
         node.addChild(role.node);
-        const description = this.makeLabel(choice.descriptions[level - 1], 20, new Color(203, 228, 218, 245));
+        const description = this.makeLabel(choice.descriptions[level - 1], 12, new Color(203, 228, 218, 245));
         description.horizontalAlign = Label.HorizontalAlign.LEFT;
-        description.node.setPosition(-5, -24);
-        description.node.getComponent(UITransform)?.setContentSize(320, 38);
+        description.node.setPosition(40, -17);
+        description.node.getComponent(UITransform)?.setContentSize(108, 42);
         node.addChild(description.node);
-
-        const tag = this.makeRect(108, 34, new Color(3, 17, 22, 225), pathColor, 12, 1.25);
-        tag.setPosition(234, 45);
-        const tagLabel = this.makeLabel(`${UPGRADE_PATH_LABELS[choice.path]} · ${realm}`, 15, pathColor);
-        tagLabel.node.getComponent(UITransform)?.setContentSize(102, 28);
-        tag.addChild(tagLabel.node);
-        node.addChild(tag);
 
         const tier = new Node('UpgradeTier');
         tier.layer = Layers.Enum.UI_2D;
-        tier.setPosition(215, -39);
+        tier.setPosition(46, -51);
         const tierGraphics = tier.addComponent(Graphics);
         for (let index = 0; index < choice.maxLevel; index += 1) {
             tierGraphics.fillColor = index < level
                 ? pathColor
                 : new Color(55, 82, 84, 205);
-            tierGraphics.roundRect(index * 28 - 28, -3, 21, 6, 3);
+            tierGraphics.roundRect(index * 22 - 24, -3, 17, 6, 3);
             tierGraphics.fill();
         }
         node.addChild(tier);
