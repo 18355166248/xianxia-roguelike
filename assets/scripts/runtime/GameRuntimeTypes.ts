@@ -6,6 +6,7 @@ export type Phase =
     | 'menu'
     | 'stage-entry'
     | 'playing'
+    | 'cultivation-sheet'
     | 'boss-finish'
     | 'upgrade'
     | 'map-event-prelude'

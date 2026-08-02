@@ -1,0 +1,134 @@
+{
+  "ver": "1.0.27",
+  "importer": "image",
+  "imported": true,
+  "uuid": "3e50ce6b-6644-42fe-9a54-e1337233614f",
+  "files": [
+    ".json",
+    ".png"
+  ],
+  "subMetas": {
+    "6c48a": {
+      "importer": "texture",
+      "uuid": "3e50ce6b-6644-42fe-9a54-e1337233614f@6c48a",
+      "displayName": "dao-sword-vitality-v2",
+      "id": "6c48a",
+      "name": "texture",
+      "userData": {
+        "wrapModeS": "clamp-to-edge",
+        "wrapModeT": "clamp-to-edge",
+        "imageUuidOrDatabaseUri": "3e50ce6b-6644-42fe-9a54-e1337233614f",
+        "isUuid": true,
+        "visible": false,
+        "minfilter": "linear",
+        "magfilter": "linear",
+        "mipfilter": "none",
+        "anisotropy": 0
+      },
+      "ver": "1.0.22",
+      "imported": true,
+      "files": [
+        ".json"
+      ],
+      "subMetas": {}
+    },
+    "f9941": {
+      "importer": "sprite-frame",
+      "uuid": "3e50ce6b-6644-42fe-9a54-e1337233614f@f9941",
+      "displayName": "dao-sword-vitality-v2",
+      "id": "f9941",
+      "name": "spriteFrame",
+      "userData": {
+        "trimThreshold": 1,
+        "rotated": false,
+        "offsetX": 1,
+        "offsetY": 1,
+        "trimX": 8,
+        "trimY": 6,
+        "width": 498,
+        "height": 237,
+        "rawWidth": 512,
+        "rawHeight": 251,
+        "borderTop": 0,
+        "borderBottom": 0,
+        "borderLeft": 0,
+        "borderRight": 0,
+        "packable": true,
+        "pixelsToUnit": 100,
+        "pivotX": 0.5,
+        "pivotY": 0.5,
+        "meshType": 0,
+        "vertices": {
+          "rawPosition": [
+            -249,
+            -118.5,
+            0,
+            249,
+            -118.5,
+            0,
+            -249,
+            118.5,
+            0,
+            249,
+            118.5,
+            0
+          ],
+          "indexes": [
+            0,
+            1,
+            2,
+            2,
+            1,
+            3
+          ],
+          "uv": [
+            8,
+            245,
+            506,
+            245,
+            8,
+            8,
+            506,
+            8
+          ],
+          "nuv": [
+            0.015625,
+            0.03187250996015936,
+            0.98828125,
+            0.03187250996015936,
+            0.015625,
+            0.9760956175298805,
+            0.98828125,
+            0.9760956175298805
+          ],
+          "minPos": [
+            -249,
+            -118.5,
+            0
+          ],
+          "maxPos": [
+            249,
+            118.5,
+            0
+          ]
+        },
+        "isUuid": true,
+        "imageUuidOrDatabaseUri": "3e50ce6b-6644-42fe-9a54-e1337233614f@6c48a",
+        "atlasUuid": "",
+        "trimType": "auto"
+      },
+      "ver": "1.0.12",
+      "imported": true,
+      "files": [
+        ".json"
+      ],
+      "subMetas": {}
+    }
+  },
+  "userData": {
+    "type": "sprite-frame",
+    "fixAlphaTransparencyArtifacts": false,
+    "hasAlpha": true,
+    "redirect": "3e50ce6b-6644-42fe-9a54-e1337233614f@6c48a"
+  }
+}

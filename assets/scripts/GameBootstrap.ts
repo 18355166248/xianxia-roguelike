@@ -162,6 +162,13 @@ import {
     UPGRADE_PATH_ORDER,
 } from './systems/UpgradeChoiceRuntime';
 import {
+    previewUpgradeImpact,
+    resolveRelicPulse,
+    resolveCultivationBuild,
+    type CultivationBuildSnapshot,
+    type UpgradeImpactPreview,
+} from './systems/CultivationBuildRuntime';
+import {
     buildRouteTrace,
     describeChapterBranchMemory,
     describeNextWaveModifiers,
@@ -236,9 +243,9 @@ const UPGRADE_PATH_COLORS: Readonly<Record<UpgradePath, string>> = {
 };
 
 const PLAYER_AURA_SWORD_RESOURCES: Readonly<Record<UpgradePath, string>> = {
-    edge: 'art/vfx/dao-sword-aura/dao-sword-edge/spriteFrame',
-    mystic: 'art/vfx/dao-sword-aura/dao-sword-mystic/spriteFrame',
-    vitality: 'art/vfx/dao-sword-aura/dao-sword-vitality/spriteFrame',
+    edge: 'art/vfx/dao-sword-aura/dao-sword-edge-v2/spriteFrame',
+    mystic: 'art/vfx/dao-sword-aura/dao-sword-mystic-v2/spriteFrame',
+    vitality: 'art/vfx/dao-sword-aura/dao-sword-vitality-v2/spriteFrame',
 };
 
 const MAP_EVENT_TONE_COLORS: Readonly<Record<MapEventTone, string>> = {
@@ -348,6 +355,13 @@ export class GameBootstrap extends Component {
     private buildSourceLabel!: Label;
     private buildStatsLabel!: Label;
     private buildPanel?: Node;
+    private buildRelicIcon?: Node;
+    private buildRelicPath?: UpgradePath;
+    private buildRelicTier = -1;
+    private recentUpgradePanel?: Node;
+    private recentUpgradeLabel?: Label;
+    private recentUpgradeTimer = 0;
+    private cultivationRelicVolley = 0;
     private buildPathLabels = new Map<UpgradePath, Label>();
     private hpBar!: Graphics;
     private xpBar!: Graphics;
@@ -486,6 +500,10 @@ export class GameBootstrap extends Component {
         this.updateAmbience(dt);
         this.updateEffects(dt);
         this.updateCameraFeedback(dt);
+        if (this.recentUpgradeTimer > 0) {
+            this.recentUpgradeTimer = Math.max(0, this.recentUpgradeTimer - dt);
+            if (this.recentUpgradePanel?.isValid) this.recentUpgradePanel.active = this.recentUpgradeTimer > 0;
+        }
         if (this.phase !== 'playing') return;
         if (this.chapterBranchMemoryTimer > 0) {
             this.chapterBranchMemoryTimer = Math.max(0, this.chapterBranchMemoryTimer - dt);
@@ -616,6 +634,7 @@ export class GameBootstrap extends Component {
         const paths = new Set<string>([
             ...PRELOAD_SPRITE_PATHS,
             ...UPGRADES.map((upgrade) => upgrade.iconResourcePath),
+            ...Object.values(PLAYER_AURA_SWORD_RESOURCES),
             'art/relics/xianxia-relics_19/spriteFrame',
         ]);
         for (const path of paths) {
@@ -1683,6 +1702,7 @@ export class GameBootstrap extends Component {
         this.cultivationAfterSpell = false;
         this.cultivationSplitCooldown = 0;
         this.cultivationUltimateTimer = 5.5;
+        this.cultivationRelicVolley = 0;
         this.cultivationBossRewardShown = false;
         this.cultivationUndyingUsed = false;
         this.mapEvent.begin(
@@ -1737,7 +1757,14 @@ export class GameBootstrap extends Component {
             // 固定首境分岔并暂停刷怪，便于检查 HUD 预告而不被升级页或随机触发时机打断。
             this.spawnTimer = Number.POSITIVE_INFINITY;
         }
-        if (this.hasLocalQaFlag('qaCultivation=1')) {
+        if (this.hasLocalQaFlag('qaCultivationAura=1')) {
+            // 固定在锋芒共鸣后的可玩战场，便于核对本命法宝、常驻面板和周期追锋，不弹出选择层。
+            this.skills.upgrade('seed-edge');
+            this.skills.upgrade('returning-sword');
+            this.level = 4;
+            this.refreshPlayerAura();
+            this.updateHud();
+        } else if (this.hasLocalQaFlag('qaCultivation=1')) {
             // 构筑重构视觉验收固定在“锋芒 2 → 3”的成形前一刻，方便核对投影、卡片和里程碑。
             this.level = 4;
             this.skills.upgrade('seed-edge');
@@ -2348,6 +2375,14 @@ export class GameBootstrap extends Component {
         return Math.max(0.2, this.attackInterval * lowHealthHaste);
     }
 
+    private cultivationVisualTone(): { color: Color; tier: number } {
+        const build = resolveCultivationBuild((id) => this.skills.getLevel(id));
+        return {
+            color: new Color(build.path ? UPGRADE_PATH_COLORS[build.path] : '#7DD3FC'),
+            tier: build.tier,
+        };
+    }
+
     private createHud(): void {
         const hud = new Node('HUD');
         hud.layer = Layers.Enum.UI_2D;
@@ -2446,42 +2481,70 @@ export class GameBootstrap extends Component {
         bottomBacking.setPosition(0, -551);
         hud.addChild(bottomBacking);
         this.buildPanel = this.makeRect(
-            350,
-            164,
+            360,
+            154,
             new Color(3, 18, 22, 232),
             new Color(111, 202, 177, 132),
             UI_THEME.radius.compact,
             1,
         );
         this.buildPanel.name = 'CultivationBuild';
-        this.buildPanel.setPosition(-190, -500);
+        this.buildPanel.setPosition(-185, -504);
         this.buildPanel.active = true;
+        this.buildRelicPath = undefined;
+        this.buildRelicTier = -1;
+        this.buildRelicIcon = new Node('CultivationRelicIcon');
+        this.buildRelicIcon.layer = Layers.Enum.UI_2D;
+        this.buildRelicIcon.setPosition(-137, 38);
+        this.buildPanel.addChild(this.buildRelicIcon);
         this.buildLabel = this.makeLabel('', 22, new Color('#F1E5C6'));
         this.buildLabel.horizontalAlign = Label.HorizontalAlign.LEFT;
-        this.buildLabel.node.setPosition(0, 64);
-        this.buildLabel.node.getComponent(UITransform)?.setContentSize(316, 30);
+        this.buildLabel.node.setPosition(35, 50);
+        this.buildLabel.node.getComponent(UITransform)?.setContentSize(252, 30);
         this.buildPanel.addChild(this.buildLabel.node);
-        this.buildSourceLabel = this.makeLabel('', 17, new Color('#88AFA4'));
+        this.buildSourceLabel = this.makeLabel('', 19, new Color('#9FC7BB'));
         this.buildSourceLabel.horizontalAlign = Label.HorizontalAlign.LEFT;
-        this.buildSourceLabel.node.setPosition(0, 38);
-        this.buildSourceLabel.node.getComponent(UITransform)?.setContentSize(316, 24);
+        this.buildSourceLabel.node.setPosition(35, 18);
+        this.buildSourceLabel.node.getComponent(UITransform)?.setContentSize(252, 28);
         this.buildPanel.addChild(this.buildSourceLabel.node);
         this.buildStatsLabel = this.makeLabel('', 20, new Color('#DCEDE6'));
         this.buildStatsLabel.horizontalAlign = Label.HorizontalAlign.LEFT;
         this.buildStatsLabel.verticalAlign = Label.VerticalAlign.CENTER;
-        this.buildStatsLabel.lineHeight = 25;
-        this.buildStatsLabel.node.setPosition(0, -3);
-        this.buildStatsLabel.node.getComponent(UITransform)?.setContentSize(316, 72);
+        this.buildStatsLabel.lineHeight = 24;
+        this.buildStatsLabel.node.setPosition(0, -16);
+        this.buildStatsLabel.node.getComponent(UITransform)?.setContentSize(326, 28);
         this.buildPanel.addChild(this.buildStatsLabel.node);
         this.buildPathLabels.clear();
         UPGRADE_PATH_ORDER.forEach((path, index) => {
-            const label = this.makeLabel('', 18, new Color(UPGRADE_PATH_COLORS[path]));
-            label.node.setPosition(-102 + index * 102, -67);
+            const label = this.makeLabel('', 20, new Color(UPGRADE_PATH_COLORS[path]));
+            label.node.setPosition(-102 + index * 102, -52);
             label.node.getComponent(UITransform)?.setContentSize(96, 24);
             this.buildPanel?.addChild(label.node);
             this.buildPathLabels.set(path, label);
         });
+        this.buildPanel.on(Node.EventType.TOUCH_END, (event: EventTouch) => {
+            event.propagationStopped = true;
+            if (this.phase === 'playing') this.showCultivationSheet();
+        });
         hud.addChild(this.buildPanel);
+
+        this.recentUpgradePanel = this.makeRect(
+            360,
+            52,
+            new Color(3, 18, 22, 238),
+            new Color('#D9B86C'),
+            UI_THEME.radius.compact,
+            1,
+        );
+        this.recentUpgradePanel.name = 'RecentUpgrade';
+        this.recentUpgradePanel.setPosition(-185, -360);
+        this.recentUpgradePanel.active = false;
+        this.recentUpgradeTimer = 0;
+        this.recentUpgradeLabel = this.makeLabel('', 18, new Color('#F3E7C8'));
+        this.recentUpgradeLabel.horizontalAlign = Label.HorizontalAlign.LEFT;
+        this.recentUpgradeLabel.node.getComponent(UITransform)?.setContentSize(326, 38);
+        this.recentUpgradePanel.addChild(this.recentUpgradeLabel.node);
+        hud.addChild(this.recentUpgradePanel);
 
         this.createAttackHud(hud);
         this.createAbilityHud(hud);
@@ -3379,6 +3442,7 @@ export class GameBootstrap extends Component {
     private createUpgradeResonance(id: UpgradeId, level: number): void {
         const upgrade = UPGRADES.find((choice) => choice.id === id);
         if (!upgrade) return;
+        const build = resolveCultivationBuild((choiceId) => this.skills.getLevel(choiceId));
         const pathColor = new Color(UPGRADE_PATH_COLORS[upgrade.path]);
         const node = new Node('UpgradeResonance');
         node.layer = Layers.Enum.UI_2D;
@@ -3387,8 +3451,8 @@ export class GameBootstrap extends Component {
         const g = node.addComponent(Graphics);
         g.strokeColor = new Color(pathColor.r, pathColor.g, pathColor.b, 220);
         g.lineWidth = 4;
-        for (let ring = 0; ring < Math.min(level, 3); ring += 1) {
-            g.circle(0, 0, 42 + ring * 20);
+        for (let ring = 0; ring < Math.max(1, build.tier); ring += 1) {
+            g.circle(0, 0, 44 + ring * 23);
             g.stroke();
         }
         const iconBacking = new Node('UpgradeResonanceIcon');
@@ -3404,7 +3468,13 @@ export class GameBootstrap extends Component {
         iconRing.stroke();
         iconBacking.addChild(this.createResourceSprite(upgrade.iconResourcePath, 50));
         node.addChild(iconBacking);
-        const label = this.makeLabel(`${upgrade.title} · ${level}阶`, 24, new Color('#FFF1B8'));
+        const label = this.makeLabel(
+            build.relic && build.path === upgrade.path
+                ? `${build.relic.name} · ${build.evolutionName}`
+                : `${upgrade.title} · ${level}阶`,
+            24,
+            new Color('#FFF1B8'),
+        );
         label.node.setPosition(0, 154);
         label.node.getComponent(UITransform)?.setContentSize(300, 34);
         node.addChild(label.node);
@@ -3420,7 +3490,78 @@ export class GameBootstrap extends Component {
                 opacity.opacity = Math.round(255 * (progress < 0.62 ? reveal : (1 - progress) / 0.38));
             },
         });
+        if (build.relic && build.path === upgrade.path) {
+            this.createAbilityHint(`${build.tierName} · ${upgrade.title}已生效`, pathColor);
+        }
+        this.createUpgradeDemonstration(upgrade, build);
         this.createScreenFlash(new Color(pathColor.r, pathColor.g, pathColor.b, 44 + level * 8), 0.32);
+    }
+
+    private createUpgradeDemonstration(upgrade: UpgradeConfig, build: CultivationBuildSnapshot): void {
+        const path = upgrade.path;
+        const color = new Color(UPGRADE_PATH_COLORS[path]);
+        const amount = upgrade.offerKind === 'ultimate'
+            ? 5
+            : build.tier >= 2
+                ? 3
+                : 2;
+        const displayHeight = path === 'edge' ? 62 : path === 'mystic' ? 58 : 31;
+        const travel = path === 'edge' ? 126 : path === 'mystic' ? 108 : 92;
+        for (let index = 0; index < amount; index += 1) {
+            const angle = -Math.PI / 2 + index * Math.PI * 2 / amount;
+            const sword = new Node(`UpgradeDemoSword-${path}-${index}`);
+            sword.layer = Layers.Enum.UI_2D;
+            sword.setPosition(this.player.position);
+            sword.angle = angle * 180 / Math.PI - 45;
+            const opacity = sword.addComponent(UIOpacity);
+            sword.addChild(this.createResourceSprite(PLAYER_AURA_SWORD_RESOURCES[path], displayHeight));
+            this.effectsLayer.addChild(sword);
+            this.effects.push({
+                node: sword,
+                elapsed: 0,
+                life: 0.82,
+                update: (progress) => {
+                    const reveal = Math.min(1, progress / 0.2);
+                    const eased = 1 - Math.pow(1 - progress, 3);
+                    const radius = 22 + travel * eased;
+                    sword.setPosition(
+                        this.player.position.x + Math.cos(angle) * radius,
+                        this.player.position.y + Math.sin(angle) * radius * 0.72,
+                    );
+                    const scale = 0.72 + reveal * 0.28;
+                    sword.setScale(scale, scale);
+                    const fade = Math.min(1, Math.max(0, (1 - progress) / 0.34));
+                    opacity.opacity = Math.round(235 * reveal * fade);
+                },
+            });
+        }
+        if (path === 'mystic') {
+            this.createSwordFormationEffect(this.player.position, 86 + build.tier * 8, 4 + build.tier);
+        } else if (path === 'vitality') {
+            const pulse = new Node('UpgradeVitalityPulse');
+            pulse.layer = Layers.Enum.UI_2D;
+            pulse.setPosition(this.player.position);
+            const opacity = pulse.addComponent(UIOpacity);
+            const ring = pulse.addComponent(Graphics);
+            ring.fillColor = new Color(color.r, color.g, color.b, 34);
+            ring.circle(0, 0, 70);
+            ring.fill();
+            ring.strokeColor = new Color(color.r, color.g, color.b, 220);
+            ring.lineWidth = 5;
+            ring.circle(0, 0, 70);
+            ring.stroke();
+            this.effectsLayer.addChild(pulse);
+            this.effects.push({
+                node: pulse,
+                elapsed: 0,
+                life: 0.8,
+                update: (progress) => {
+                    const scale = 0.6 + progress * 0.8;
+                    pulse.setScale(scale, scale);
+                    opacity.opacity = Math.round(220 * (1 - progress));
+                },
+            });
+        }
     }
 
     private createAbilityHint(text: string, color: Color): void {
@@ -4365,26 +4506,61 @@ export class GameBootstrap extends Component {
             const spread = (i - (this.swordCount - 1) / 2) * 0.16;
             this.fireSword(target, spread, spellMultiplier);
         }
+        this.triggerCultivationRelicVolley(target);
         this.attackTimer = this.currentAttackInterval();
+    }
+
+    private triggerCultivationRelicVolley(target: EnemyState): void {
+        const build = resolveCultivationBuild((id) => this.skills.getLevel(id));
+        const pulse = resolveRelicPulse(build);
+        if (!pulse) {
+            this.cultivationRelicVolley = 0;
+            return;
+        }
+        this.cultivationRelicVolley += 1;
+        if (this.cultivationRelicVolley % pulse.cadence !== 0) return;
+        const color = new Color(build.path ? UPGRADE_PATH_COLORS[build.path] : '#F0C879');
+        if (pulse.kind === 'sword-echo') {
+            const amount = Math.max(1, Math.round(pulse.magnitude));
+            for (let index = 0; index < amount; index += 1) {
+                this.fireSword(target, (index - (amount - 1) / 2) * 0.28, 0.58);
+            }
+            this.createScreenFlash(new Color(color.r, color.g, color.b, 24), 0.16);
+        } else if (pulse.kind === 'thunder-brand') {
+            target.thunderMarkTimer = 5;
+            this.createHitBurst(target.node.position, color, 42, true);
+            const chain = build.tier >= 3
+                ? this.findNearestEnemyFrom(target.node.position, new Set([target.node]))
+                : undefined;
+            if (chain) {
+                this.dealSkillDamage(chain, this.currentSwordDamage() * pulse.magnitude, color, 38, 'environment');
+            }
+        } else {
+            this.grantCultivationShield(pulse.magnitude);
+            this.createSwordFormationEffect(this.player.position, 74, 3 + build.tier);
+        }
+        this.createAbilityHint(pulse.label, color);
     }
 
     private fireSword(target: EnemyState, spread: number, damageScale = 1): void {
         this.actions.enter('autoAttack', 0.22);
+        const visualTone = this.cultivationVisualTone();
         const node = new Node('FlyingSword');
         node.layer = Layers.Enum.UI_2D;
         const glow = new Node('SwordGlow');
         glow.layer = Layers.Enum.UI_2D;
         const glowGraphics = glow.addComponent(Graphics);
-        glowGraphics.strokeColor = new Color(125, 211, 252, 95);
-        glowGraphics.lineWidth = 13;
-        glowGraphics.moveTo(-15, 0);
-        glowGraphics.lineTo(18, 0);
+        glowGraphics.strokeColor = new Color(visualTone.color.r, visualTone.color.g, visualTone.color.b, 92 + visualTone.tier * 25);
+        glowGraphics.lineWidth = 11 + visualTone.tier * 3;
+        glowGraphics.moveTo(-15 - visualTone.tier * 3, 0);
+        glowGraphics.lineTo(18 + visualTone.tier * 5, 0);
         glowGraphics.stroke();
         node.addChild(glow);
         if (this.swordFrame) {
             const sprite = node.addComponent(Sprite);
             sprite.spriteFrame = this.swordFrame;
-            node.setScale(0.42, 0.42);
+            const projectileScale = 0.42 + visualTone.tier * 0.035;
+            node.setScale(projectileScale, projectileScale);
         } else {
             const g = node.addComponent(Graphics);
             g.strokeColor = new Color('#BAE6FD');
@@ -4405,7 +4581,7 @@ export class GameBootstrap extends Component {
             node,
             velocity: new Vec3(Math.cos(angle) * 520, Math.sin(angle) * 520),
             damage: this.currentSwordDamage() * damageScale,
-            radius: 16,
+            radius: 16 + visualTone.tier * 2,
             life: 1.6,
             hit: new Set<Node>(),
             trailTimer: 0,
@@ -4443,8 +4619,8 @@ export class GameBootstrap extends Component {
                 this.dealSkillDamage(
                     enemy,
                     projectile.damage * swordMarkMultiplier,
-                    new Color('#BAE6FD'),
-                    enemy.elite ? 42 : enemy.champion ? 36 : 28,
+                    this.cultivationVisualTone().color,
+                    (enemy.elite ? 42 : enemy.champion ? 36 : 28) + this.cultivationVisualTone().tier * 3,
                     'sword',
                 );
                 if (this.hasCultivation('sword-mark')) enemy.swordMarkStacks = 1;
@@ -4690,6 +4866,7 @@ export class GameBootstrap extends Component {
     }
 
     private gainXp(value: number): void {
+        if (this.hasLocalQaFlag('qaCultivationAura=1')) return;
         this.xp += value;
         if (this.xp < this.xpNeed || this.phase !== 'playing') return;
         this.xp -= this.xpNeed;
@@ -4740,8 +4917,9 @@ export class GameBootstrap extends Component {
         panel.addChild(subtitle.node);
         choices.forEach((choice, index) => {
             const button = this.makeUpgradeButton(choice, () => {
+                const impact = previewUpgradeImpact(choice, (id) => this.skills.getLevel(id));
                 const nextLevel = this.applyUpgrade(choice.id);
-                this.showUpgradeCommit(choice, nextLevel);
+                this.showUpgradeCommit(choice, nextLevel, impact);
             });
             button.setPosition(0, 112 - index * 126);
             panel.addChild(button);
@@ -4782,14 +4960,18 @@ export class GameBootstrap extends Component {
         }
     }
 
-    private showUpgradeCommit(choice: UpgradeConfig, level: number): void {
+    private showUpgradeCommit(
+        choice: UpgradeConfig,
+        level: number,
+        impact: UpgradeImpactPreview,
+    ): void {
         this.clearOverlay();
         this.bringOverlayToFront();
         const pathColor = new Color(UPGRADE_PATH_COLORS[choice.path]);
         const veil = this.makeRect(this.designWidth, this.designHeight, new Color(2, 10, 14, 72));
         veil.name = 'UpgradeCommitVeil';
         this.overlay.addChild(veil);
-        const panel = this.makeThemedCard(548, 178, 'reward', pathColor);
+        const panel = this.makeThemedCard(574, 228, 'reward', pathColor);
         panel.name = 'UpgradeCommit';
         panel.setPosition(0, 160);
         const opacity = panel.addComponent(UIOpacity);
@@ -4797,7 +4979,7 @@ export class GameBootstrap extends Component {
         panel.setScale(0.94, 0.94);
         const iconBacking = new Node('UpgradeCommitIcon');
         iconBacking.layer = Layers.Enum.UI_2D;
-        iconBacking.setPosition(-202, 0);
+        iconBacking.setPosition(-214, 10);
         const ring = iconBacking.addComponent(Graphics);
         ring.fillColor = new Color(3, 18, 22, 242);
         ring.circle(0, 0, 43);
@@ -4814,19 +4996,33 @@ export class GameBootstrap extends Component {
             new Color(pathColor.r, pathColor.g, pathColor.b, 240),
         );
         eyebrow.horizontalAlign = Label.HorizontalAlign.LEFT;
-        eyebrow.node.setPosition(42, 50);
-        eyebrow.node.getComponent(UITransform)?.setContentSize(370, 26);
+        eyebrow.node.setPosition(48, 82);
+        eyebrow.node.getComponent(UITransform)?.setContentSize(380, 26);
         panel.addChild(eyebrow.node);
         const title = this.makeLabel(`${choice.title} · ${level}阶`, 30, new Color('#FFF2C8'));
         title.horizontalAlign = Label.HorizontalAlign.LEFT;
-        title.node.setPosition(42, 12);
-        title.node.getComponent(UITransform)?.setContentSize(370, 42);
+        title.node.setPosition(48, 46);
+        title.node.getComponent(UITransform)?.setContentSize(380, 42);
         panel.addChild(title.node);
         const benefit = this.makeLabel(choice.descriptions[level - 1], 19, new Color('#CDE5DC'));
         benefit.horizontalAlign = Label.HorizontalAlign.LEFT;
-        benefit.node.setPosition(42, -37);
-        benefit.node.getComponent(UITransform)?.setContentSize(370, 44);
+        benefit.node.setPosition(48, 4);
+        benefit.node.getComponent(UITransform)?.setContentSize(380, 38);
         panel.addChild(benefit.node);
+        const progression = this.makeLabel(impact.detail, 18, new Color(pathColor.r, pathColor.g, pathColor.b, 245));
+        progression.horizontalAlign = Label.HorizontalAlign.LEFT;
+        progression.node.setPosition(48, -34);
+        progression.node.getComponent(UITransform)?.setContentSize(380, 34);
+        panel.addChild(progression.node);
+        const milestone = this.makeLabel(
+            impact.milestone ? `法宝进化  ·  ${impact.milestone}` : `战斗变化  ·  ${choice.combatRead ?? '强化已生效'}`,
+            17,
+            new Color(impact.milestone ? '#F4D78B' : '#9CB8AE'),
+        );
+        milestone.horizontalAlign = Label.HorizontalAlign.LEFT;
+        milestone.node.setPosition(48, -72);
+        milestone.node.getComponent(UITransform)?.setContentSize(380, 32);
+        panel.addChild(milestone.node);
         this.overlay.addChild(panel);
         this.effects.push({
             node: panel,
@@ -4842,6 +5038,7 @@ export class GameBootstrap extends Component {
             },
         });
         this.updateHud();
+        this.showRecentUpgrade(impact);
         if (this.buildPanel?.isValid) {
             this.buildPanel.setScale(1.045, 1.045);
             this.scheduleOnce(() => {
@@ -6151,41 +6348,21 @@ export class GameBootstrap extends Component {
             }
         }
         const pathTotals = summarizeUpgradePaths((id) => this.skills.getLevel(id));
-        const totalUpgrades = UPGRADE_PATH_ORDER.reduce((sum, path) => sum + pathTotals[path], 0);
-        const dominantPath = UPGRADE_PATH_ORDER.reduce((best, path) => (
-            pathTotals[path] > pathTotals[best] ? path : best
-        ), UPGRADE_PATH_ORDER[0]);
-        const dominantTotal = pathTotals[dominantPath];
-        const nextMilestone = dominantTotal < 3
-            ? `距共鸣 ${3 - dominantTotal}重`
-            : dominantTotal < 5
-                ? `已共鸣 · 距成诀 ${5 - dominantTotal}重`
-                : '成诀已启';
+        const build = resolveCultivationBuild((id) => this.skills.getLevel(id));
         if (this.buildPanel) this.buildPanel.active = true;
-        this.buildLabel.string = totalUpgrades > 0
-            ? `主修${UPGRADE_PATH_LABELS[dominantPath]} ${dominantTotal}重 · ${nextMilestone}`
-            : '道基未显  ·  待破境';
-        this.buildLabel.color = new Color(totalUpgrades > 0 ? '#F1E5C6' : '#AFC7BE');
-        const activeCultivations = UPGRADES.filter((upgrade) => (
-            upgrade.offerKind !== 'hidden' && this.skills.getLevel(upgrade.id) > 0
-        ));
-        const seedSource = activeCultivations.find((upgrade) => upgrade.offerKind === 'seed');
-        const otherSources = activeCultivations.filter((upgrade) => upgrade.offerKind !== 'seed');
-        const latestSource = otherSources[otherSources.length - 1];
-        const visibleSources = [seedSource?.title, latestSource?.title].filter(Boolean);
-        this.buildSourceLabel.string = visibleSources.length > 0
-            ? `生效：${visibleSources.join('、')}${activeCultivations.length > visibleSources.length ? ` 等${activeCultivations.length}项` : ''}`
-            : '生效：暂无功法加成';
+        this.refreshBuildRelicIcon(build);
+        this.buildLabel.string = build.relic
+            ? `${build.relic.name} · ${build.evolutionName}`
+            : '本命法宝 · 尚未觉醒';
+        this.buildLabel.color = new Color(build.relic ? '#F1E5C6' : '#AFC7BE');
+        this.buildSourceLabel.string = build.relic
+            ? `${build.tierName} · ${build.nextText}`
+            : '破境选择道种 · 装备本命法宝';
+        this.buildSourceLabel.lineHeight = 24;
+        this.buildSourceLabel.node.getComponent(UITransform)?.setContentSize(252, 28);
         const swordDamage = this.currentSwordDamage();
-        const swordDamageBonus = Math.max(0, Math.round((swordDamage / Math.max(1, this.stageBaseSwordDamage) - 1) * 100));
         const attackInterval = this.currentAttackInterval();
-        const attackSpeedBonus = Math.max(0, Math.round((this.stageBaseAttackInterval / Math.max(0.01, attackInterval) - 1) * 100));
-        const maxHpBonus = Math.max(0, Math.round(this.maxHp - this.stageBaseMaxHp));
-        this.buildStatsLabel.string = [
-            `飞剑 ${this.swordCount}柄 · ${Math.round(swordDamage)}伤害（+${swordDamageBonus}%）`,
-            `出手 ${attackInterval.toFixed(2)}秒/轮（攻速 +${attackSpeedBonus}%）`,
-            `护体 ${Math.ceil(this.cultivationShield)}/${Math.ceil(this.cultivationShieldMax)} · 气血 ${Math.ceil(this.hp)}/${Math.ceil(this.maxHp)}（+${maxHpBonus}）`,
-        ].join('\n');
+        this.buildStatsLabel.string = `飞剑${this.swordCount} · ${Math.round(swordDamage)}伤 · ${attackInterval.toFixed(2)}秒 · 护体${Math.ceil(this.cultivationShield)}`;
         UPGRADE_PATH_ORDER.forEach((path) => {
             const label = this.buildPathLabels.get(path);
             if (!label) return;
@@ -6328,6 +6505,249 @@ export class GameBootstrap extends Component {
         }
     }
 
+    private refreshBuildRelicIcon(build: CultivationBuildSnapshot): void {
+        const host = this.buildRelicIcon;
+        if (!host?.isValid || (this.buildRelicPath === build.path && this.buildRelicTier === build.tier)) return;
+        host.children.slice().forEach((child) => child.destroy());
+        this.buildRelicPath = build.path;
+        this.buildRelicTier = build.tier;
+        if (!build.path || !build.relic) return;
+        const color = new Color(UPGRADE_PATH_COLORS[build.path]);
+        const ringNode = new Node('RelicTierRing');
+        ringNode.layer = Layers.Enum.UI_2D;
+        const ring = ringNode.addComponent(Graphics);
+        ring.fillColor = new Color(3, 18, 22, 238);
+        ring.circle(0, 0, 29);
+        ring.fill();
+        ring.strokeColor = new Color(color.r, color.g, color.b, 220);
+        ring.lineWidth = 2;
+        ring.circle(0, 0, 29);
+        ring.stroke();
+        for (let index = 0; index < 3; index += 1) {
+            const angle = -Math.PI / 2 + index * Math.PI * 2 / 3;
+            ring.fillColor = index < build.tier
+                ? new Color(color.r, color.g, color.b, 255)
+                : new Color(73, 100, 94, 180);
+            ring.circle(Math.cos(angle) * 35, Math.sin(angle) * 35, 3.5);
+            ring.fill();
+        }
+        ringNode.addChild(this.createResourceSprite(build.relic.iconResourcePath, 42));
+        host.addChild(ringNode);
+    }
+
+    private showCultivationSheet(): void {
+        if (this.phase !== 'playing') return;
+        this.phase = 'cultivation-sheet';
+        this.moveTarget = undefined;
+        this.cancelSwordGesture();
+        this.clearOverlay();
+        this.bringOverlayToFront();
+
+        const build = resolveCultivationBuild((id) => this.skills.getLevel(id));
+        const totals = summarizeUpgradePaths((id) => this.skills.getLevel(id));
+        const accent = new Color(build.path ? UPGRADE_PATH_COLORS[build.path] : '#6FCAB1');
+        const veil = this.makeRect(this.designWidth, this.designHeight, new Color(2, 9, 12, 158));
+        veil.name = 'CultivationSheetVeil';
+        this.overlay.addChild(veil);
+
+        const sheet = this.makeRect(
+            650,
+            960,
+            new Color(4, 22, 27, 250),
+            new Color(accent.r, accent.g, accent.b, 155),
+            UI_THEME.radius.panel,
+            1,
+        );
+        sheet.name = 'CultivationSheet';
+        sheet.setPosition(0, -40);
+        this.overlay.addChild(sheet);
+
+        const closeSheet = (): void => {
+            if (this.phase !== 'cultivation-sheet') return;
+            this.clearOverlay();
+            this.phase = 'playing';
+            this.updateHud();
+        };
+
+        const title = this.makeLabel('修 行 卷', 34, new Color('#F3E7C8'));
+        title.horizontalAlign = Label.HorizontalAlign.LEFT;
+        title.node.setPosition(-190, 420);
+        title.node.getComponent(UITransform)?.setContentSize(300, 44);
+        sheet.addChild(title.node);
+        const caption = this.makeLabel('战斗暂停 · 装备、功法与实时加成', 20, new Color('#9CB8AE'));
+        caption.horizontalAlign = Label.HorizontalAlign.LEFT;
+        caption.node.setPosition(-130, 382);
+        caption.node.getComponent(UITransform)?.setContentSize(420, 28);
+        sheet.addChild(caption.node);
+        const close = this.makeActionButton('收起', 'quiet', accent, closeSheet, 116, 52);
+        close.setPosition(246, 414);
+        sheet.addChild(close);
+
+        const relicCard = this.makeRect(
+            590,
+            146,
+            new Color(8, 38, 43, 232),
+            new Color(accent.r, accent.g, accent.b, 105),
+            UI_THEME.radius.compact,
+            1,
+        );
+        relicCard.setPosition(0, 292);
+        sheet.addChild(relicCard);
+        const relicIcon = new Node('CultivationSheetRelic');
+        relicIcon.layer = Layers.Enum.UI_2D;
+        relicIcon.setPosition(-238, 2);
+        const relicRing = relicIcon.addComponent(Graphics);
+        relicRing.fillColor = new Color(3, 18, 22, 242);
+        relicRing.circle(0, 0, 50);
+        relicRing.fill();
+        relicRing.strokeColor = new Color(accent.r, accent.g, accent.b, 225);
+        relicRing.lineWidth = 2;
+        relicRing.circle(0, 0, 50);
+        relicRing.stroke();
+        if (build.relic) relicIcon.addChild(this.createResourceSprite(build.relic.iconResourcePath, 72));
+        relicCard.addChild(relicIcon);
+        const relicEyebrow = this.makeLabel(build.relic?.title ?? '本命法宝 · 待觉醒', 19, new Color(accent.r, accent.g, accent.b, 245));
+        relicEyebrow.horizontalAlign = Label.HorizontalAlign.LEFT;
+        relicEyebrow.node.setPosition(54, 48);
+        relicEyebrow.node.getComponent(UITransform)?.setContentSize(410, 26);
+        relicCard.addChild(relicEyebrow.node);
+        const relicName = this.makeLabel(
+            build.relic ? `${build.relic.name} · ${build.evolutionName}` : '尚未装备本命法宝',
+            28,
+            new Color('#FFF0C8'),
+        );
+        relicName.horizontalAlign = Label.HorizontalAlign.LEFT;
+        relicName.node.setPosition(54, 12);
+        relicName.node.getComponent(UITransform)?.setContentSize(410, 38);
+        relicCard.addChild(relicName.node);
+        const relicNext = this.makeLabel(
+            build.relic ? `${build.resonanceText} · ${build.nextText}` : '首次破境选择道种后立即装备',
+            21,
+            new Color('#B7D8CB'),
+        );
+        relicNext.horizontalAlign = Label.HorizontalAlign.LEFT;
+        relicNext.node.setPosition(54, -34);
+        relicNext.node.getComponent(UITransform)?.setContentSize(410, 32);
+        relicCard.addChild(relicNext.node);
+
+        UPGRADE_PATH_ORDER.forEach((path, index) => {
+            const pathLabel = this.makeLabel(
+                `${UPGRADE_PATH_LABELS[path]} ${totals[path]}重`,
+                22,
+                new Color(totals[path] > 0 ? UPGRADE_PATH_COLORS[path] : '#58746D'),
+            );
+            pathLabel.node.setPosition(-194 + index * 194, 190);
+            pathLabel.node.getComponent(UITransform)?.setContentSize(176, 30);
+            sheet.addChild(pathLabel.node);
+        });
+
+        const coreSkills = new Set<UpgradeId>(['sword', 'dash', 'formation', 'tribulation']);
+        const equipped = UPGRADES.filter((upgrade) => {
+            const level = this.skills.getLevel(upgrade.id);
+            if (level <= 0 || upgrade.offerKind === 'seed') return false;
+            return upgrade.offerKind !== 'hidden' || coreSkills.has(upgrade.id);
+        });
+        const sectionTitle = this.makeLabel(`已装备功法与法印 · ${equipped.length}`, 23, new Color('#F1E5C6'));
+        sectionTitle.horizontalAlign = Label.HorizontalAlign.LEFT;
+        sectionTitle.node.setPosition(-126, 148);
+        sectionTitle.node.getComponent(UITransform)?.setContentSize(430, 32);
+        sheet.addChild(sectionTitle.node);
+
+        if (equipped.length === 0) {
+            const empty = this.makeLabel('尚无额外功法 · 下一次破境将提供构筑选择', 21, new Color('#8FAFA5'));
+            empty.node.setPosition(0, 78);
+            empty.node.getComponent(UITransform)?.setContentSize(560, 34);
+            sheet.addChild(empty.node);
+        }
+        equipped.slice(0, 5).forEach((upgrade, index) => {
+            const level = this.skills.getLevel(upgrade.id);
+            const tone = new Color(UPGRADE_PATH_COLORS[upgrade.path]);
+            const row = this.makeRect(
+                590,
+                70,
+                new Color(8, 33, 38, index % 2 === 0 ? 210 : 170),
+                undefined,
+                12,
+            );
+            row.setPosition(0, 100 - index * 78);
+            row.addChild(this.createResourceSprite(upgrade.iconResourcePath, 42));
+            row.children[row.children.length - 1]?.setPosition(-252, 0);
+            const rowTitle = this.makeLabel(`${upgrade.title} · ${level}阶`, 22, new Color('#F3E7C8'));
+            rowTitle.horizontalAlign = Label.HorizontalAlign.LEFT;
+            rowTitle.node.setPosition(-64, 17);
+            rowTitle.node.getComponent(UITransform)?.setContentSize(350, 28);
+            row.addChild(rowTitle.node);
+            const rowDetail = this.makeLabel(
+                upgrade.descriptions[Math.max(0, level - 1)] ?? upgrade.combatRead ?? '',
+                20,
+                new Color('#AFCBC1'),
+            );
+            rowDetail.horizontalAlign = Label.HorizontalAlign.LEFT;
+            rowDetail.node.setPosition(-64, -15);
+            rowDetail.node.getComponent(UITransform)?.setContentSize(350, 26);
+            row.addChild(rowDetail.node);
+            const route = this.makeLabel(UPGRADE_PATH_LABELS[upgrade.path], 20, tone);
+            route.node.setPosition(242, 0);
+            route.node.getComponent(UITransform)?.setContentSize(82, 28);
+            row.addChild(route.node);
+            sheet.addChild(row);
+        });
+        if (equipped.length > 5) {
+            const more = this.makeLabel(`另有 ${equipped.length - 5} 项已生效`, 19, new Color('#8FAFA5'));
+            more.horizontalAlign = Label.HorizontalAlign.RIGHT;
+            more.node.setPosition(194, -286);
+            more.node.getComponent(UITransform)?.setContentSize(190, 26);
+            sheet.addChild(more.node);
+        }
+
+        const swordDamage = this.currentSwordDamage();
+        const swordDamageBonus = Math.max(0, Math.round((swordDamage / Math.max(1, this.stageBaseSwordDamage) - 1) * 100));
+        const attackInterval = this.currentAttackInterval();
+        const attackSpeedBonus = Math.max(0, Math.round((this.stageBaseAttackInterval / Math.max(0.01, attackInterval) - 1) * 100));
+        const stats = this.makeRect(590, 90, new Color(3, 17, 22, 235), undefined, 12);
+        stats.setPosition(0, -352);
+        sheet.addChild(stats);
+        [
+            `飞剑 ${this.swordCount}柄\n${Math.round(swordDamage)}伤 · +${swordDamageBonus}%`,
+            `出手间隔\n${attackInterval.toFixed(2)}秒 · +${attackSpeedBonus}%`,
+            `护体 / 气血\n${Math.ceil(this.cultivationShield)} · ${Math.ceil(this.hp)}/${Math.ceil(this.maxHp)}`,
+        ].forEach((text, index) => {
+            const stat = this.makeLabel(text, 21, index === 0 ? new Color('#F3E7C8') : new Color('#B7D8CB'));
+            stat.lineHeight = 27;
+            stat.node.setPosition(-194 + index * 194, 0);
+            stat.node.getComponent(UITransform)?.setContentSize(180, 62);
+            stats.addChild(stat.node);
+        });
+        const footer = this.makeLabel('所有数值实时更新 · 收起后战斗继续', 20, new Color('#799E94'));
+        footer.node.setPosition(0, -425);
+        footer.node.getComponent(UITransform)?.setContentSize(560, 28);
+        sheet.addChild(footer.node);
+    }
+
+    private showRecentUpgrade(impact: UpgradeImpactPreview): void {
+        if (!this.recentUpgradePanel?.isValid || !this.recentUpgradeLabel) return;
+        const accent = impact.after.path
+            ? new Color(UPGRADE_PATH_COLORS[impact.after.path])
+            : new Color('#D9B86C');
+        const graphics = this.recentUpgradePanel.getComponent(Graphics);
+        if (graphics) {
+            graphics.clear();
+            graphics.fillColor = new Color(3, 18, 22, 238);
+            graphics.roundRect(-180, -26, 360, 52, UI_THEME.radius.compact);
+            graphics.fill();
+            graphics.strokeColor = new Color(accent.r, accent.g, accent.b, 205);
+            graphics.lineWidth = 1;
+            graphics.roundRect(-180, -26, 360, 52, UI_THEME.radius.compact);
+            graphics.stroke();
+        }
+        this.recentUpgradeLabel.string = impact.milestone
+            ? `${impact.milestone} · ${impact.headline}`
+            : `${impact.headline} · 已生效`;
+        this.recentUpgradeLabel.color = new Color(accent.r, accent.g, accent.b, 255);
+        this.recentUpgradePanel.active = true;
+        this.recentUpgradeTimer = 6;
+    }
+
     private drawWaveRoute(): void {
         if (!this.waveRouteGraphics) return;
         const graphics = this.waveRouteGraphics;
@@ -6445,20 +6865,12 @@ export class GameBootstrap extends Component {
         const node = new Node(`DaoFoundationSword-${path}`);
         node.layer = Layers.Enum.UI_2D;
         const opacity = node.addComponent(UIOpacity);
-        const displayHeight = path === 'edge' ? 82 : path === 'mystic' ? 76 : 66;
+        // 三张素材的长轴方向不同，按各自源图比例校准到约 86–100px 的实机剑气长度。
+        const displayHeight = path === 'edge' ? 86 : path === 'mystic' ? 80 : 42;
         node.addChild(this.createResourceSprite(PLAYER_AURA_SWORD_RESOURCES[path], displayHeight));
 
-        const ghosts = [0.14, 0.27].map((phaseOffset, index) => {
-            const ghost = new Node(`DaoFoundationSwordTrail-${path}-${index}`);
-            ghost.layer = Layers.Enum.UI_2D;
-            const ghostOpacity = ghost.addComponent(UIOpacity);
-            ghostOpacity.opacity = index === 0 ? 46 : 20;
-            ghost.addChild(this.createResourceSprite(
-                PLAYER_AURA_SWORD_RESOURCES[path],
-                displayHeight * (index === 0 ? 0.94 : 0.86),
-            ));
-            return { node: ghost, opacity: ghostOpacity, phaseOffset };
-        });
+        // 新版素材已经自带附着式剑气拖尾；不再复制整柄剑做残影，避免主修路线看成三把同色武器。
+        const ghosts: PlayerAuraSwordVisual['ghosts'] = [];
         return { path, phase, node, opacity, ghosts, active };
     }
 
@@ -6467,8 +6879,10 @@ export class GameBootstrap extends Component {
         const front = this.playerAuraFrontNode;
         if (!back || !front || this.playerAuraSwords.length === 0) return;
         const motion = this.prefersReducedMotion ? 0 : this.elapsed * 0.58;
-        const radiusX = 52;
-        const radiusY = 36;
+        const build = resolveCultivationBuild((id) => this.skills.getLevel(id));
+        // 剑身可以小，但轨道不能贴进角色轮廓，否则会重新读成手持武器而不是护体剑气。
+        const radiusX = 66 + build.tier * 3;
+        const radiusY = 48 + build.tier * 2;
 
         const place = (node: Node, angle: number, scale: number, target: Node): void => {
             if (node.parent !== target) target.addChild(node);
@@ -6484,15 +6898,16 @@ export class GameBootstrap extends Component {
             const angle = motion + visual.phase;
             const depth = (1 - Math.sin(angle)) / 2;
             const target = Math.sin(angle) < -0.06 ? front : back;
-            const scale = (0.86 + depth * 0.24) * (visual.active ? 1 : 0.92);
-            visual.opacity.opacity = Math.round((visual.active ? 182 : 118) + depth * (visual.active ? 64 : 42));
+            const scale = (0.9 + depth * 0.18) * (visual.active ? 1 + build.tier * 0.03 : 0.86);
+            // 素材自身已经包含半透明剑气；潜伏路线仍需保留约六成亮度，避免二次透明后完全消失。
+            visual.opacity.opacity = Math.min(255, Math.round((visual.active ? 210 : 166) + depth * (visual.active ? 40 : 24)));
             place(visual.node, angle, scale, target);
             visual.ghosts.forEach((ghost, index) => {
                 const ghostAngle = angle - ghost.phaseOffset;
                 const ghostDepth = (1 - Math.sin(ghostAngle)) / 2;
                 const ghostTarget = Math.sin(ghostAngle) < -0.06 ? front : back;
                 ghost.opacity.opacity = Math.round(
-                    (visual.active ? 26 : 13) * (index === 0 ? 1 : 0.52) * (0.6 + ghostDepth * 0.4),
+                    (visual.active ? 24 + build.tier * 6 : 0) * (index === 0 ? 1 : 0.42) * (0.6 + ghostDepth * 0.4),
                 );
                 place(ghost.node, ghostAngle, scale * (index === 0 ? 0.94 : 0.86), ghostTarget);
             });
@@ -6602,18 +7017,29 @@ export class GameBootstrap extends Component {
     }
 
     private createSwordCast(position: Readonly<Vec3>, angle: number): void {
+        const visualTone = this.cultivationVisualTone();
         const node = new Node('SwordCast');
         node.layer = Layers.Enum.UI_2D;
         node.setPosition(position);
         node.angle = angle * 180 / Math.PI;
         const opacity = node.addComponent(UIOpacity);
         const g = node.addComponent(Graphics);
-        g.strokeColor = new Color(186, 230, 253, 205);
-        g.lineWidth = 5;
-        g.moveTo(8, -20);
-        g.lineTo(52, 0);
-        g.lineTo(8, 20);
+        g.strokeColor = new Color(visualTone.color.r, visualTone.color.g, visualTone.color.b, 205 + visualTone.tier * 12);
+        g.lineWidth = 4 + visualTone.tier;
+        const spread = 18 + visualTone.tier * 4;
+        const reach = 48 + visualTone.tier * 8;
+        g.moveTo(8, -spread);
+        g.lineTo(reach, 0);
+        g.lineTo(8, spread);
         g.stroke();
+        if (visualTone.tier >= 2) {
+            g.strokeColor = new Color(243, 231, 200, 145);
+            g.lineWidth = 2;
+            g.moveTo(16, -spread * 0.55);
+            g.lineTo(reach + 14, 0);
+            g.lineTo(16, spread * 0.55);
+            g.stroke();
+        }
         this.effectsLayer.addChild(node);
         this.effects.push({
             node,
@@ -6627,15 +7053,28 @@ export class GameBootstrap extends Component {
     }
 
     private createSwordTrail(from: Readonly<Vec3>, to: Readonly<Vec3>): void {
+        const visualTone = this.cultivationVisualTone();
         const node = new Node('SwordTrail');
         node.layer = Layers.Enum.UI_2D;
         const opacity = node.addComponent(UIOpacity);
         const g = node.addComponent(Graphics);
-        g.strokeColor = new Color(125, 211, 252, 155);
-        g.lineWidth = 5;
+        g.strokeColor = new Color(visualTone.color.r, visualTone.color.g, visualTone.color.b, 135 + visualTone.tier * 25);
+        g.lineWidth = 4 + visualTone.tier;
         g.moveTo(from.x, from.y);
         g.lineTo(to.x, to.y);
         g.stroke();
+        if (visualTone.tier >= 3) {
+            const dx = to.x - from.x;
+            const dy = to.y - from.y;
+            const length = Math.max(1, Math.sqrt(dx * dx + dy * dy));
+            const ox = -dy / length * 5;
+            const oy = dx / length * 5;
+            g.strokeColor = new Color(243, 231, 200, 92);
+            g.lineWidth = 2;
+            g.moveTo(from.x + ox, from.y + oy);
+            g.lineTo(to.x + ox, to.y + oy);
+            g.stroke();
+        }
         this.effectsLayer.addChild(node);
         this.effects.push({
             node,
@@ -7068,6 +7507,12 @@ export class GameBootstrap extends Component {
         this.playerAuraFrontNode = undefined;
         this.playerAuraSwords = [];
         this.buildPanel = undefined;
+        this.buildRelicIcon = undefined;
+        this.buildRelicPath = undefined;
+        this.buildRelicTier = -1;
+        this.recentUpgradePanel = undefined;
+        this.recentUpgradeLabel = undefined;
+        this.recentUpgradeTimer = 0;
         this.buildPathLabels.clear();
         this.battleLayer.children.slice().forEach((child) => child.destroy());
         this.effectsLayer.children.slice().forEach((child) => child.destroy());
@@ -7176,6 +7621,7 @@ export class GameBootstrap extends Component {
     private makeUpgradeButton(choice: UpgradeConfig, onClick: () => void): Node {
         const pathColor = new Color(UPGRADE_PATH_COLORS[choice.path]);
         const progress = choiceBuildProgress(choice, (id) => this.skills.getLevel(id));
+        const impact = previewUpgradeImpact(choice, (id) => this.skills.getLevel(id));
         const isFormation = choice.offerKind === 'synergy' || choice.offerKind === 'ultimate';
         const node = this.makeThemedCard(596, 112, isFormation ? 'reward' : 'choice', pathColor);
         const iconBacking = new Node('UpgradeIconRing');
@@ -7218,21 +7664,24 @@ export class GameBootstrap extends Component {
         role.node.setPosition(-55, 39);
         role.node.getComponent(UITransform)?.setContentSize(290, 24);
         node.addChild(role.node);
-        const description = this.makeLabel(choice.descriptions[0] ?? choice.combatRead ?? '', 17, new Color(203, 228, 218, 245));
+        const nextLevel = Math.min(choice.maxLevel, this.skills.getLevel(choice.id) + 1);
+        const description = this.makeLabel(choice.descriptions[nextLevel - 1] ?? choice.combatRead ?? '', 17, new Color(203, 228, 218, 245));
         description.horizontalAlign = Label.HorizontalAlign.LEFT;
         description.node.setPosition(-35, -27);
         description.node.getComponent(UITransform)?.setContentSize(330, 40);
         node.addChild(description.node);
-        const pathLine = progress.next > progress.current
-            ? `${UPGRADE_PATH_LABELS[choice.path]} ${progress.current} → ${progress.next}`
-            : choice.combatRead ?? UPGRADE_PATH_DESCRIPTIONS[choice.path];
+        const pathLine = impact.after.relic && choice.offerKind === 'seed'
+            ? `装备 ${impact.after.relic.name}`
+            : progress.next > progress.current
+                ? `${UPGRADE_PATH_LABELS[choice.path]} ${progress.current} → ${progress.next}`
+                : choice.combatRead ?? UPGRADE_PATH_DESCRIPTIONS[choice.path];
         const progressLabel = this.makeLabel(pathLine, 16, new Color(pathColor.r, pathColor.g, pathColor.b, 230));
         progressLabel.horizontalAlign = Label.HorizontalAlign.RIGHT;
         progressLabel.node.setPosition(214, 18);
         progressLabel.node.getComponent(UITransform)?.setContentSize(146, 26);
         node.addChild(progressLabel.node);
         const milestone = this.makeLabel(
-            progress.milestone ?? choice.combatRead ?? '',
+            impact.milestone ?? progress.milestone ?? choice.combatRead ?? '',
             14,
             new Color(isFormation ? '#F4D78B' : '#8FAEA5'),
         );
