@@ -45,6 +45,8 @@ export interface EnemyState {
     encounterStaggerTimer: number;
     encounterCollisionCooldown: number;
     animationFrameIndex: number;
+    swordMarkStacks?: number;
+    thunderMarkTimer?: number;
     dead: boolean;
 }
 
@@ -56,6 +58,8 @@ export interface ProjectileState {
     life: number;
     hit: Set<Node>;
     trailTimer: number;
+    piercesRemaining?: number;
+    canReturn?: boolean;
 }
 
 export interface BossPulseState {

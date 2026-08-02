@@ -143,4 +143,9 @@ export class SkillRuntime {
         if (this.getLevel('tribulation') <= 0) return;
         this.tribulationCharge = Math.min(1, this.tribulationCharge + amount);
     }
+
+    public reduceCooldowns(seconds: number): void {
+        this.dashCooldown = Math.max(0, this.dashCooldown - seconds);
+        this.formationCooldown = Math.max(0, this.formationCooldown - seconds);
+    }
 }

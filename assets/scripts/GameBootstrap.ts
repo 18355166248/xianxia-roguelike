@@ -152,7 +152,10 @@ import {
     type FrostRouteGeometry,
 } from './systems/FrostRouteRuntime';
 import {
+    choiceBuildProgress,
+    cultivationSeedPath,
     pickUpgradeChoices,
+    pickBossCultivationChoices,
     summarizeUpgradePaths,
     UPGRADE_PATH_DESCRIPTIONS,
     UPGRADE_PATH_LABELS,
@@ -232,6 +235,12 @@ const UPGRADE_PATH_COLORS: Readonly<Record<UpgradePath, string>> = {
     vitality: '#82D7AC',
 };
 
+const PLAYER_AURA_SWORD_RESOURCES: Readonly<Record<UpgradePath, string>> = {
+    edge: 'art/vfx/dao-sword-aura/dao-sword-edge/spriteFrame',
+    mystic: 'art/vfx/dao-sword-aura/dao-sword-mystic/spriteFrame',
+    vitality: 'art/vfx/dao-sword-aura/dao-sword-vitality/spriteFrame',
+};
+
 const MAP_EVENT_TONE_COLORS: Readonly<Record<MapEventTone, string>> = {
     gold: '#F0C879',
     jade: '#82D7AC',
@@ -245,6 +254,15 @@ interface SpiritVeinVisual {
     node: Node;
     ring: Graphics;
     label: Label;
+}
+
+interface PlayerAuraSwordVisual {
+    readonly path: UpgradePath;
+    readonly phase: number;
+    readonly node: Node;
+    readonly opacity: UIOpacity;
+    readonly ghosts: ReadonlyArray<{ node: Node; opacity: UIOpacity; phaseOffset: number }>;
+    readonly active: boolean;
 }
 
 interface MapObstacleVisual {
@@ -302,6 +320,9 @@ export class GameBootstrap extends Component {
     private playerSprite?: Sprite;
     private playerOpacity!: UIOpacity;
     private playerBaseScale = 1;
+    private playerAuraNode?: Node;
+    private playerAuraFrontNode?: Node;
+    private playerAuraSwords: PlayerAuraSwordVisual[] = [];
     private playerAnimationFrameIndex = -1;
     private playerAnimationFrames: SpriteFrame[] = [];
     private bossAnimationFrames: SpriteFrame[] = [];
@@ -324,6 +345,10 @@ export class GameBootstrap extends Component {
     private chapterBranchMemoryTimer = 0;
     private waveRouteGraphics!: Graphics;
     private buildLabel!: Label;
+    private buildSourceLabel!: Label;
+    private buildStatsLabel!: Label;
+    private buildPanel?: Node;
+    private buildPathLabels = new Map<UpgradePath, Label>();
     private hpBar!: Graphics;
     private xpBar!: Graphics;
     private bossHud!: Node;
@@ -363,14 +388,17 @@ export class GameBootstrap extends Component {
 
     private hp = 100;
     private maxHp = 100;
+    private stageBaseMaxHp = 100;
     private moveSpeed = 235;
     private swordDamage = 18;
+    private stageBaseSwordDamage = 18;
     private swordCount = 1;
     private attackInterval = 0.72;
+    private stageBaseAttackInterval = 0.72;
     private attackTimer = 0;
     private level = 1;
     private xp = 0;
-    private xpNeed = 50;
+    private xpNeed = 42;
     private waveIndex = 0;
     private spawned = 0;
     private spawnTimer = 0;
@@ -382,6 +410,15 @@ export class GameBootstrap extends Component {
     private playerInvulnerableTimer = 0;
     private playerMoveAmount = 0;
     private playerFacing = 1;
+    private cultivationRerolls = 1;
+    private cultivationShield = 0;
+    private cultivationShieldMax = 0;
+    private cultivationAfterSpell = false;
+    private cultivationSplitCooldown = 0;
+    private cultivationUltimateTimer = 0;
+    private cultivationBossRewardShown = false;
+    private cultivationUndyingUsed = false;
+    private cultivationResumeAfterUpgrade?: () => void;
     private lastMoveDirection = new Vec2(0, 1);
     // 功法等级、冷却和蓄力统一由规则对象维护，场景类只负责节点、命中与表现编排。
     private readonly skills = new SkillRuntime();
@@ -459,6 +496,7 @@ export class GameBootstrap extends Component {
         this.updateSpiritVein(dt);
         this.updateOpeningObjective(dt);
         this.updateAbilities(dt);
+        this.updateCultivation(dt);
         this.updateSpawning(dt);
         this.updateEnemies(dt);
         this.updateBossPulses(dt);
@@ -855,6 +893,10 @@ export class GameBootstrap extends Component {
             this.frostVelocity.set(0, 0);
             this.clearMoveTarget();
             return;
+        }
+        if (this.hasCultivation('cloud-step')) {
+            this.playerInvulnerableTimer = Math.max(this.playerInvulnerableTimer, 0.28);
+            this.createAbilityHint('踏云无痕', new Color('#B7D8CB'));
         }
         this.moveTarget = new Vec2(constrained.x, constrained.y);
         this.drawMoveTargetMarker();
@@ -1605,17 +1647,20 @@ export class GameBootstrap extends Component {
         const metaBonuses = this.stageProgress.rewardBonuses();
         // 首破道印只在下一局初始化时应用，避免胜利结算瞬间修改本局战报中的气血与伤害。
         this.maxHp = 100 + metaBonuses.maxHp;
+        this.stageBaseMaxHp = this.maxHp;
         this.hp = this.maxHp;
         this.moveSpeed = 235 + metaBonuses.moveSpeed;
         this.swordDamage = 18 + metaBonuses.swordDamage;
+        this.stageBaseSwordDamage = this.swordDamage;
         this.swordCount = 1;
         this.attackInterval = 0.72;
+        this.stageBaseAttackInterval = this.attackInterval;
         // QA 的第二波直达入口也必须保留真实战斗行为；Infinity 会让
         // updateAttacks() 永远提前返回，表现为敌人贴身后仍不自动御剑。
         this.attackTimer = 0;
         this.level = 1;
         this.xp = 0;
-        this.xpNeed = 50;
+        this.xpNeed = 42;
         this.waveIndex = this.shouldStartBossPreview()
             ? this.currentStage.waves.length - 1
             : this.shouldStartElitePreview()
@@ -1632,6 +1677,14 @@ export class GameBootstrap extends Component {
             : 0;
         this.lastMoveDirection.set(0, 1);
         this.skills.reset();
+        this.cultivationRerolls = 1;
+        this.cultivationShield = 0;
+        this.cultivationShieldMax = 0;
+        this.cultivationAfterSpell = false;
+        this.cultivationSplitCooldown = 0;
+        this.cultivationUltimateTimer = 5.5;
+        this.cultivationBossRewardShown = false;
+        this.cultivationUndyingUsed = false;
         this.mapEvent.begin(
             this.currentStage.mapId,
             this.hasLocalQaFlag('qaRouteHud=1') ? () => 0 : Math.random,
@@ -1684,7 +1737,12 @@ export class GameBootstrap extends Component {
             // 固定首境分岔并暂停刷怪，便于检查 HUD 预告而不被升级页或随机触发时机打断。
             this.spawnTimer = Number.POSITIVE_INFINITY;
         }
-        if (this.hasLocalQaFlag('qaUpgrade=1')) {
+        if (this.hasLocalQaFlag('qaCultivation=1')) {
+            // 构筑重构视觉验收固定在“锋芒 2 → 3”的成形前一刻，方便核对投影、卡片和里程碑。
+            this.level = 4;
+            this.skills.upgrade('seed-edge');
+            this.showUpgrade();
+        } else if (this.hasLocalQaFlag('qaUpgrade=1')) {
             // 视觉回归需要稳定进入同一破境状态；仅本地地址识别，线上流程与数值不受影响。
             this.level = 2;
             this.showUpgrade();
@@ -2278,7 +2336,16 @@ export class GameBootstrap extends Component {
     }
 
     private currentSwordDamage(): number {
-        return this.swordDamage * this.spiritVein.damageMultiplier();
+        const seedMultiplier = this.hasCultivation('seed-edge') ? 1.15 : 1;
+        return this.swordDamage * seedMultiplier * this.spiritVein.damageMultiplier();
+    }
+
+    private currentAttackInterval(): number {
+        const lowHealthHaste = this.hasCultivation('wither-cycle')
+            && this.hp / Math.max(this.maxHp, 1) < 0.45
+            ? 0.78
+            : 1;
+        return Math.max(0.2, this.attackInterval * lowHealthHaste);
     }
 
     private createHud(): void {
@@ -2378,11 +2445,43 @@ export class GameBootstrap extends Component {
         const bottomBacking = this.makeRect(750, 236, new Color(3, 14, 18, 12));
         bottomBacking.setPosition(0, -551);
         hud.addChild(bottomBacking);
-        this.buildLabel = this.makeLabel('', 17, new Color('#D4E6DF'));
-        this.buildLabel.node.setPosition(0, -646);
-        this.buildLabel.node.getComponent(UITransform)?.setContentSize(310, 48);
-        this.buildLabel.node.active = false;
-        hud.addChild(this.buildLabel.node);
+        this.buildPanel = this.makeRect(
+            350,
+            164,
+            new Color(3, 18, 22, 232),
+            new Color(111, 202, 177, 132),
+            UI_THEME.radius.compact,
+            1,
+        );
+        this.buildPanel.name = 'CultivationBuild';
+        this.buildPanel.setPosition(-190, -500);
+        this.buildPanel.active = true;
+        this.buildLabel = this.makeLabel('', 22, new Color('#F1E5C6'));
+        this.buildLabel.horizontalAlign = Label.HorizontalAlign.LEFT;
+        this.buildLabel.node.setPosition(0, 64);
+        this.buildLabel.node.getComponent(UITransform)?.setContentSize(316, 30);
+        this.buildPanel.addChild(this.buildLabel.node);
+        this.buildSourceLabel = this.makeLabel('', 17, new Color('#88AFA4'));
+        this.buildSourceLabel.horizontalAlign = Label.HorizontalAlign.LEFT;
+        this.buildSourceLabel.node.setPosition(0, 38);
+        this.buildSourceLabel.node.getComponent(UITransform)?.setContentSize(316, 24);
+        this.buildPanel.addChild(this.buildSourceLabel.node);
+        this.buildStatsLabel = this.makeLabel('', 20, new Color('#DCEDE6'));
+        this.buildStatsLabel.horizontalAlign = Label.HorizontalAlign.LEFT;
+        this.buildStatsLabel.verticalAlign = Label.VerticalAlign.CENTER;
+        this.buildStatsLabel.lineHeight = 25;
+        this.buildStatsLabel.node.setPosition(0, -3);
+        this.buildStatsLabel.node.getComponent(UITransform)?.setContentSize(316, 72);
+        this.buildPanel.addChild(this.buildStatsLabel.node);
+        this.buildPathLabels.clear();
+        UPGRADE_PATH_ORDER.forEach((path, index) => {
+            const label = this.makeLabel('', 18, new Color(UPGRADE_PATH_COLORS[path]));
+            label.node.setPosition(-102 + index * 102, -67);
+            label.node.getComponent(UITransform)?.setContentSize(96, 24);
+            this.buildPanel?.addChild(label.node);
+            this.buildPathLabels.set(path, label);
+        });
+        hud.addChild(this.buildPanel);
 
         this.createAttackHud(hud);
         this.createAbilityHud(hud);
@@ -2744,7 +2843,7 @@ export class GameBootstrap extends Component {
                 ? new Color(255, 150, 142, 255)
                 : new Color(255, 255, 255, this.playerInvulnerableTimer > 0 && Math.floor(this.elapsed * 20) % 2 === 0 ? 155 : 255);
         }
-        this.player.getChildByName('PlayerAura')?.setRotationFromEuler(0, 0, this.elapsed * 22);
+        this.updatePlayerAuraVisual();
     }
 
     private updateFrostTide(dt: number): void {
@@ -2835,6 +2934,63 @@ export class GameBootstrap extends Component {
         if (this.skills.tick(dt)) this.castTribulation();
     }
 
+    private hasCultivation(id: UpgradeId): boolean {
+        return this.skills.getLevel(id) > 0;
+    }
+
+    private updateCultivation(dt: number): void {
+        this.cultivationSplitCooldown = Math.max(0, this.cultivationSplitCooldown - dt);
+        for (const enemy of this.enemies) {
+            if ((enemy.thunderMarkTimer ?? 0) > 0) enemy.thunderMarkTimer = Math.max(0, (enemy.thunderMarkTimer ?? 0) - dt);
+        }
+        if (this.hasCultivation('wither-cycle') && this.hp / Math.max(this.maxHp, 1) > 0.8) {
+            this.healCultivation(dt * 0.9);
+        }
+        if (!this.hasCultivation('myriad-swords')) return;
+        this.cultivationUltimateTimer -= dt;
+        if (this.cultivationUltimateTimer > 0 || this.enemies.length === 0) return;
+        const target = this.findNearestEnemy();
+        if (!target) return;
+        this.cultivationUltimateTimer = 7.2;
+        for (let index = 0; index < 5; index += 1) {
+            this.fireSword(target, (index - 2) * 0.12, 0.78);
+        }
+        this.attackTimer = Math.max(this.attackTimer, this.attackInterval * 1.35);
+        this.createAbilityHint('万剑归宗', new Color('#F6D88B'));
+        this.createScreenFlash(new Color(240, 200, 121, 34), 0.22);
+    }
+
+    private healCultivation(amount: number): void {
+        if (amount <= 0) return;
+        const missing = Math.max(0, this.maxHp - this.hp);
+        const restored = Math.min(missing, amount);
+        this.hp += restored;
+        const overflow = amount - restored;
+        if (overflow > 0 && (this.hasCultivation('overflow-shield') || this.hasCultivation('heavenly-cycle'))) {
+            this.grantCultivationShield(overflow);
+        }
+    }
+
+    private grantCultivationShield(amount: number): void {
+        if (amount <= 0) return;
+        this.cultivationShieldMax = Math.max(this.cultivationShieldMax, Math.round(this.maxHp * 0.35));
+        this.cultivationShield = Math.min(this.cultivationShieldMax, this.cultivationShield + amount);
+    }
+
+    private triggerCultivationShieldBurst(): void {
+        if (!this.hasCultivation('shield-burst') && !this.hasCultivation('blood-sword-return')) return;
+        const radius = this.hasCultivation('blood-sword-return') ? 172 : 138;
+        const damage = this.currentSwordDamage() * (this.hasCultivation('blood-sword-return') ? 1.15 : 0.8);
+        this.createSwordFormationEffect(this.player.position, radius, 6);
+        for (const enemy of this.enemies) {
+            if (!enemy.node.isValid || enemy.dead) continue;
+            if (Vec3.distance(enemy.node.position, this.player.position) <= radius + enemy.radius) {
+                this.dealSkillDamage(enemy, damage, new Color('#8DE0B7'), 38, 'environment');
+            }
+        }
+        this.createAbilityHint('罡气反震', new Color('#9BE3BE'));
+    }
+
     private tryDash(): void {
         const level = this.skills.getLevel('dash');
         if (this.phase !== 'playing') return;
@@ -2858,6 +3014,7 @@ export class GameBootstrap extends Component {
         this.playerFacing = Math.abs(direction.x) > 0.08 ? (direction.x >= 0 ? 1 : -1) : this.playerFacing;
         this.playerInvulnerableTimer = Math.max(this.playerInvulnerableTimer, 0.18 + level * 0.08);
         this.skills.markDashUsed(level);
+        this.onCultivationSpellCast();
         this.actions.enter('dash', 0.32);
         this.createDashEffect(from, to, level);
 
@@ -2887,6 +3044,7 @@ export class GameBootstrap extends Component {
         const { radius, swordAmount } = spec;
         const damage = this.currentSwordDamage() * spec.damageMultiplier;
         this.skills.markFormationUsed(level);
+        this.onCultivationSpellCast();
         this.actions.enter('formation', 0.58);
         this.playerInvulnerableTimer = Math.max(this.playerInvulnerableTimer, 0.16);
         this.createSwordFormationEffect(this.player.position, radius, swordAmount);
@@ -2897,6 +3055,18 @@ export class GameBootstrap extends Component {
             }
         }
         this.damageMapObstaclesInRadius(this.player.position, radius, damage);
+        if (this.hasCultivation('ninefold-tribulation')) {
+            const target = this.findNearestEnemy();
+            const strikePosition = target?.node.position ?? this.player.position;
+            this.createTribulationStrike(strikePosition, 92, 0);
+            for (const enemy of this.enemies) {
+                if (!enemy.node.isValid || enemy.dead) continue;
+                if (Vec3.distance(enemy.node.position, strikePosition) <= 92 + enemy.radius) {
+                    this.dealSkillDamage(enemy, damage * 0.9, new Color('#D8C4FF'), 46, 'skill');
+                }
+            }
+            this.skills.formationCooldown += 1.2;
+        }
         this.cameraShakeTimer = 0.18;
         this.cameraShakeStrength = Math.max(this.cameraShakeStrength, 6 + level);
     }
@@ -2948,6 +3118,7 @@ export class GameBootstrap extends Component {
             this.damageMapObstaclesInRadius(position, strikeRadius, damage);
         }
         this.skills.markTribulationCast();
+        this.onCultivationSpellCast();
         this.actions.enter('tribulation', 0.8);
         this.playerInvulnerableTimer = Math.max(this.playerInvulnerableTimer, 0.45);
         this.createScreenFlash(new Color(154, 230, 255, 46), 0.28);
@@ -2955,7 +3126,22 @@ export class GameBootstrap extends Component {
         this.cameraShakeStrength = Math.max(this.cameraShakeStrength, 10 + level * 2);
     }
 
-    private dealSkillDamage(enemy: EnemyState, damage: number, color: Color, burstRadius: number): void {
+    private onCultivationSpellCast(): void {
+        if (this.hasCultivation('spell-sword')) this.cultivationAfterSpell = true;
+        if (this.hasCultivation('heavenly-cycle')) {
+            const before = this.hp;
+            this.healCultivation(4);
+            if (before >= this.maxHp) this.skills.addTribulationCharge(0.08);
+        }
+    }
+
+    private dealSkillDamage(
+        enemy: EnemyState,
+        damage: number,
+        color: Color,
+        burstRadius: number,
+        source: 'skill' | 'sword' | 'environment' = 'skill',
+    ): void {
         if (!enemy.node.isValid || enemy.dead) return;
         const qingshiRoute = this.currentStage.mapId === 'qingshi-road'
             ? this.mapEvent.choice()?.effect.qingshiRoute
@@ -2976,6 +3162,9 @@ export class GameBootstrap extends Component {
         );
         this.runStats.recordDamageDealt(Math.min(enemy.hp, resolvedDamage));
         enemy.hp -= resolvedDamage;
+        if (source === 'skill' && this.hasCultivation('thunder-seal')) {
+            enemy.thunderMarkTimer = 5;
+        }
         enemy.hitTimer = 0.18;
         this.createHitBurst(enemy.node.position, color, burstRadius, true);
         this.createDamageNumber(enemy.node.position, Math.round(resolvedDamage), enemy.elite || enemy.champion);
@@ -3188,41 +3377,50 @@ export class GameBootstrap extends Component {
     }
 
     private createUpgradeResonance(id: UpgradeId, level: number): void {
-        const skillNames: Partial<Record<UpgradeId, string>> = {
-            sword: '御剑',
-            dash: '踏云',
-            formation: '剑阵',
-            tribulation: '天劫',
-        };
+        const upgrade = UPGRADES.find((choice) => choice.id === id);
+        if (!upgrade) return;
+        const pathColor = new Color(UPGRADE_PATH_COLORS[upgrade.path]);
         const node = new Node('UpgradeResonance');
         node.layer = Layers.Enum.UI_2D;
         node.setPosition(this.player.position);
         const opacity = node.addComponent(UIOpacity);
         const g = node.addComponent(Graphics);
-        g.strokeColor = new Color(176, 242, 218, 210);
+        g.strokeColor = new Color(pathColor.r, pathColor.g, pathColor.b, 220);
         g.lineWidth = 4;
         for (let ring = 0; ring < Math.min(level, 3); ring += 1) {
             g.circle(0, 0, 42 + ring * 20);
             g.stroke();
         }
-        const name = skillNames[id];
-        if (name) {
-            const label = this.makeLabel(`${name} · ${level}阶`, 24, new Color('#FFF1B8'));
-            label.node.setPosition(0, 92);
-            node.addChild(label.node);
-        }
+        const iconBacking = new Node('UpgradeResonanceIcon');
+        iconBacking.layer = Layers.Enum.UI_2D;
+        iconBacking.setPosition(0, 105);
+        const iconRing = iconBacking.addComponent(Graphics);
+        iconRing.fillColor = new Color(3, 18, 22, 232);
+        iconRing.circle(0, 0, 34);
+        iconRing.fill();
+        iconRing.strokeColor = new Color(pathColor.r, pathColor.g, pathColor.b, 235);
+        iconRing.lineWidth = 2;
+        iconRing.circle(0, 0, 34);
+        iconRing.stroke();
+        iconBacking.addChild(this.createResourceSprite(upgrade.iconResourcePath, 50));
+        node.addChild(iconBacking);
+        const label = this.makeLabel(`${upgrade.title} · ${level}阶`, 24, new Color('#FFF1B8'));
+        label.node.setPosition(0, 154);
+        label.node.getComponent(UITransform)?.setContentSize(300, 34);
+        node.addChild(label.node);
         this.effectsLayer.addChild(node);
         this.effects.push({
             node,
             elapsed: 0,
-            life: 0.72,
+            life: 1.08,
             update: (progress) => {
-                const scale = 0.42 + progress * 1.15;
+                const reveal = Math.min(1, progress / 0.22);
+                const scale = 0.72 + reveal * 0.28 + progress * 0.28;
                 node.setScale(scale, scale);
-                opacity.opacity = Math.round(255 * (1 - progress));
+                opacity.opacity = Math.round(255 * (progress < 0.62 ? reveal : (1 - progress) / 0.38));
             },
         });
-        this.createScreenFlash(new Color(102, 226, 192, 36 + level * 8), 0.24);
+        this.createScreenFlash(new Color(pathColor.r, pathColor.g, pathColor.b, 44 + level * 8), 0.32);
     }
 
     private createAbilityHint(text: string, color: Color): void {
@@ -3773,8 +3971,12 @@ export class GameBootstrap extends Component {
     private damagePlayer(amount: number, source?: Readonly<Vec3>): void {
         // 接触伤害改为带无敌帧的离散命中，避免贴身时每帧扣血，并统一触发震屏、闪红与击退。
         if (this.playerInvulnerableTimer > 0 || this.phase !== 'playing') return;
-        const appliedDamage = Math.min(this.hp, amount);
-        this.hp = Math.max(0, this.hp - amount);
+        const shieldBefore = this.cultivationShield;
+        const absorbed = Math.min(this.cultivationShield, amount);
+        this.cultivationShield = Math.max(0, this.cultivationShield - amount);
+        const remainingDamage = Math.max(0, amount - absorbed);
+        const appliedDamage = Math.min(this.hp, remainingDamage);
+        this.hp = Math.max(0, this.hp - remainingDamage);
         this.runStats.recordDamageTaken(appliedDamage);
         this.playerInvulnerableTimer = 0.42;
         this.playerHitTimer = 0.24;
@@ -3783,6 +3985,7 @@ export class GameBootstrap extends Component {
         this.cameraShakeStrength = Math.max(this.cameraShakeStrength, 8);
         this.createScreenFlash(new Color(190, 49, 45, 92), 0.18);
         this.createHitBurst(this.player.position, new Color('#FCA5A5'), 30, false);
+        if (shieldBefore > 0 && this.cultivationShield <= 0) this.triggerCultivationShieldBurst();
 
         if (source) {
             const knockback = this.player.position.clone().subtract(source);
@@ -3795,6 +3998,16 @@ export class GameBootstrap extends Component {
             }
         }
 
+        if (this.hp <= 0 && this.hasCultivation('undying-sword-body') && !this.cultivationUndyingUsed) {
+            this.cultivationUndyingUsed = true;
+            this.hp = 1;
+            this.grantCultivationShield(this.maxHp * 0.42);
+            this.playerInvulnerableTimer = 1.1;
+            this.triggerCultivationShieldBurst();
+            this.createAbilityHint('不灭剑体 · 抵命', new Color('#F4D78B'));
+            this.createScreenFlash(new Color(244, 215, 139, 76), 0.42);
+            return;
+        }
         if (this.hp <= 0) this.finish(false);
     }
 
@@ -4146,14 +4359,16 @@ export class GameBootstrap extends Component {
         if (this.attackTimer > 0 || this.enemies.length === 0) return;
         const target = this.findNearestEnemy();
         if (!target) return;
+        const spellMultiplier = this.cultivationAfterSpell ? 1.5 : 1;
+        this.cultivationAfterSpell = false;
         for (let i = 0; i < this.swordCount; i += 1) {
             const spread = (i - (this.swordCount - 1) / 2) * 0.16;
-            this.fireSword(target, spread);
+            this.fireSword(target, spread, spellMultiplier);
         }
-        this.attackTimer = this.attackInterval;
+        this.attackTimer = this.currentAttackInterval();
     }
 
-    private fireSword(target: EnemyState, spread: number): void {
+    private fireSword(target: EnemyState, spread: number, damageScale = 1): void {
         this.actions.enter('autoAttack', 0.22);
         const node = new Node('FlyingSword');
         node.layer = Layers.Enum.UI_2D;
@@ -4189,11 +4404,13 @@ export class GameBootstrap extends Component {
         this.projectiles.push({
             node,
             velocity: new Vec3(Math.cos(angle) * 520, Math.sin(angle) * 520),
-            damage: this.currentSwordDamage(),
+            damage: this.currentSwordDamage() * damageScale,
             radius: 16,
             life: 1.6,
             hit: new Set<Node>(),
             trailTimer: 0,
+            piercesRemaining: this.hasCultivation('piercing-sword') ? 1 : 0,
+            canReturn: this.hasCultivation('returning-sword'),
         });
     }
 
@@ -4220,10 +4437,42 @@ export class GameBootstrap extends Component {
                 if (Vec3.distance(projectile.node.position, enemy.node.position) > projectile.radius + enemy.radius) continue;
                 projectile.hit.add(enemy.node);
                 const importantTarget = enemy.elite || enemy.champion;
-                this.dealSkillDamage(enemy, projectile.damage, new Color('#BAE6FD'), enemy.elite ? 42 : enemy.champion ? 36 : 28);
+                const marked = (enemy.swordMarkStacks ?? 0) > 0;
+                const swordMarkMultiplier = marked && this.hasCultivation('sword-mark') ? 1.25 : 1;
+                const hadThunderMark = (enemy.thunderMarkTimer ?? 0) > 0;
+                this.dealSkillDamage(
+                    enemy,
+                    projectile.damage * swordMarkMultiplier,
+                    new Color('#BAE6FD'),
+                    enemy.elite ? 42 : enemy.champion ? 36 : 28,
+                    'sword',
+                );
+                if (this.hasCultivation('sword-mark')) enemy.swordMarkStacks = 1;
+                if (hadThunderMark && this.hasCultivation('cycle-breath')) this.skills.reduceCooldowns(0.35);
+                if (hadThunderMark && this.hasCultivation('thunder-swords')) {
+                    const chain = this.findNearestEnemyFrom(enemy.node.position, projectile.hit);
+                    if (chain) {
+                        this.createHitBurst(chain.node.position, new Color('#B9A4FF'), 38, true);
+                        this.dealSkillDamage(chain, projectile.damage * 0.62, new Color('#B9A4FF'), 34, 'environment');
+                    }
+                }
+                if (enemy.dead) this.onCultivationSwordKill(enemy);
                 this.cameraShakeTimer = Math.max(this.cameraShakeTimer, importantTarget ? 0.12 : 0.07);
                 this.cameraShakeStrength = Math.max(this.cameraShakeStrength, importantTarget ? 5 : 2.5);
-                projectile.life = 0;
+                const returnTarget = projectile.canReturn
+                    ? this.findNearestEnemyFrom(projectile.node.position, projectile.hit)
+                    : undefined;
+                if (returnTarget) {
+                    projectile.canReturn = false;
+                    const returnDirection = returnTarget.node.position.clone().subtract(projectile.node.position).normalize();
+                    projectile.velocity.set(returnDirection.x * 560, returnDirection.y * 560, 0);
+                    projectile.node.angle = Math.atan2(returnDirection.y, returnDirection.x) * 180 / Math.PI - 45;
+                    projectile.life = Math.max(projectile.life, 0.72);
+                } else if ((projectile.piercesRemaining ?? 0) > 0) {
+                    projectile.piercesRemaining = Math.max(0, (projectile.piercesRemaining ?? 0) - 1);
+                } else {
+                    projectile.life = 0;
+                }
                 break;
             }
         }
@@ -4233,6 +4482,34 @@ export class GameBootstrap extends Component {
             return false;
         });
         this.enemies = this.enemies.filter((enemy) => enemy.node.isValid);
+    }
+
+    private findNearestEnemyFrom(position: Readonly<Vec3>, excluded: ReadonlySet<Node>): EnemyState | undefined {
+        return this.enemies.reduce<EnemyState | undefined>((nearest, enemy) => {
+            if (!enemy.node.isValid || enemy.dead || excluded.has(enemy.node)) return nearest;
+            if (!nearest) return enemy;
+            return Vec3.distance(position, enemy.node.position) < Vec3.distance(position, nearest.node.position)
+                ? enemy
+                : nearest;
+        }, undefined);
+    }
+
+    private onCultivationSwordKill(enemy: EnemyState): void {
+        if (this.hasCultivation('endless-life')) this.healCultivation(enemy.elite ? 5 : 2);
+        if (this.hasCultivation('blood-sword-return')) this.grantCultivationShield(enemy.elite ? 12 : 5);
+        if (this.hasCultivation('relay-seal') && (enemy.thunderMarkTimer ?? 0) > 0) {
+            const next = this.findNearestEnemyFrom(enemy.node.position, new Set([enemy.node]));
+            if (next) {
+                next.thunderMarkTimer = 5;
+                this.createHitBurst(next.node.position, new Color('#A996F2'), 28, true);
+            }
+        }
+        if (!this.hasCultivation('split-sword') || this.cultivationSplitCooldown > 0) return;
+        const target = this.findNearestEnemy();
+        if (!target) return;
+        this.cultivationSplitCooldown = 0.16;
+        this.fireSword(target, -0.12, 0.46);
+        this.fireSword(target, 0.12, 0.46);
     }
 
     private killEnemy(enemy: EnemyState): void {
@@ -4417,67 +4694,168 @@ export class GameBootstrap extends Component {
         if (this.xp < this.xpNeed || this.phase !== 'playing') return;
         this.xp -= this.xpNeed;
         this.level += 1;
-        this.xpNeed = Math.floor(this.xpNeed * 1.5);
+        // 短局目标是“道种 + 2–3 张构筑牌 + 关底成诀”，温和成长避免第一章只有两次选择。
+        this.xpNeed = Math.floor(this.xpNeed * 1.32);
         this.showUpgrade();
     }
 
-    private showUpgrade(): void {
+    private showUpgrade(
+        fixedChoices?: UpgradeConfig[],
+        bossReward = false,
+        resumeAfterUpgrade?: () => void,
+    ): void {
         this.phase = 'upgrade';
+        this.cultivationResumeAfterUpgrade = resumeAfterUpgrade;
         this.releaseTribulationHold();
         this.createScreenFlash(new Color(79, 209, 166, 58), 0.38);
         this.createDeathBurst(this.player.position, 58);
         this.clearOverlay();
         this.bringOverlayToFront();
-        const veil = this.makeRect(
-            this.designWidth,
-            this.designHeight,
-            new Color(2, 10, 14, 150),
-        );
+        const veil = this.makeRect(this.designWidth, this.designHeight, new Color(2, 10, 14, 58));
         veil.name = 'UpgradeVeil';
         this.overlay.addChild(veil);
-        const panel = this.makeRect(
-            620,
-            500,
-            new Color(UI_THEME.colors.surface),
-            new Color(218, 190, 112, 165),
-            UI_THEME.radius.panel,
-            1.5,
-        );
-        panel.setPosition(0, -190);
+
+        const choices = fixedChoices ?? this.pickUpgrades(3);
+
+        const panel = this.makeRect(640, 520, new Color(3, 17, 22, 244), new Color(87, 133, 125, 110), 24, 1);
+        panel.name = 'CultivationDecisionSheet';
+        // 给全面屏底部手势区留出稳定余量，避免“观星 / 炼化”贴住视口底边。
+        panel.setPosition(0, -382);
         this.overlay.addChild(panel);
-        const title = this.makeLabel('残 碑 问 剑', 42, new Color('#FFE4A0'));
-        title.node.setPosition(0, 205);
-        title.node.getComponent(UITransform)?.setContentSize(500, 60);
+        const title = this.makeLabel(bossReward ? '关 前 成 诀' : '灵 台 悟 法  ·  三 择 其 一', 30, new Color('#F4DBA2'));
+        title.node.setPosition(0, 226);
+        title.node.getComponent(UITransform)?.setContentSize(540, 42);
         panel.addChild(title.node);
-        const titleRule = new Node('UpgradeTitleRule');
-        titleRule.layer = Layers.Enum.UI_2D;
-        titleRule.setPosition(0, 168);
-        const titleRuleGraphics = titleRule.addComponent(Graphics);
-        titleRuleGraphics.strokeColor = new Color(218, 190, 112, 118);
-        titleRuleGraphics.lineWidth = 1.5;
-        titleRuleGraphics.moveTo(-190, 0);
-        titleRuleGraphics.lineTo(-48, 0);
-        titleRuleGraphics.moveTo(48, 0);
-        titleRuleGraphics.lineTo(190, 0);
-        titleRuleGraphics.stroke();
-        titleRuleGraphics.fillColor = new Color(218, 190, 112, 210);
-        titleRuleGraphics.circle(0, 0, 3.5);
-        titleRuleGraphics.fill();
-        panel.addChild(titleRule);
-        const subtitle = this.makeLabel(`境界 ${this.level} 重  ·  二选一`, 22, new Color('#B9D8CD'));
-        subtitle.node.setPosition(0, 142);
-        subtitle.node.getComponent(UITransform)?.setContentSize(520, 32);
+        const seedPath = cultivationSeedPath((id) => this.skills.getLevel(id));
+        const future = choices[0]
+            ? choiceBuildProgress(choices[0], (id) => this.skills.getLevel(id)).future
+            : '择一道种 · 定本局修行方向';
+        const subtitle = this.makeLabel(
+            seedPath ? future : '首悟道种 · 此后牌池将向主修倾斜',
+            17,
+            new Color('#AFCBC1'),
+        );
+        subtitle.node.setPosition(0, 192);
+        subtitle.node.getComponent(UITransform)?.setContentSize(570, 30);
         panel.addChild(subtitle.node);
-        const choices = this.pickUpgrades(2);
         choices.forEach((choice, index) => {
             const button = this.makeUpgradeButton(choice, () => {
-                this.applyUpgrade(choice.id);
-                this.clearOverlay();
-                this.phase = 'playing';
+                const nextLevel = this.applyUpgrade(choice.id);
+                this.showUpgradeCommit(choice, nextLevel);
             });
-            button.setPosition(0, index === 0 ? 62 : -86);
+            button.setPosition(0, 112 - index * 126);
             panel.addChild(button);
         });
+        // 道种决定整局牌池方向，首悟必须三选一；观星与炼化只在后续常规悟法开放。
+        if (!bossReward && seedPath) {
+            const reroll = this.makeActionButton(
+                `观星 ${this.cultivationRerolls}`,
+                'quiet',
+                new Color('#799E94'),
+                () => {
+                    if (this.cultivationRerolls <= 0) return;
+                    this.cultivationRerolls -= 1;
+                    this.showUpgrade(undefined, false, resumeAfterUpgrade);
+                },
+                198,
+                54,
+            );
+            reroll.setPosition(-112, -226);
+            panel.addChild(reroll);
+            const refine = this.makeActionButton(
+                '炼化 · 回气',
+                'quiet',
+                new Color('#A48D61'),
+                () => {
+                    this.healCultivation(12);
+                    this.clearOverlay();
+                    this.phase = 'playing';
+                    const resume = this.cultivationResumeAfterUpgrade;
+                    this.cultivationResumeAfterUpgrade = undefined;
+                    resume?.();
+                },
+                198,
+                54,
+            );
+            refine.setPosition(112, -226);
+            panel.addChild(refine);
+        }
+    }
+
+    private showUpgradeCommit(choice: UpgradeConfig, level: number): void {
+        this.clearOverlay();
+        this.bringOverlayToFront();
+        const pathColor = new Color(UPGRADE_PATH_COLORS[choice.path]);
+        const veil = this.makeRect(this.designWidth, this.designHeight, new Color(2, 10, 14, 72));
+        veil.name = 'UpgradeCommitVeil';
+        this.overlay.addChild(veil);
+        const panel = this.makeThemedCard(548, 178, 'reward', pathColor);
+        panel.name = 'UpgradeCommit';
+        panel.setPosition(0, 160);
+        const opacity = panel.addComponent(UIOpacity);
+        opacity.opacity = 0;
+        panel.setScale(0.94, 0.94);
+        const iconBacking = new Node('UpgradeCommitIcon');
+        iconBacking.layer = Layers.Enum.UI_2D;
+        iconBacking.setPosition(-202, 0);
+        const ring = iconBacking.addComponent(Graphics);
+        ring.fillColor = new Color(3, 18, 22, 242);
+        ring.circle(0, 0, 43);
+        ring.fill();
+        ring.strokeColor = new Color(pathColor.r, pathColor.g, pathColor.b, 235);
+        ring.lineWidth = 2;
+        ring.circle(0, 0, 43);
+        ring.stroke();
+        iconBacking.addChild(this.createResourceSprite(choice.iconResourcePath, 64));
+        panel.addChild(iconBacking);
+        const eyebrow = this.makeLabel(
+            `道 基 共 鸣  ·  ${UPGRADE_PATH_LABELS[choice.path]}`,
+            16,
+            new Color(pathColor.r, pathColor.g, pathColor.b, 240),
+        );
+        eyebrow.horizontalAlign = Label.HorizontalAlign.LEFT;
+        eyebrow.node.setPosition(42, 50);
+        eyebrow.node.getComponent(UITransform)?.setContentSize(370, 26);
+        panel.addChild(eyebrow.node);
+        const title = this.makeLabel(`${choice.title} · ${level}阶`, 30, new Color('#FFF2C8'));
+        title.horizontalAlign = Label.HorizontalAlign.LEFT;
+        title.node.setPosition(42, 12);
+        title.node.getComponent(UITransform)?.setContentSize(370, 42);
+        panel.addChild(title.node);
+        const benefit = this.makeLabel(choice.descriptions[level - 1], 19, new Color('#CDE5DC'));
+        benefit.horizontalAlign = Label.HorizontalAlign.LEFT;
+        benefit.node.setPosition(42, -37);
+        benefit.node.getComponent(UITransform)?.setContentSize(370, 44);
+        panel.addChild(benefit.node);
+        this.overlay.addChild(panel);
+        this.effects.push({
+            node: panel,
+            elapsed: 0,
+            life: 0.96,
+            update: (progress) => {
+                const reveal = Math.min(1, progress / 0.2);
+                const fade = progress < 0.7 ? reveal : Math.max(0, (1 - progress) / 0.3);
+                opacity.opacity = Math.round(255 * fade);
+                panel.setPosition(0, 146 + reveal * 14);
+                const scale = 0.94 + reveal * 0.06;
+                panel.setScale(scale, scale);
+            },
+        });
+        this.updateHud();
+        if (this.buildPanel?.isValid) {
+            this.buildPanel.setScale(1.045, 1.045);
+            this.scheduleOnce(() => {
+                if (this.buildPanel?.isValid) this.buildPanel.setScale(1, 1);
+            }, 0.18);
+        }
+        this.scheduleOnce(() => {
+            if (this.phase !== 'upgrade') return;
+            this.clearOverlay();
+            this.phase = 'playing';
+            const resume = this.cultivationResumeAfterUpgrade;
+            this.cultivationResumeAfterUpgrade = undefined;
+            resume?.();
+        }, 1.02);
     }
 
     private showMapEvent(advanceAfterChoice: boolean, qa = false): void {
@@ -4938,7 +5316,7 @@ export class GameBootstrap extends Component {
         }, 1.22);
     }
 
-    private applyUpgrade(id: UpgradeId): void {
+    private applyUpgrade(id: UpgradeId): number {
         const nextLevel = this.skills.upgrade(id);
         if (id === 'sword') this.swordCount = nextLevel;
         if (id === 'dash') {
@@ -4955,7 +5333,25 @@ export class GameBootstrap extends Component {
             this.hp = Math.min(this.maxHp, this.hp + this.maxHp * ratio);
             if (nextLevel >= 3) this.playerInvulnerableTimer = Math.max(this.playerInvulnerableTimer, 1.2);
         }
+        if (id === 'seed-mystic' && this.skills.getLevel('formation') <= 0) this.skills.upgrade('formation');
+        if (id === 'seed-vitality') {
+            this.maxHp += 25;
+            this.healCultivation(25);
+            this.grantCultivationShield(10);
+        }
+        if (id === 'thunder-seal' && this.skills.getLevel('tribulation') <= 0) this.skills.upgrade('tribulation');
+        if (id === 'piercing-sword') this.attackInterval *= 1.08;
+        if (id === 'overflow-shield') this.grantCultivationShield(16);
+        if (id === 'clear-mind') this.cultivationRerolls += 1;
+        if (id === 'breath-return') {
+            this.maxHp += 30;
+            this.healCultivation(30);
+        }
+        if (id === 'ninefold-tribulation' && this.skills.getLevel('formation') <= 0) this.skills.upgrade('formation');
+        if (id === 'undying-sword-body') this.grantCultivationShield(this.maxHp * 0.2);
         this.createUpgradeResonance(id, nextLevel);
+        this.refreshPlayerAura();
+        return nextLevel;
     }
 
     private checkStageProgress(dt: number): void {
@@ -4972,6 +5368,19 @@ export class GameBootstrap extends Component {
             this.finish(true);
             return;
         }
+        const nextWave = this.currentStage.waves[this.waveIndex + 1];
+        if (
+            nextWave?.danger === 'boss'
+            && !this.cultivationBossRewardShown
+            && cultivationSeedPath((id) => this.skills.getLevel(id))
+        ) {
+            const bossChoices = pickBossCultivationChoices((id) => this.skills.getLevel(id), 2);
+            if (bossChoices.length > 0) {
+                this.cultivationBossRewardShown = true;
+                this.showUpgrade(bossChoices, true, () => this.advanceToNextWave());
+                return;
+            }
+        }
         if (this.mapEvent.shouldTriggerAfterWave(this.waveIndex)) {
             this.showMapEventPrelude(true);
             return;
@@ -4981,6 +5390,7 @@ export class GameBootstrap extends Component {
 
     private advanceToNextWave(announce = true): void {
         this.waveIndex += 1;
+        this.cultivationUndyingUsed = false;
         this.spawned = 0;
         const nextWave = this.currentStage.waves[this.waveIndex];
         this.spawnTimer = nextWave?.danger ? 1.7 : 0.65;
@@ -5740,10 +6150,53 @@ export class GameBootstrap extends Component {
                 this.objectiveLabel.string = `${this.routeChoiceLabel.string}  ·  ${this.objectiveLabel.string}`;
             }
         }
-        this.buildLabel.string = `飞剑 ${this.swordCount}柄  ·  剑伤 ${Math.round(this.currentSwordDamage())}  ·  间隔 ${this.attackInterval.toFixed(2)}秒`;
+        const pathTotals = summarizeUpgradePaths((id) => this.skills.getLevel(id));
+        const totalUpgrades = UPGRADE_PATH_ORDER.reduce((sum, path) => sum + pathTotals[path], 0);
+        const dominantPath = UPGRADE_PATH_ORDER.reduce((best, path) => (
+            pathTotals[path] > pathTotals[best] ? path : best
+        ), UPGRADE_PATH_ORDER[0]);
+        const dominantTotal = pathTotals[dominantPath];
+        const nextMilestone = dominantTotal < 3
+            ? `距共鸣 ${3 - dominantTotal}重`
+            : dominantTotal < 5
+                ? `已共鸣 · 距成诀 ${5 - dominantTotal}重`
+                : '成诀已启';
+        if (this.buildPanel) this.buildPanel.active = true;
+        this.buildLabel.string = totalUpgrades > 0
+            ? `主修${UPGRADE_PATH_LABELS[dominantPath]} ${dominantTotal}重 · ${nextMilestone}`
+            : '道基未显  ·  待破境';
+        this.buildLabel.color = new Color(totalUpgrades > 0 ? '#F1E5C6' : '#AFC7BE');
+        const activeCultivations = UPGRADES.filter((upgrade) => (
+            upgrade.offerKind !== 'hidden' && this.skills.getLevel(upgrade.id) > 0
+        ));
+        const seedSource = activeCultivations.find((upgrade) => upgrade.offerKind === 'seed');
+        const otherSources = activeCultivations.filter((upgrade) => upgrade.offerKind !== 'seed');
+        const latestSource = otherSources[otherSources.length - 1];
+        const visibleSources = [seedSource?.title, latestSource?.title].filter(Boolean);
+        this.buildSourceLabel.string = visibleSources.length > 0
+            ? `生效：${visibleSources.join('、')}${activeCultivations.length > visibleSources.length ? ` 等${activeCultivations.length}项` : ''}`
+            : '生效：暂无功法加成';
+        const swordDamage = this.currentSwordDamage();
+        const swordDamageBonus = Math.max(0, Math.round((swordDamage / Math.max(1, this.stageBaseSwordDamage) - 1) * 100));
+        const attackInterval = this.currentAttackInterval();
+        const attackSpeedBonus = Math.max(0, Math.round((this.stageBaseAttackInterval / Math.max(0.01, attackInterval) - 1) * 100));
+        const maxHpBonus = Math.max(0, Math.round(this.maxHp - this.stageBaseMaxHp));
+        this.buildStatsLabel.string = [
+            `飞剑 ${this.swordCount}柄 · ${Math.round(swordDamage)}伤害（+${swordDamageBonus}%）`,
+            `出手 ${attackInterval.toFixed(2)}秒/轮（攻速 +${attackSpeedBonus}%）`,
+            `护体 ${Math.ceil(this.cultivationShield)}/${Math.ceil(this.cultivationShieldMax)} · 气血 ${Math.ceil(this.hp)}/${Math.ceil(this.maxHp)}（+${maxHpBonus}）`,
+        ].join('\n');
+        UPGRADE_PATH_ORDER.forEach((path) => {
+            const label = this.buildPathLabels.get(path);
+            if (!label) return;
+            label.string = `${UPGRADE_PATH_LABELS[path]} ${pathTotals[path]}重`;
+            label.color = new Color(
+                pathTotals[path] > 0 ? UPGRADE_PATH_COLORS[path] : '#54716B',
+            );
+        });
         const cooldownRatio = this.enemies.length === 0
             ? 1
-            : 1 - Math.max(0, Math.min(1, this.attackTimer / this.attackInterval));
+            : 1 - Math.max(0, Math.min(1, this.attackTimer / this.currentAttackInterval()));
         const swordLevel = this.skills.getLevel('sword');
         const gestureHold = this.attackGestureOrigin ? this.elapsed - this.attackGestureStartedAt : 0;
         const gestureDrag = this.attackGestureOrigin && this.attackGestureCurrent
@@ -5954,22 +6407,96 @@ export class GameBootstrap extends Component {
     }
 
     private createPlayerAura(): void {
-        const aura = new Node('PlayerAura');
-        aura.layer = Layers.Enum.UI_2D;
-        aura.setPosition(0, -5);
-        const g = aura.addComponent(Graphics);
-        g.strokeColor = new Color(111, 225, 199, 105);
-        g.lineWidth = 2.5;
-        g.circle(0, 0, 36);
-        g.stroke();
-        for (let index = 0; index < 4; index += 1) {
-            const angle = index * Math.PI / 2;
-            g.moveTo(Math.cos(angle) * 29, Math.sin(angle) * 29);
-            g.lineTo(Math.cos(angle) * 39, Math.sin(angle) * 39);
-            g.stroke();
-        }
-        this.player.addChild(aura);
-        aura.setSiblingIndex(1);
+        const back = new Node('PlayerAuraBack');
+        back.layer = Layers.Enum.UI_2D;
+        back.setPosition(0, -5);
+        this.player.addChild(back);
+        back.setSiblingIndex(1);
+        this.playerAuraNode = back;
+
+        const front = new Node('PlayerAuraFront');
+        front.layer = Layers.Enum.UI_2D;
+        front.setPosition(0, -5);
+        this.player.addChild(front);
+        front.setSiblingIndex(this.player.children.length - 1);
+        this.playerAuraFrontNode = front;
+        this.refreshPlayerAura();
+    }
+
+    private refreshPlayerAura(): void {
+        const back = this.playerAuraNode;
+        const front = this.playerAuraFrontNode;
+        if (!back || !front) return;
+        const totals = summarizeUpgradePaths((id) => this.skills.getLevel(id));
+        const total = UPGRADE_PATH_ORDER.reduce((sum, path) => sum + totals[path], 0);
+        back.children.slice().forEach((child) => child.destroy());
+        front.children.slice().forEach((child) => child.destroy());
+        this.playerAuraSwords = [];
+        if (total === 0) return;
+
+        // 设计稿固定由金、冰青、玉绿三柄剑气构成；路线等级控制亮度，不再让未主修路线整柄消失。
+        this.playerAuraSwords = UPGRADE_PATH_ORDER.map((path, index) => (
+            this.createAuraSword(path, -Math.PI / 2 + index * Math.PI * 2 / 3, totals[path] > 0)
+        ));
+        this.updatePlayerAuraVisual();
+    }
+
+    private createAuraSword(path: UpgradePath, phase: number, active: boolean): PlayerAuraSwordVisual {
+        const node = new Node(`DaoFoundationSword-${path}`);
+        node.layer = Layers.Enum.UI_2D;
+        const opacity = node.addComponent(UIOpacity);
+        const displayHeight = path === 'edge' ? 82 : path === 'mystic' ? 76 : 66;
+        node.addChild(this.createResourceSprite(PLAYER_AURA_SWORD_RESOURCES[path], displayHeight));
+
+        const ghosts = [0.14, 0.27].map((phaseOffset, index) => {
+            const ghost = new Node(`DaoFoundationSwordTrail-${path}-${index}`);
+            ghost.layer = Layers.Enum.UI_2D;
+            const ghostOpacity = ghost.addComponent(UIOpacity);
+            ghostOpacity.opacity = index === 0 ? 46 : 20;
+            ghost.addChild(this.createResourceSprite(
+                PLAYER_AURA_SWORD_RESOURCES[path],
+                displayHeight * (index === 0 ? 0.94 : 0.86),
+            ));
+            return { node: ghost, opacity: ghostOpacity, phaseOffset };
+        });
+        return { path, phase, node, opacity, ghosts, active };
+    }
+
+    private updatePlayerAuraVisual(): void {
+        const back = this.playerAuraNode;
+        const front = this.playerAuraFrontNode;
+        if (!back || !front || this.playerAuraSwords.length === 0) return;
+        const motion = this.prefersReducedMotion ? 0 : this.elapsed * 0.58;
+        const radiusX = 52;
+        const radiusY = 36;
+
+        const place = (node: Node, angle: number, scale: number, target: Node): void => {
+            if (node.parent !== target) target.addChild(node);
+            const x = Math.cos(angle) * radiusX;
+            const y = Math.sin(angle) * radiusY;
+            const tangent = Math.atan2(Math.cos(angle) * radiusY, -Math.sin(angle) * radiusX);
+            node.setPosition(x, y);
+            node.angle = tangent * 180 / Math.PI - 45;
+            node.setScale(scale, scale);
+        };
+
+        this.playerAuraSwords.forEach((visual) => {
+            const angle = motion + visual.phase;
+            const depth = (1 - Math.sin(angle)) / 2;
+            const target = Math.sin(angle) < -0.06 ? front : back;
+            const scale = (0.86 + depth * 0.24) * (visual.active ? 1 : 0.92);
+            visual.opacity.opacity = Math.round((visual.active ? 182 : 118) + depth * (visual.active ? 64 : 42));
+            place(visual.node, angle, scale, target);
+            visual.ghosts.forEach((ghost, index) => {
+                const ghostAngle = angle - ghost.phaseOffset;
+                const ghostDepth = (1 - Math.sin(ghostAngle)) / 2;
+                const ghostTarget = Math.sin(ghostAngle) < -0.06 ? front : back;
+                ghost.opacity.opacity = Math.round(
+                    (visual.active ? 26 : 13) * (index === 0 ? 1 : 0.52) * (0.6 + ghostDepth * 0.4),
+                );
+                place(ghost.node, ghostAngle, scale * (index === 0 ? 0.94 : 0.86), ghostTarget);
+            });
+        });
     }
 
     private createBossAura(enemy: EnemyState): void {
@@ -6537,6 +7064,11 @@ export class GameBootstrap extends Component {
         this.frostTideEnemyHits.clear();
         this.bossArenaVisual = undefined;
         this.bossArenaActive = false;
+        this.playerAuraNode = undefined;
+        this.playerAuraFrontNode = undefined;
+        this.playerAuraSwords = [];
+        this.buildPanel = undefined;
+        this.buildPathLabels.clear();
         this.battleLayer.children.slice().forEach((child) => child.destroy());
         this.effectsLayer.children.slice().forEach((child) => child.destroy());
         this.screenFxLayer.children.slice().forEach((child) => child.destroy());
@@ -6643,24 +7175,26 @@ export class GameBootstrap extends Component {
 
     private makeUpgradeButton(choice: UpgradeConfig, onClick: () => void): Node {
         const pathColor = new Color(UPGRADE_PATH_COLORS[choice.path]);
-        const node = this.makeThemedCard(560, 132, 'choice', pathColor);
+        const progress = choiceBuildProgress(choice, (id) => this.skills.getLevel(id));
+        const isFormation = choice.offerKind === 'synergy' || choice.offerKind === 'ultimate';
+        const node = this.makeThemedCard(596, 112, isFormation ? 'reward' : 'choice', pathColor);
         const iconBacking = new Node('UpgradeIconRing');
         iconBacking.layer = Layers.Enum.UI_2D;
-        iconBacking.addComponent(UITransform).setContentSize(82, 82);
-        iconBacking.setPosition(-224, 0);
+        iconBacking.addComponent(UITransform).setContentSize(76, 76);
+        iconBacking.setPosition(-246, 0);
         const iconRing = iconBacking.addComponent(Graphics);
         iconRing.fillColor = new Color(2, 18, 23, 238);
-        iconRing.circle(0, 0, 40);
+        iconRing.circle(0, 0, 36);
         iconRing.fill();
         iconRing.strokeColor = new Color(pathColor.r, pathColor.g, pathColor.b, 225);
         iconRing.lineWidth = 2;
-        iconRing.circle(0, 0, 40);
+        iconRing.circle(0, 0, 36);
         iconRing.stroke();
         node.addChild(iconBacking);
 
         const icon = new Node(`UpgradeIcon-${choice.id}`);
         icon.layer = Layers.Enum.UI_2D;
-        icon.addComponent(UITransform).setContentSize(62, 62);
+        icon.addComponent(UITransform).setContentSize(56, 56);
         const sprite = icon.addComponent(Sprite);
         sprite.sizeMode = Sprite.SizeMode.CUSTOM;
         iconBacking.addChild(icon);
@@ -6674,48 +7208,38 @@ export class GameBootstrap extends Component {
             });
         }
 
-        const level = Math.min(choice.maxLevel, this.skills.getLevel(choice.id) + 1);
-        const realm = level === 1 ? '初悟' : level === 2 ? '进阶' : '圆满';
-        const activeIds: ReadonlyArray<UpgradeId> = ['sword', 'dash', 'formation', 'tribulation'];
-        const category = activeIds.includes(choice.id) ? '功法' : '心法';
-        const title = this.makeLabel(choice.title, 27, new Color('#FFF5DC'));
+        const title = this.makeLabel(choice.title, 24, new Color('#FFF5DC'));
         title.horizontalAlign = Label.HorizontalAlign.LEFT;
-        title.node.setPosition(-28, 25);
-        title.node.getComponent(UITransform)?.setContentSize(270, 40);
+        title.node.setPosition(-55, 10);
+        title.node.getComponent(UITransform)?.setContentSize(290, 34);
         node.addChild(title.node);
-        const role = this.makeLabel(`${category} · ${choice.role}`, 18, new Color(pathColor.r, pathColor.g, pathColor.b, 238));
+        const role = this.makeLabel(`${UPGRADE_PATH_LABELS[choice.path]} · ${choice.role}`, 15, new Color(pathColor.r, pathColor.g, pathColor.b, 238));
         role.horizontalAlign = Label.HorizontalAlign.LEFT;
-        role.node.setPosition(-28, 52);
-        role.node.getComponent(UITransform)?.setContentSize(270, 28);
+        role.node.setPosition(-55, 39);
+        role.node.getComponent(UITransform)?.setContentSize(290, 24);
         node.addChild(role.node);
-        const previous = level > 1 ? choice.descriptions[level - 2] : undefined;
-        const benefitLine = previous
-            ? `${previous}  →  ${choice.descriptions[level - 1]}`
-            : `解锁 · ${choice.descriptions[level - 1]}`;
-        const description = this.makeLabel(benefitLine, 20, new Color(203, 228, 218, 245));
+        const description = this.makeLabel(choice.descriptions[0] ?? choice.combatRead ?? '', 17, new Color(203, 228, 218, 245));
         description.horizontalAlign = Label.HorizontalAlign.LEFT;
-        description.node.setPosition(-25, -25);
-        description.node.getComponent(UITransform)?.setContentSize(280, 48);
+        description.node.setPosition(-35, -27);
+        description.node.getComponent(UITransform)?.setContentSize(330, 40);
         node.addChild(description.node);
-
-        const realmLabel = this.makeLabel(`下一阶 · ${realm}`, 18, new Color(pathColor.r, pathColor.g, pathColor.b, 230));
-        realmLabel.horizontalAlign = Label.HorizontalAlign.RIGHT;
-        realmLabel.node.setPosition(194, 31);
-        realmLabel.node.getComponent(UITransform)?.setContentSize(142, 28);
-        node.addChild(realmLabel.node);
-
-        const tier = new Node('UpgradeTier');
-        tier.layer = Layers.Enum.UI_2D;
-        tier.setPosition(194, -17);
-        const tierGraphics = tier.addComponent(Graphics);
-        for (let index = 0; index < choice.maxLevel; index += 1) {
-            tierGraphics.fillColor = index < level
-                ? pathColor
-                : new Color(55, 82, 84, 205);
-            tierGraphics.roundRect(index * 30 - 40, -4, 23, 8, 4);
-            tierGraphics.fill();
-        }
-        node.addChild(tier);
+        const pathLine = progress.next > progress.current
+            ? `${UPGRADE_PATH_LABELS[choice.path]} ${progress.current} → ${progress.next}`
+            : choice.combatRead ?? UPGRADE_PATH_DESCRIPTIONS[choice.path];
+        const progressLabel = this.makeLabel(pathLine, 16, new Color(pathColor.r, pathColor.g, pathColor.b, 230));
+        progressLabel.horizontalAlign = Label.HorizontalAlign.RIGHT;
+        progressLabel.node.setPosition(214, 18);
+        progressLabel.node.getComponent(UITransform)?.setContentSize(146, 26);
+        node.addChild(progressLabel.node);
+        const milestone = this.makeLabel(
+            progress.milestone ?? choice.combatRead ?? '',
+            14,
+            new Color(isFormation ? '#F4D78B' : '#8FAEA5'),
+        );
+        milestone.horizontalAlign = Label.HorizontalAlign.RIGHT;
+        milestone.node.setPosition(214, -20);
+        milestone.node.getComponent(UITransform)?.setContentSize(160, 36);
+        node.addChild(milestone.node);
         node.on(Node.EventType.TOUCH_START, (event: EventTouch) => {
             event.propagationStopped = true;
             node.setScale(0.975, 0.975);
