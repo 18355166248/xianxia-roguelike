@@ -33,8 +33,34 @@ export function resolveSwordGesture(level: number, holdSeconds: number, dragDist
     return 'tap';
 }
 
-export function shouldTriggerFlickDash(holdSeconds: number, dragDistance: number): boolean {
-    return holdSeconds <= 0.28 && dragDistance >= 72;
+export function shouldConfirmTapMove(holdSeconds: number, dragDistance: number): boolean {
+    return holdSeconds <= 0.65 && dragDistance <= 26;
+}
+
+export interface TapMoveStep {
+    arrived: boolean;
+    distance: number;
+    x: number;
+    y: number;
+}
+
+export function resolveTapMoveStep(
+    current: Readonly<{ x: number; y: number }>,
+    target: Readonly<{ x: number; y: number }>,
+    arrivalRadius = 16,
+): TapMoveStep {
+    const dx = target.x - current.x;
+    const dy = target.y - current.y;
+    const distance = Math.hypot(dx, dy);
+    if (distance <= Math.max(0, arrivalRadius)) {
+        return { arrived: true, distance, x: 0, y: 0 };
+    }
+    return {
+        arrived: false,
+        distance,
+        x: dx / distance,
+        y: dy / distance,
+    };
 }
 
 /**

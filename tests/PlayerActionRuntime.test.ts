@@ -1,7 +1,8 @@
 import {
     PlayerActionRuntime,
+    resolveTapMoveStep,
     resolveSwordGesture,
-    shouldTriggerFlickDash,
+    shouldConfirmTapMove,
 } from '../assets/scripts/systems/PlayerActionRuntime';
 import { resolvePlayerAnimationFrame } from '../assets/scripts/systems/PlayerAnimationRuntime';
 
@@ -12,8 +13,11 @@ function assertEqual<T>(actual: T, expected: T, message: string): void {
 assertEqual(resolveSwordGesture(1, 1, 100), 'tap', 'tier one stays simple');
 assertEqual(resolveSwordGesture(2, 0.2, 40), 'aimed', 'tier two unlocks directional release');
 assertEqual(resolveSwordGesture(3, 0.6, 5), 'charged', 'tier three unlocks hold attack');
-assertEqual(shouldTriggerFlickDash(0.2, 80), true, 'fast long joystick flick triggers dash');
-assertEqual(shouldTriggerFlickDash(0.4, 80), false, 'slow movement does not trigger dash');
+assertEqual(shouldConfirmTapMove(0.18, 8), true, 'short steady touch confirms a move target');
+assertEqual(shouldConfirmTapMove(0.18, 40), false, 'dragging across the battlefield does not move');
+assertEqual(resolveTapMoveStep({ x: 0, y: 0 }, { x: 30, y: 40 }).distance, 50, 'tap move measures target distance');
+assertEqual(resolveTapMoveStep({ x: 0, y: 0 }, { x: 3, y: 4 }, 8).arrived, true, 'tap move stops inside arrival radius');
+assertEqual(resolveTapMoveStep({ x: 0, y: 0 }, { x: 30, y: 40 }).x, 0.6, 'tap move resolves normalized x');
 
 const actions = new PlayerActionRuntime();
 actions.enter('chargedSlash', 0.7);
