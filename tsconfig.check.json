@@ -9,8 +9,10 @@
   "files": [
     "assets/scripts/config/ArenaConfig.ts",
     "assets/scripts/config/AssetCatalog.ts",
+    "assets/scripts/config/RemoteAssetCatalog.ts",
     "assets/scripts/config/GameConfig.ts",
     "assets/scripts/runtime/GameRuntimeTypes.ts",
+    "assets/scripts/runtime/SpriteAssetLoader.ts",
     "assets/scripts/systems/PlayerAnimationRuntime.ts",
     "assets/scripts/systems/PlayerActionRuntime.ts",
     "assets/scripts/systems/SpiritVeinRuntime.ts",

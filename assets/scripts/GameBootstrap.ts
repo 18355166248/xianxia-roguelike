@@ -22,7 +22,6 @@ import {
     Vec3,
     input,
     profiler,
-    resources,
     ResolutionPolicy,
     screen,
     view,
@@ -77,6 +76,7 @@ import {
     UnitVisual,
     VisualEffectState,
 } from './runtime/GameRuntimeTypes';
+import { loadSpriteFrame } from './runtime/SpriteAssetLoader';
 import {
     getDashCooldown,
     getDashDistance,
@@ -399,6 +399,9 @@ export class GameBootstrap extends Component {
     private touchCurrent?: Vec2;
     private swordFrame?: SpriteFrame;
     private spriteFrames = new Map<string, SpriteFrame>();
+    private initializationFinished = false;
+    private loadingProgressGraphics?: Graphics;
+    private loadingProgressLabel?: Label;
 
     private hp = 100;
     private maxHp = 100;
@@ -482,12 +485,9 @@ export class GameBootstrap extends Component {
         profiler.hideStats();
         this.buildRuntimeScene();
         this.bindInput();
-        this.preloadArt();
         this.restoreStageProgress();
-        resources.load('art/relics/xianxia-relics_00/spriteFrame', SpriteFrame, (error, frame) => {
-            if (!error) this.swordFrame = frame;
-        });
-        this.showMenu();
+        // 远程大图不再进入首包；启动页等待必要美术收敛，避免玩家先看到空背景再突然补图。
+        void this.initializeGame();
     }
 
     protected override onDestroy(): void {
@@ -630,104 +630,137 @@ export class GameBootstrap extends Component {
         }
     }
 
-    private preloadArt(): void {
-        const paths = new Set<string>([
+    private async initializeGame(): Promise<void> {
+        this.showLoadingScreen();
+        const failed = await this.preloadArt((completed, total, failedCount) => {
+            this.updateLoadingProgress(completed, total, failedCount);
+        });
+        if (!this.node.isValid) return;
+
+        // 单张 CDN 图失败时仍允许进入：现有角色、敌人和地形都有程序化占位表现，不应让弱网变成白屏。
+        this.updateLoadingProgress(1, 1, failed);
+        this.initializationFinished = true;
+        this.showMenu();
+    }
+
+    private showLoadingScreen(): void {
+        this.clearOverlay();
+        this.bringOverlayToFront();
+        this.overlay.addChild(this.makeRect(this.visibleDesignWidth(), this.designHeight, new Color(2, 12, 16, 252)));
+
+        const title = this.makeLabel('仙 途 劫', 58, new Color('#F8E4AC'));
+        title.node.setPosition(0, 176);
+        this.overlay.addChild(title.node);
+        const subtitle = this.makeLabel('引灵入境 · 正在加载游戏资源', 22, new Color('#B9D8CE'));
+        subtitle.node.setPosition(0, 104);
+        this.overlay.addChild(subtitle.node);
+
+        const track = this.makeRect(536, 34, new Color(5, 27, 31, 245), new Color(100, 166, 149, 150), 17, 2);
+        track.setPosition(0, 20);
+        this.overlay.addChild(track);
+        const fillNode = new Node('LoadingProgressFill');
+        fillNode.layer = Layers.Enum.UI_2D;
+        fillNode.addComponent(UITransform).setContentSize(512, 18);
+        this.loadingProgressGraphics = fillNode.addComponent(Graphics);
+        track.addChild(fillNode);
+
+        this.loadingProgressLabel = this.makeLabel('正在连接灵脉…', 18, new Color('#D9EEE7'));
+        this.loadingProgressLabel.node.setPosition(0, -42);
+        this.overlay.addChild(this.loadingProgressLabel.node);
+        this.updateLoadingProgress(0, 1, 0);
+    }
+
+    private updateLoadingProgress(completed: number, total: number, failed: number): void {
+        const safeTotal = Math.max(total, 1);
+        const ratio = Math.min(1, Math.max(0, completed / safeTotal));
+        const width = 512 * ratio;
+        const graphics = this.loadingProgressGraphics;
+        if (graphics?.isValid) {
+            graphics.clear();
+            if (width > 0) {
+                graphics.fillColor = new Color('#67D4B8');
+                graphics.roundRect(-256, -9, width, 18, Math.min(9, width / 2));
+                graphics.fill();
+            }
+        }
+        if (this.loadingProgressLabel?.isValid) {
+            const percent = Math.round(ratio * 100);
+            const fallback = failed > 0 ? ` · ${failed} 项将使用占位表现` : '';
+            this.loadingProgressLabel.string = `引灵进度 ${percent}%${fallback}`;
+        }
+    }
+
+    private async preloadArt(
+        onProgress: (completed: number, total: number, failed: number) => void,
+    ): Promise<number> {
+        // 避免直接迭代 Set：Cocos Web Mobile 的兼容转译会把 Set 错当成单个数组元素。
+        const paths = [
             ...PRELOAD_SPRITE_PATHS,
             ...UPGRADES.map((upgrade) => upgrade.iconResourcePath),
             ...Object.values(PLAYER_AURA_SWORD_RESOURCES),
             'art/relics/xianxia-relics_19/spriteFrame',
-        ]);
-        for (const path of paths) {
-            resources.load(path, SpriteFrame, (error, frame) => {
-                if (error) {
+        ].filter((path, index, allPaths) => allPaths.indexOf(path) === index);
+        let completed = 0;
+        let failed = 0;
+        onProgress(0, paths.length, 0);
+        await Promise.all(paths.map(async (path) => {
+            try {
+                const frame = await loadSpriteFrame(path);
+                if (!this.node.isValid) return;
+                this.applyLoadedArt(path, frame);
+            } catch (error) {
+                failed += 1;
+                if (this.node.isValid) {
                     console.warn(`[art] 资源加载失败，使用程序化占位: ${path}`, error);
-                    return;
                 }
-                this.spriteFrames.set(path, frame);
-                if (path === BACKGROUND_ASSETS[this.currentStage.mapId].resourcePath) {
-                    this.applyStageVisual(this.phase === 'menu');
-                }
-                if (path === PLAYER_ANIMATION_ASSET.resourcePath) {
-                    this.playerAnimationFrames = this.slicePlayerAnimationSheet(frame);
-                    this.installPlayerAnimation();
-                }
-                if (path === BOSS_ANIMATION_ASSET.resourcePath) {
-                    this.bossAnimationFrames = this.sliceAnimationSheet(
-                        frame,
-                        ENEMY_ANIMATION_COLUMNS,
-                        ENEMY_ANIMATION_ROWS,
-                        'shanxiao',
-                    );
-                }
-                if (path === FROZEN_BOSS_ANIMATION_ASSET.resourcePath) {
-                    this.frozenBossAnimationFrames = this.sliceAnimationSheet(
-                        frame,
-                        ENEMY_ANIMATION_COLUMNS,
-                        ENEMY_ANIMATION_ROWS,
-                        'hanyuan-shanxiao',
-                    );
-                }
-                if (path === FROST_IMPACT_ANIMATION_ASSET.resourcePath) {
-                    this.frostImpactAnimationFrames = this.sliceAnimationSheet(
-                        frame,
-                        FROST_IMPACT_ANIMATION_ASSET.columns,
-                        FROST_IMPACT_ANIMATION_ASSET.rows,
-                        'hanyuan-frost-impact',
-                    );
-                }
-                if (path === QINGSHI_STELE_COMMIT_ANIMATION_ASSET.resourcePath) {
-                    this.qingshiSteleCommitAnimationFrames = this.sliceAnimationSheet(
-                        frame,
-                        QINGSHI_STELE_COMMIT_ANIMATION_ASSET.columns,
-                        QINGSHI_STELE_COMMIT_ANIMATION_ASSET.rows,
-                        'qingshi-stele-commit',
-                    );
-                }
-                if (path === QINGSHI_SPRING_COMMIT_ANIMATION_ASSET.resourcePath) {
-                    this.qingshiSpringCommitAnimationFrames = this.sliceAnimationSheet(
-                        frame,
-                        QINGSHI_SPRING_COMMIT_ANIMATION_ASSET.columns,
-                        QINGSHI_SPRING_COMMIT_ANIMATION_ASSET.rows,
-                        'qingshi-spring-commit',
-                    );
-                }
-                if (path === BAMBOO_BURN_COMMIT_ANIMATION_ASSET.resourcePath) {
-                    this.bambooBurnCommitAnimationFrames = this.sliceAnimationSheet(
-                        frame,
-                        BAMBOO_BURN_COMMIT_ANIMATION_ASSET.columns,
-                        BAMBOO_BURN_COMMIT_ANIMATION_ASSET.rows,
-                        'bamboo-burn-commit',
-                    );
-                }
-                if (path === BAMBOO_SHADOW_COMMIT_ANIMATION_ASSET.resourcePath) {
-                    this.bambooShadowCommitAnimationFrames = this.sliceAnimationSheet(
-                        frame,
-                        BAMBOO_SHADOW_COMMIT_ANIMATION_ASSET.columns,
-                        BAMBOO_SHADOW_COMMIT_ANIMATION_ASSET.rows,
-                        'bamboo-shadow-commit',
-                    );
-                }
-                if (path === FROST_TIDE_COMMIT_ANIMATION_ASSET.resourcePath) {
-                    this.frostTideCommitAnimationFrames = this.sliceAnimationSheet(
-                        frame,
-                        FROST_TIDE_COMMIT_ANIMATION_ASSET.columns,
-                        FROST_TIDE_COMMIT_ANIMATION_ASSET.rows,
-                        'frost-tide-commit',
-                    );
-                }
-                if (path === FROST_SEAL_COMMIT_ANIMATION_ASSET.resourcePath) {
-                    this.frostSealCommitAnimationFrames = this.sliceAnimationSheet(
-                        frame,
-                        FROST_SEAL_COMMIT_ANIMATION_ASSET.columns,
-                        FROST_SEAL_COMMIT_ANIMATION_ASSET.rows,
-                        'frost-seal-commit',
-                    );
-                }
-                if (this.phase === 'menu' && path === this.activeChapterPreviewAssetPath(this.currentStage)) {
-                    // 菜单早于异步素材加载完成时，只重建当前正在看的路线，避免已切到另一张卡却被旧资源回调覆盖。
-                    this.renderMenu();
-                }
-            });
+            } finally {
+                completed += 1;
+                if (this.node.isValid) onProgress(completed, paths.length, failed);
+            }
+        }));
+        return failed;
+    }
+
+    private applyLoadedArt(path: string, frame: SpriteFrame): void {
+        this.spriteFrames.set(path, frame);
+        if (path === 'art/relics/xianxia-relics_00/spriteFrame') this.swordFrame = frame;
+        if (path === BACKGROUND_ASSETS[this.currentStage.mapId].resourcePath) {
+            this.applyStageVisual(this.phase === 'menu');
+        }
+        if (path === PLAYER_ANIMATION_ASSET.resourcePath) {
+            this.playerAnimationFrames = this.slicePlayerAnimationSheet(frame);
+            this.installPlayerAnimation();
+        }
+        if (path === BOSS_ANIMATION_ASSET.resourcePath) {
+            this.bossAnimationFrames = this.sliceAnimationSheet(frame, ENEMY_ANIMATION_COLUMNS, ENEMY_ANIMATION_ROWS, 'shanxiao');
+        }
+        if (path === FROZEN_BOSS_ANIMATION_ASSET.resourcePath) {
+            this.frozenBossAnimationFrames = this.sliceAnimationSheet(frame, ENEMY_ANIMATION_COLUMNS, ENEMY_ANIMATION_ROWS, 'hanyuan-shanxiao');
+        }
+        if (path === FROST_IMPACT_ANIMATION_ASSET.resourcePath) {
+            this.frostImpactAnimationFrames = this.sliceAnimationSheet(frame, FROST_IMPACT_ANIMATION_ASSET.columns, FROST_IMPACT_ANIMATION_ASSET.rows, 'hanyuan-frost-impact');
+        }
+        if (path === QINGSHI_STELE_COMMIT_ANIMATION_ASSET.resourcePath) {
+            this.qingshiSteleCommitAnimationFrames = this.sliceAnimationSheet(frame, QINGSHI_STELE_COMMIT_ANIMATION_ASSET.columns, QINGSHI_STELE_COMMIT_ANIMATION_ASSET.rows, 'qingshi-stele-commit');
+        }
+        if (path === QINGSHI_SPRING_COMMIT_ANIMATION_ASSET.resourcePath) {
+            this.qingshiSpringCommitAnimationFrames = this.sliceAnimationSheet(frame, QINGSHI_SPRING_COMMIT_ANIMATION_ASSET.columns, QINGSHI_SPRING_COMMIT_ANIMATION_ASSET.rows, 'qingshi-spring-commit');
+        }
+        if (path === BAMBOO_BURN_COMMIT_ANIMATION_ASSET.resourcePath) {
+            this.bambooBurnCommitAnimationFrames = this.sliceAnimationSheet(frame, BAMBOO_BURN_COMMIT_ANIMATION_ASSET.columns, BAMBOO_BURN_COMMIT_ANIMATION_ASSET.rows, 'bamboo-burn-commit');
+        }
+        if (path === BAMBOO_SHADOW_COMMIT_ANIMATION_ASSET.resourcePath) {
+            this.bambooShadowCommitAnimationFrames = this.sliceAnimationSheet(frame, BAMBOO_SHADOW_COMMIT_ANIMATION_ASSET.columns, BAMBOO_SHADOW_COMMIT_ANIMATION_ASSET.rows, 'bamboo-shadow-commit');
+        }
+        if (path === FROST_TIDE_COMMIT_ANIMATION_ASSET.resourcePath) {
+            this.frostTideCommitAnimationFrames = this.sliceAnimationSheet(frame, FROST_TIDE_COMMIT_ANIMATION_ASSET.columns, FROST_TIDE_COMMIT_ANIMATION_ASSET.rows, 'frost-tide-commit');
+        }
+        if (path === FROST_SEAL_COMMIT_ANIMATION_ASSET.resourcePath) {
+            this.frostSealCommitAnimationFrames = this.sliceAnimationSheet(frame, FROST_SEAL_COMMIT_ANIMATION_ASSET.columns, FROST_SEAL_COMMIT_ANIMATION_ASSET.rows, 'frost-seal-commit');
+        }
+        if (this.initializationFinished && this.phase === 'menu' && path === this.activeChapterPreviewAssetPath(this.currentStage)) {
+            // 运行期重试成功时只刷新当前路线，避免旧网络回调覆盖玩家已切换的章节。
+            this.renderMenu();
         }
     }
 
@@ -7649,9 +7682,12 @@ export class GameBootstrap extends Component {
         if (cachedIcon) {
             sprite.spriteFrame = cachedIcon;
         } else {
-            resources.load(choice.iconResourcePath, SpriteFrame, (error, frame) => {
-                if (!error && icon.isValid) sprite.spriteFrame = frame;
-            });
+            void loadSpriteFrame(choice.iconResourcePath)
+                .then((frame) => {
+                    this.spriteFrames.set(choice.iconResourcePath, frame);
+                    if (icon.isValid) sprite.spriteFrame = frame;
+                })
+                .catch((error: unknown) => console.warn(`[art] 升级图标补图失败: ${choice.iconResourcePath}`, error));
         }
 
         const title = this.makeLabel(choice.title, 24, new Color('#FFF5DC'));
@@ -7765,9 +7801,12 @@ export class GameBootstrap extends Component {
             assign(cached);
         } else {
             // 菜单与 HUD 可在预加载完成前创建；异步补图失败时只缺装饰，不阻断战斗。
-            resources.load(resourcePath, SpriteFrame, (error, frame) => {
-                if (!error) assign(frame);
-            });
+            void loadSpriteFrame(resourcePath)
+                .then((frame) => {
+                    this.spriteFrames.set(resourcePath, frame);
+                    assign(frame);
+                })
+                .catch((error: unknown) => console.warn(`[art] UI 补图失败: ${resourcePath}`, error));
         }
         return node;
     }

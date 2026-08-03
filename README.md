@@ -45,8 +45,9 @@ docs/
 
 ## 素材约定
 
-本项目保存最终素材和生成提示词；批量切图、去背与 contact sheet 仍由
-`ai-asset-pipeline` 执行，通过质检后再复制到 `assets/resources/art/`。
+本项目保存最终素材规格和生成提示词；批量切图、去背与 contact sheet 仍由
+`ai-asset-pipeline` 执行。通过质检后，小图复制到 `assets/resources/art/`，大图压缩上传 CDN
+并更新 `assets/scripts/config/RemoteAssetCatalog.ts`，避免重新进入 Web 首包。
 
 当前竖切素材固定由 `assets/scripts/config/AssetCatalog.ts` 统一管理路径和显示尺寸。
 新电脑首次打开项目后，Creator 会重新生成 `temp/` 类型声明；随后可执行：

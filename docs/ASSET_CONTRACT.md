@@ -1,34 +1,21 @@
 # 竖切版素材契约
 
-## 运行时目录
+## 运行时资源分层
 
 ```text
 assets/resources/art/
   characters/qinglan.png
-  characters/qinglan-actions.png
   enemies/mountain-spirit.png
-  enemies/bamboo-warden.png
   enemies/fox-spirit.png
   enemies/jiangshi.png
   bosses/shanxiao.png
-  bosses/shanxiao-actions.png
-  bosses/hanyuan-shanxiao-actions.png
-  effects/hanyuan-frost-impact.png
-  effects/qingshi-stele-commit.png
-  effects/qingshi-spring-commit.png
-  effects/bamboo-burn-commit.png
-  effects/bamboo-shadow-commit.png
-  effects/frost-tide-commit.png
-  effects/frost-seal-commit.png
-  backgrounds/qingshi-road.png
-  backgrounds/bamboo-ambush.png
-  backgrounds/frozen-ruins.png
-  obstacles/bamboo-barricade.png
-  relics/xianxia-relics_*.png
+  relics/已被配置引用的小图标.png
 ```
 
-代码只通过 `assets/scripts/config/AssetCatalog.ts` 引用资源路径。替换图片时保留文件名，
-无需修改战斗状态机。
+16 张大图（三章背景、角色/首领动作表、路线特效、竹障与精英等）不进入首包，
+由 `assets/scripts/config/RemoteAssetCatalog.ts` 保存不可变 HTTPS CDN URL，
+`assets/scripts/runtime/SpriteAssetLoader.ts` 按原 resources 路径统一加载。替换大图时需重新压缩上传并更新 URL；
+业务配置与战斗状态机不需修改。
 
 ## 角色与敌人
 
@@ -70,6 +57,7 @@ assets/resources/art/
 
 ## Cocos 导入
 
-- 图片与 `.meta` 必须一起提交，避免换电脑后 UUID 变化。
-- 运行时资源都放在 `assets/resources/` 下，并以 `/spriteFrame` 路径加载。
+- 本地小图与 `.meta` 必须一起提交，避免换电脑后 UUID 变化。
+- 远程大图不放入 `assets/resources/`；逻辑 key 仍保留 `/spriteFrame` 后缀，由加载适配层转换为 CDN 请求。
+- 启动会预加载所有必要美术并显示进度；单项失败时使用程序化占位，不阻断进入游戏。
 - `library/`、`temp/`、`local/` 和构建目录都是缓存，不进入 Git。
