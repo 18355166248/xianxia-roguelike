@@ -15,7 +15,7 @@
 
 ## 当前证据与问题
 
-当前实机证据：`docs/design/audit-2026-08-02/upgrade-rework/01-current-upgrade-choice.png`。
+当前实机证据：`docs/design/audit-2026-08-02/upgrade-rework/01-current-upgrade-choice.webp`。
 
 ### 规则问题
 

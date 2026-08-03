@@ -11,9 +11,9 @@
 1. `01-menu.jpg`：章节选择页。整体视觉统一，但旧版章节卡对风险、机关和收益预告不足。
 2. `02-bamboo-battle.jpg`：竹林战斗首屏。地图机关和操作区清晰，但旧版只显示当前波次，
    玩家难以感知距离精英与首领还有多远。
-3. `04-improved-menu.png`：章节卡加入“初试/险境”和地图机制标签，卡片仍保持单次点击进入。
-4. `05-improved-battle.png`：顶部新增四段道途节点，当前波使用金色描边，关底节点单独着色。
-5. `06-wave-reward.png`：波次横幅把“本波目标”和“剑脉增伤/灵泉续战”合并展示。
+3. `04-improved-menu.webp`：章节卡加入“初试/险境”和地图机制标签，卡片仍保持单次点击进入。
+4. `05-improved-battle.webp`：顶部新增四段道途节点，当前波使用金色描边，关底节点单独着色。
+5. `06-wave-reward.webp`：波次横幅把“本波目标”和“剑脉增伤/灵泉续战”合并展示。
 6. `08-three-stage-menu.jpg`：第三章加入后，三张章节卡仍完整落在首屏安全区内。
 7. `09-frozen-battle.jpg`：寒潭遗迹实机首屏，冰面、角色、敌人与操作 HUD 的明暗层级清楚。
 8. `10-frost-tide.jpg`：寒潮扫场状态；青色命中带与顶部“寒潮横渡”反馈同时出现。
@@ -23,201 +23,201 @@
     冻尸增援与被强制推进的寒潮预警同时出现。
 11. `13-hanyuan-frost-impact.jpg`：寒渊重棒命中后的主裂扩散帧，中心与首领落点、预警圆心
     保持一致，爆发范围没有侵入底部操作区。
-12. `14-three-path-upgrade.png`：破境三选一稳定覆盖锋芒、玄术、守元三路，卡片展示战斗角色、
+12. `14-three-path-upgrade.webp`：破境三选一稳定覆盖锋芒、玄术、守元三路，卡片展示战斗角色、
     本阶收益与三阶进度，底部同步汇总当前道基。
-13. `14-upgrade-comparison.png`：左侧为上一版破境页，右侧为本轮同画布实机；用于核对信息层级、
+13. `14-upgrade-comparison.webp`：左侧为上一版破境页，右侧为本轮同画布实机；用于核对信息层级、
     卡片密度、图标清晰度与三路线辨识。
-14. `15-result-before.png`：旧版结算弹层，仅提供胜负标题和两个动作，缺少战斗表现、地图机制
+14. `15-result-before.webp`：旧版结算弹层，仅提供胜负标题和两个动作，缺少战斗表现、地图机制
     与构筑复盘。
-15. `16-result-after.png`：新版“试炼战报”，展示真实局内统计、地图功绩、三路道基和主动技能。
-16. `16-result-comparison.png`：旧版与新版同画布并排，核对结果层级、数字密度、头像质量、
+15. `16-result-after.webp`：新版“试炼战报”，展示真实局内统计、地图功绩、三路道基和主动技能。
+16. `16-result-comparison.webp`：旧版与新版同画布并排，核对结果层级、数字密度、头像质量、
     构筑色彩和双按钮安全区。
-17. `17-map-event.png`：第一章“残碑问剑”奇遇实机，双卡完整展示路线、选择、代价和收益。
-18. `17-map-event-comparison.png`：左侧为既有破境视觉基准，右侧为地图奇遇；核对模态层语言、
+17. `17-map-event.webp`：第一章“残碑问剑”奇遇实机，双卡完整展示路线、选择、代价和收益。
+18. `17-map-event-comparison.webp`：左侧为既有破境视觉基准，右侧为地图奇遇；核对模态层语言、
     真实法宝图标、卡片边界、路线色和信息密度。
-19. `18-result-event.png`：胜利战报新增“奇遇印记”，记录路线角色、选择名、最终收益和真实
+19. `18-result-event.webp`：胜利战报新增“奇遇印记”，记录路线角色、选择名、最终收益和真实
     法宝图标。
-20. `18-result-event-comparison.png`：左侧为上一版战报，右侧为本轮奇遇闭环；核对新增内容
+20. `18-result-event-comparison.webp`：左侧为上一版战报，右侧为本轮奇遇闭环；核对新增内容
     没有挤压地图功绩、道基摘要和双按钮安全区。
-21. `19-route-scroll-source.png`：将旧版三章节入口从历史实机截图归一化为 750 × 1334，
+21. `19-route-scroll-source.webp`：将旧版三章节入口从历史实机截图归一化为 750 × 1334，
     作为路线页信息架构对比基准。
-22. `19-route-scroll.png`：新版“试炼路线”实机，第一章选中态完整展示机关、奇遇、首领与
+22. `19-route-scroll.webp`：新版“试炼路线”实机，第一章选中态完整展示机关、奇遇、首领与
     确认入场动作。
-23. `19-route-scroll-comparison.png`：旧版平铺章节卡与新版路线卷轴并排，核对首屏层级、
+23. `19-route-scroll-comparison.webp`：旧版平铺章节卡与新版路线卷轴并排，核对首屏层级、
     地图素材复用、章节切换和底部安全区。
-24. `20-stage-record.png`：路线节点新增“已破”道印，详情区展示通关次数与最快历时；截图
+24. `20-stage-record.webp`：路线节点新增“已破”道印，详情区展示通关次数与最快历时；截图
     同时覆盖已破当前章、已破非当前章和未通关章节。
-25. `20-stage-record-comparison.png`：左侧为无长期战绩的路线卷轴，右侧为道印与最快记录
+25. `20-stage-record-comparison.webp`：左侧为无长期战绩的路线卷轴，右侧为道印与最快记录
     接入后的同画布实机，核对信息层级、节点间距与主按钮安全区。
-26. `21-stage-reward.png`：路线详情新增真实法宝图标、首破奖励状态与永久收益，青石与竹林
+26. `21-stage-reward.webp`：路线详情新增真实法宝图标、首破奖励状态与永久收益，青石与竹林
     已获得、寒潭首破可得。
-27. `21-stage-reward-comparison.png`：左侧为仅有战绩的路线页，右侧为首破奖励接入后的同画布
+27. `21-stage-reward-comparison.webp`：左侧为仅有战绩的路线页，右侧为首破奖励接入后的同画布
     实机，核对奖励行、战绩行与确认按钮的垂直节奏。
-28. `22-first-clear-result.png`：第一章首次通关战报，“首破道印 · 青石剑印”与“永久生效 ·
+28. `22-first-clear-result.webp`：第一章首次通关战报，“首破道印 · 青石剑印”与“永久生效 ·
     御剑伤害 +2”在本局构筑和双按钮之间完整显示。
-29. `23-route-branch-hud.png`：战斗 HUD 在事件触发前持续显示“本境后分岔 · 残碑问剑”，
+29. `23-route-branch-hud.webp`：战斗 HUD 在事件触发前持续显示“本境后分岔 · 残碑问剑”，
     与波次目标保持独立层级。
-30. `24-route-branch-choice.png`：第二章奇遇两条路线同时展示下一波“伏兵合围”及敌伤、
+30. `24-route-branch-choice.webp`：第二章奇遇两条路线同时展示下一波“伏兵合围”及敌伤、
     敌血、敌速修正。
-31. `25-route-branch-selected.png`：选择“敛息入影”后，路线名持续保留在战斗 HUD，且不与
+31. `25-route-branch-selected.webp`：选择“敛息入影”后，路线名持续保留在战斗 HUD，且不与
     波次横幅、敌人或操作区重叠。
-32. `24-route-branch-comparison.png`：左侧旧版奇遇只展示即时收益，右侧新版补全下一波风险；
+32. `24-route-branch-comparison.webp`：左侧旧版奇遇只展示即时收益，右侧新版补全下一波风险；
     核对信息密度、卡片高度、辅助字号和底部安全区。
-33. `26-spatial-route-choice.png`：竹林两张路线卡在“下境”行分别增加“开阔正面”和“竹影
+33. `26-spatial-route-choice.webp`：竹林两张路线卡在“下境”行分别增加“开阔正面”和“竹影
     夹道”，点击前即可预判战场形状。
-34. `27-open-lane.png`：选择“焚竹开径”后的稳定实机；两段竹障全部清除，目标条显示
+34. `27-open-lane.webp`：选择“焚竹开径”后的稳定实机；两段竹障全部清除，目标条显示
     “开阔正面 · 竹障 0”。
-35. `28-shadow-corridor.png`：选择“敛息入影”后的稳定实机；三段真实竹障左右交错形成夹道，
+35. `28-shadow-corridor.webp`：选择“敛息入影”后的稳定实机；三段真实竹障左右交错形成夹道，
     目标条显示“竹影夹道 · 竹障 3”。
-36. `29-shadow-spawn.png`：夹道战斗实机，狐妖从左右两翼交替切入并被竹障分流。
-37. `26-spatial-choice-comparison.png`：左侧为只预告数值风险的选择页，右侧补充空间承诺；
+36. `29-shadow-spawn.webp`：夹道战斗实机，狐妖从左右两翼交替切入并被竹障分流。
+37. `26-spatial-choice-comparison.webp`：左侧为只预告数值风险的选择页，右侧补充空间承诺；
     核对新增文案不挤压路线名、收益条和底部安全区。
-38. `28-route-geometry-comparison.png`：同一竹林背景下并排对照“开阔正面”与“竹影夹道”，
+38. `28-route-geometry-comparison.webp`：同一竹林背景下并排对照“开阔正面”与“竹影夹道”，
     确认两条路线不依赖文字也能从场地轮廓区分。
-39. `30-open-spawn.png`：开阔路线战斗实机，狐妖从道路上端组成三点扇形正面推进。
-40. `31-frost-route-choice.png`：寒潭奇遇两张卡分别预告“潮线聚敌”和“封脉结界”，最长
+39. `30-open-spawn.webp`：开阔路线战斗实机，狐妖从道路上端组成三点扇形正面推进。
+40. `31-frost-route-choice.webp`：寒潭奇遇两张卡分别预告“潮线聚敌”和“封脉结界”，最长
     下境文案未挤压路线名、风险标签或收益条。
-41. `32-tide-convergence.png`：选择“逆祭借潮”后的稳定实机；上层冰台显示真实法宝祭纹，
+41. `32-tide-convergence.webp`：选择“逆祭借潮”后的稳定实机；上层冰台显示真实法宝祭纹，
     HUD 持续显示“潮线聚敌”，并在确认后立即进入寒潮预警。
-42. `33-sealed-sanctuary.png`：选择“封脉稳息”后的稳定实机；下层冰台形成可站位避潮圈，
+42. `33-sealed-sanctuary.webp`：选择“封脉稳息”后的稳定实机；下层冰台形成可站位避潮圈，
     玩家位于圈内且法宝图标、结界名均无遮挡。
-43. `34-tide-convergence-combat.png`：逆潮路线动态实机；冻尸围绕上层祭纹三点聚集，强化
+43. `34-tide-convergence-combat.webp`：逆潮路线动态实机；冻尸围绕上层祭纹三点聚集，强化
     环境潮伤已经清除部分敌人。
-44. `35-tide-surge.png`：寒潮横渡命中帧；潮带、伤害闪屏、敌群和聚敌祭纹同时可见。
-45. `33-frost-route-geometry-comparison.png`：同一寒潭背景并排对照“潮线聚敌”与“封脉
+44. `35-tide-surge.webp`：寒潮横渡命中帧；潮带、伤害闪屏、敌群和聚敌祭纹同时可见。
+45. `33-frost-route-geometry-comparison.webp`：同一寒潭背景并排对照“潮线聚敌”与“封脉
     结界”，确认两条路线拥有不同且持续可读的空间落点。
-46. `35-tide-runtime-comparison.png`：逆潮路线稳定敌群与寒潮横渡帧并排，验证祭纹聚敌、
+46. `35-tide-runtime-comparison.webp`：逆潮路线稳定敌群与寒潮横渡帧并排，验证祭纹聚敌、
     环境伤害和玩家风险在真实战斗中同时生效。
-47. `36-qingshi-route-choice.png`：青石奇遇两张卡分别预告“剑碑阵列”和“灵泉侧路”，最长
+47. `36-qingshi-route-choice.webp`：青石奇遇两张卡分别预告“剑碑阵列”和“灵泉侧路”，最长
     下境信息未挤压路线名、收益条或风险标签。
-48. `36-qingshi-choice-comparison.png`：左侧为原始青石奇遇，右侧补充下一波敌军与空间承诺；
+48. `36-qingshi-choice-comparison.webp`：左侧为原始青石奇遇，右侧补充下一波敌军与空间承诺；
     核对新增信息条没有改变双卡主体比例和底部安全区。
-49. `37-sword-stele-array.png`：修正后的悟痕路线稳定实机；三座真实法宝剑碑纵向错落，普通
+49. `37-sword-stele-array.webp`：修正后的悟痕路线稳定实机；三座真实法宝剑碑纵向错落，普通
     阵眼已被替换，目标条显示“剑碑阵列 · 入碑承伤 +35%”。
-50. `38-spring-detour.png`：调息路线稳定实机；第一波阵眼移至左下侧路并改为灵泉，玩家出生
+50. `38-spring-detour.webp`：调息路线稳定实机；第一波阵眼移至左下侧路并改为灵泉，玩家出生
     点、驻足条与法宝图标互不遮挡。
-51. `38-qingshi-route-geometry-comparison.png`：同一青石背景并排对照三碑纵阵与侧路灵泉，
+51. `38-qingshi-route-geometry-comparison.webp`：同一青石背景并排对照三碑纵阵与侧路灵泉，
     两条路线不依赖颜色也能从实体数量和落点区分。
-52. `39-sword-stele-combat.png`：真实刷怪状态；山精从山门三点压入并聚集到上段剑碑附近，
+52. `39-sword-stele-combat.webp`：真实刷怪状态；山精从山门三点压入并聚集到上段剑碑附近，
     证明出怪路径与选择卡承诺一致。
-53. `40-route-choice-before-commit.png`：青石路线确认前的完整实机画布，作为新增确认节奏的
+53. `40-route-choice-before-commit.webp`：青石路线确认前的完整实机画布，作为新增确认节奏的
     同尺寸基线。
-54. `41-qingshi-route-commit.png`：悟痕路线确认后的“道途已定”帧；真实剑器图标、锋芒角色、
+54. `41-qingshi-route-commit.webp`：悟痕路线确认后的“道途已定”帧；真实剑器图标、锋芒角色、
     “剑碑阵列”和“三碑落阵”空间承诺同时可读。
-55. `42-qingshi-route-after-commit.png`：揭示层结束后的稳定战场；三碑实体、路线 HUD 与玩家
+55. `42-qingshi-route-after-commit.webp`：揭示层结束后的稳定战场；三碑实体、路线 HUD 与玩家
     出生点无遮挡，战斗状态已经恢复。
-56. `43-bamboo-route-commit.png`：焚竹路线确认帧；章节暖色、法宝图标、“开阔正面”和正面
+56. `43-bamboo-route-commit.webp`：焚竹路线确认帧；章节暖色、法宝图标、“开阔正面”和正面
     压境承诺保持同一信息层级。
-57. `44-frost-route-commit.png`：逆潮路线确认帧；寒潭青色、祭纹法宝、“潮线聚敌”和寒潮
+57. `44-frost-route-commit.webp`：逆潮路线确认帧；寒潭青色、祭纹法宝、“潮线聚敌”和寒潮
     穿阵承诺保持同一信息层级。
-58. `45-route-commit-sequence-comparison.png`：左侧为确认前选择页，右侧为确认后的地势揭示；
+58. `45-route-commit-sequence-comparison.webp`：左侧为确认前选择页，右侧为确认后的地势揭示；
     两个状态使用相同 1200 × 1404 实机画布，验证视觉语言连续但节奏职责不同。
-59. `46-route-commit-three-chapters.png`：三章确认帧同画布并排，检查标题、图标、章节色、
+59. `46-route-commit-three-chapters.webp`：三章确认帧同画布并排，检查标题、图标、章节色、
     空间后果和底部安全区的一致性。
-60. `47-qingshi-stele-burst.png`：悟痕路线的真实 2×2 落阵首帧；三处剑碑坐标同时亮起，
+60. `47-qingshi-stele-burst.webp`：悟痕路线的真实 2×2 落阵首帧；三处剑碑坐标同时亮起，
     面板尚未入场。
-61. `48-bamboo-burn-burst.png`：焚竹路线的真实 2×2 焚障首帧；火环逐一绑定两处旧竹障坐标。
-62. `49-frost-tide-burst.png`：逆潮路线的真实 2×2 聚潮首帧；潮纹直接落在寒潭祭坛中心。
-63. `50-route-commit-sprite-bursts.png`：三章首帧同画布并排，验证数量、坐标、章节色与地面
+61. `48-bamboo-burn-burst.webp`：焚竹路线的真实 2×2 焚障首帧；火环逐一绑定两处旧竹障坐标。
+62. `49-frost-tide-burst.webp`：逆潮路线的真实 2×2 聚潮首帧；潮纹直接落在寒潭祭坛中心。
+63. `50-route-commit-sprite-bursts.webp`：三章首帧同画布并排，验证数量、坐标、章节色与地面
     材质均有独立表现，不再只是确认面板换色。
-64. `51-qingshi-spring-burst.png`：引泉路线的真实 2×2 灵泉回气帧；单一水纹落在当波侧路
+64. `51-qingshi-spring-burst.webp`：引泉路线的真实 2×2 灵泉回气帧；单一水纹落在当波侧路
     灵泉坐标，尺寸与亮度均低于三碑落阵。
-65. `52-bamboo-shadow-burst.png`：入影路线的真实 2×2 竹影敛息峰值帧；三处墨叶风环逐一
+65. `52-bamboo-shadow-burst.webp`：入影路线的真实 2×2 竹影敛息峰值帧；三处墨叶风环逐一
     绑定夹道竹障，仍保留战场材质和敌人轮廓。
-66. `53-frost-seal-burst.png`：封脉路线的真实 2×2 封脉结界帧；收束箭纹落在法宝结界中心，
+66. `53-frost-seal-burst.webp`：封脉路线的真实 2×2 封脉结界帧；收束箭纹落在法宝结界中心，
     玩家出生点、结界说明与底部技能簇均无遮挡。
-67. `54-stable-route-sprite-bursts.png`：三条稳健路线同画布并排，验证一泉、三障、一结界的
+67. `54-stable-route-sprite-bursts.webp`：三条稳健路线同画布并排，验证一泉、三障、一结界的
     数量与场地落点，同时检查低强度视觉层级。
-68. `55-risk-stable-route-motion-comparison.png`：上排为三条高风险路线，下排为三条稳健路线；
+68. `55-risk-stable-route-motion-comparison.webp`：上排为三条高风险路线，下排为三条稳健路线；
     同一实机构建与画布直接比较亮度、尺寸、播放节奏和空间数量。
-69. `56-bamboo-chapter-static.png`：竹林章节切换完成后的静态缩略图，作为菜单动效加入前的
+69. `56-bamboo-chapter-static.webp`：竹林章节切换完成后的静态缩略图，作为菜单动效加入前的
     同状态视觉基线。
-70. `57-bamboo-chapter-preview.png`：竹林节点切换后的竹影峰值帧；风环只出现在左上地图
+70. `57-bamboo-chapter-preview.webp`：竹林节点切换后的竹影峰值帧；风环只出现在左上地图
     缩略图内，章节名、风险、道途和主按钮保持稳定。
-71. `58-qingshi-chapter-preview.png`：青石节点切换后的灵泉峰值帧，水纹与青石道路材质同屏。
-72. `59-frost-chapter-preview.png`：寒潭节点切换后的封脉峰值帧，结界保持在地图缩略图边界内。
-73. `60-chapter-motion-three-stages.png`：三章预演同画布并排，核对主体尺度、章节辨识和卡片
+71. `58-qingshi-chapter-preview.webp`：青石节点切换后的灵泉峰值帧，水纹与青石道路材质同屏。
+72. `59-frost-chapter-preview.webp`：寒潭节点切换后的封脉峰值帧，结界保持在地图缩略图边界内。
+73. `60-chapter-motion-three-stages.webp`：三章预演同画布并排，核对主体尺度、章节辨识和卡片
     信息密度一致。
-74. `61-chapter-motion-before-after.png`：左侧为竹林静态基线，右侧为同状态动效峰值；同一
+74. `61-chapter-motion-before-after.webp`：左侧为竹林静态基线，右侧为同状态动效峰值；同一
     1200 × 1404 画布直接验证新增动画没有推动或遮挡任何 UI。
-75. `62-route-brief-collapsed.png`：青石章节展开卡的收起态基线；中央节点明确标记“路线
+75. `62-route-brief-collapsed.webp`：青石章节展开卡的收起态基线；中央节点明确标记“路线
     奇遇 · 点此预览”，原三段道途、首破奖励和主按钮均保留。
-76. `63-qingshi-route-brief.png`：青石双路线简报；“以血悟痕 / 引泉调息”使用真实法宝，
+76. `63-qingshi-route-brief.webp`：青石双路线简报；“以血悟痕 / 引泉调息”使用真实法宝，
     空间后果、确认文案、即时收益与下境修正完整落在首屏。
-77. `64-bamboo-route-brief.png`：竹林双路线简报；“焚竹开径 / 敛息入影”的正面开阔与
+77. `64-bamboo-route-brief.webp`：竹林双路线简报；“焚竹开径 / 敛息入影”的正面开阔与
     竹影夹道承诺保持并列可比。
-78. `65-frost-route-brief.png`：寒潭双路线简报；“逆祭借潮 / 封脉稳息”的聚敌潮线与
+78. `65-frost-route-brief.webp`：寒潭双路线简报；“逆祭借潮 / 封脉稳息”的聚敌潮线与
     避潮结界信息没有溢出卡片。
-79. `66-route-brief-three-stages.png`：三章展开态同画布并排，检查两列宽度、图标尺度、
+79. `66-route-brief-three-stages.webp`：三章展开态同画布并排，检查两列宽度、图标尺度、
     风险标签、最长结果文案与底部按钮的一致性。
-80. `67-route-brief-before-after.png`：左侧为收起态，右侧为青石展开态；同一构建与视口
+80. `67-route-brief-before-after.webp`：左侧为收起态，右侧为青石展开态；同一构建与视口
     验证展开仅替换道途内容区，没有改变章节标题、背景、地图缩略图和主按钮位置。
-81. `68-frost-expanded-enter.png`：寒潭简报保持展开时点击主按钮后的第一波实机画面，证明
+81. `68-frost-expanded-enter.webp`：寒潭简报保持展开时点击主按钮后的第一波实机画面，证明
     简报不会截断正式入场路径。
-82. `69-qingshi-risk-spatial-preview.png`：青石风险路线首版落点预演，三座剑碑按真实纵向
+82. `69-qingshi-risk-spatial-preview.webp`：青石风险路线首版落点预演，三座剑碑按真实纵向
     坐标投影到章节缩略图。
-83. `70-qingshi-stable-spatial-preview.png`：稳健路线首版截图；完整播放后停在淡出帧，三处
+83. `70-qingshi-stable-spatial-preview.webp`：稳健路线首版截图；完整播放后停在淡出帧，三处
     灵泉几乎不可辨，作为本轮 P2 基线。
-84. `71-qingshi-stable-spatial-preview-fixed.png`：放大尺寸后仍停留淡出帧，证明问题来自
+84. `71-qingshi-stable-spatial-preview-fixed.webp`：放大尺寸后仍停留淡出帧，证明问题来自
     常驻帧而非单纯尺度。
-85. `72-qingshi-stable-spatial-preview-final.png`：四帧播完回驻峰值帧后的青石三泉终态，
+85. `72-qingshi-stable-spatial-preview-final.webp`：四帧播完回驻峰值帧后的青石三泉终态，
     三处侧路落点持续可读。
-86. `73-qingshi-risk-spatial-preview-final.png`：最终青石三碑预演；风险卡选中描边、预演中
+86. `73-qingshi-risk-spatial-preview-final.webp`：最终青石三碑预演；风险卡选中描边、预演中
     标签和地图落点一致。
-87. `74-bamboo-risk-spatial-preview.png`：焚竹路线把两处原障位投影为橙色焚烧落点。
-88. `75-bamboo-stable-spatial-preview.png`：入影路线显示三段交错夹道，墨绿风环保持低强度
+87. `74-bamboo-risk-spatial-preview.webp`：焚竹路线把两处原障位投影为橙色焚烧落点。
+88. `75-bamboo-stable-spatial-preview.webp`：入影路线显示三段交错夹道，墨绿风环保持低强度
     但持续可见。
-89. `76-frost-risk-spatial-preview.png`：逆祭路线将聚敌祭纹落在上层冰台。
-90. `77-frost-stable-spatial-preview.png`：封脉路线将结界落在下层安全区，与风险路线形成
+89. `76-frost-risk-spatial-preview.webp`：逆祭路线将聚敌祭纹落在上层冰台。
+90. `77-frost-stable-spatial-preview.webp`：封脉路线将结界落在下层安全区，与风险路线形成
     清晰纵向差异。
-91. `78-frost-spatial-preview-closed.png`：收起简报后恢复三段道途，地图预演选择同步清空。
-92. `79-frost-spatial-preview-entry.png`：重新展开后直接入场的寒潭第一波，证明地图预演没有
+91. `78-frost-spatial-preview-closed.webp`：收起简报后恢复三段道途，地图预演选择同步清空。
+92. `79-frost-spatial-preview-entry.webp`：重新展开后直接入场的寒潭第一波，证明地图预演没有
     写入正式路线选择或阻断主按钮。
-93. `80-route-spatial-before-after.png`：旧简报与三碑空间预演同状态并排，验证外框、标题、
+93. `80-route-spatial-before-after.webp`：旧简报与三碑空间预演同状态并排，验证外框、标题、
     双卡与主按钮没有布局漂移。
-94. `81-route-spatial-six-choices.png`：三章六条路线同画布对比，核对真实落点数量、上下位置、
+94. `81-route-spatial-six-choices.webp`：三章六条路线同画布对比，核对真实落点数量、上下位置、
     章节色、选中态与最长文案。
-95. `82-route-spatial-focused-comparison.png`：简报核心区域放大对比，检查地图缩略图、选中
+95. `82-route-spatial-focused-comparison.webp`：简报核心区域放大对比，检查地图缩略图、选中
     描边、“预演中”标签和底部提示的细节可读性。
-96. `83-qingshi-branch-memory.png`：青石首境用章节金色短暂复述“剑碑阵列 / 灵泉侧路”。
-97. `84-bamboo-branch-memory.png`：竹林首境复述“开阔正面 / 竹影夹道”，竹障与目标条无重叠。
-98. `85-frost-branch-memory.png`：寒潭最长分岔文案保持单行，下方“祭坛逆潮”时机条完整保留。
-99. `86-frost-branch-memory-timed.png`：正式计时入口在入场约 0.45 秒仍显示空间分岔记忆。
-100. `87-frost-objective-restored.png`：约 3.65 秒后目标条自动恢复冰面、寒潮与阵眼实时状态。
-101. `88-branch-memory-three-stages.png`：三章首境同画布比较章节色、字号、间距和单行可读性。
-102. `89-branch-memory-source-implementation.png`：左侧旧首境实时目标，右侧新首境分岔记忆；确认
+96. `83-qingshi-branch-memory.webp`：青石首境用章节金色短暂复述“剑碑阵列 / 灵泉侧路”。
+97. `84-bamboo-branch-memory.webp`：竹林首境复述“开阔正面 / 竹影夹道”，竹障与目标条无重叠。
+98. `85-frost-branch-memory.webp`：寒潭最长分岔文案保持单行，下方“祭坛逆潮”时机条完整保留。
+99. `86-frost-branch-memory-timed.webp`：正式计时入口在入场约 0.45 秒仍显示空间分岔记忆。
+100. `87-frost-objective-restored.webp`：约 3.65 秒后目标条自动恢复冰面、寒潮与阵眼实时状态。
+101. `88-branch-memory-three-stages.webp`：三章首境同画布比较章节色、字号、间距和单行可读性。
+102. `89-branch-memory-source-implementation.webp`：左侧旧首境实时目标，右侧新首境分岔记忆；确认
     只替换目标条内容，不改变波次横幅、奇遇时机条与战场布局。
-103. `90-branch-memory-auto-restore.png`：左侧短时分岔记忆，右侧自动恢复后的实时目标，验证
+103. `90-branch-memory-auto-restore.webp`：左侧短时分岔记忆，右侧自动恢复后的实时目标，验证
     提示不会成为常驻 HUD 噪音。
-104. `91-qingshi-event-prelude.png`：青石奇遇前奏固定峰值，三碑纵阵与侧路灵泉同时可辨。
-105. `92-bamboo-event-prelude.png`：竹林前奏显示两处焚障和三段夹道，重合处仍可凭素材与
+104. `91-qingshi-event-prelude.webp`：青石奇遇前奏固定峰值，三碑纵阵与侧路灵泉同时可辨。
+105. `92-bamboo-event-prelude.webp`：竹林前奏显示两处焚障和三段夹道，重合处仍可凭素材与
     数量区分。
-106. `93-frost-event-prelude.png`：寒潭前奏把潮线祭纹放在上层、封脉结界放在下层。
-107. `94-frost-event-prelude-risk.png`：正式时序第一拍只点亮上层“潮线聚敌”落点。
-108. `95-frost-event-prelude-stable.png`：正式时序第二拍切换为下层“封脉结界”落点。
-109. `96-frost-event-prelude-choice.png`：约 0.72 秒后自动进入原“祭坛逆潮”双路线选择页。
-110. `97-frost-event-prelude-resolved.png`：选择风险路线后仍进入既有“道途已定”并恢复战斗，
+106. `93-frost-event-prelude.webp`：寒潭前奏把潮线祭纹放在上层、封脉结界放在下层。
+107. `94-frost-event-prelude-risk.webp`：正式时序第一拍只点亮上层“潮线聚敌”落点。
+108. `95-frost-event-prelude-stable.webp`：正式时序第二拍切换为下层“封脉结界”落点。
+109. `96-frost-event-prelude-choice.webp`：约 0.72 秒后自动进入原“祭坛逆潮”双路线选择页。
+110. `97-frost-event-prelude-resolved.webp`：选择风险路线后仍进入既有“道途已定”并恢复战斗，
     HUD、祭纹与奇遇印记均正常。
-111. `98-event-prelude-three-stages.png`：三章固定峰值同画布比较真实落点、章节色和顶部文案。
-112. `99-event-prelude-timeline.png`：寒潭“风险落点 → 稳健落点 → 正式选择”三段时序对比。
-113. `100-event-prelude-source-implementation.png`：旧首波战场、新前奏、既有奇遇页置于同一
+111. `98-event-prelude-three-stages.webp`：三章固定峰值同画布比较真实落点、章节色和顶部文案。
+112. `99-event-prelude-timeline.webp`：寒潭“风险落点 → 稳健落点 → 正式选择”三段时序对比。
+113. `100-event-prelude-source-implementation.webp`：旧首波战场、新前奏、既有奇遇页置于同一
     比较输入，确认新增的是两者之间的过渡，不是替换原界面。
-114. `101-qingshi-route-replay.png`：青石风险路线战报回放，三座剑碑按真实山道坐标停驻。
-115. `102-bamboo-route-replay.png`：竹林风险路线回放，两处焚障火环与开阔正面结果一致。
-116. `103-frost-route-replay.png`：寒潭风险路线回放，上层潮核、确认文案和战果验证完整。
-117. `104-qingshi-stable-route-replay.png`：青石稳健路线回放，三处侧路灵泉与恢复收益一致。
-118. `105-bamboo-stable-route-replay.png`：竹林稳健路线回放，三段夹道竹影保持低频动作语言。
-119. `106-frost-stable-route-replay.png`：寒潭稳健路线回放，下层封脉结界与安全区承诺一致。
-120. `107-route-replay-closed-result.png`：关闭覆盖层后恢复原第三章战报，奇遇印记与双按钮未变。
-121. `107b-route-replay-reopened.png`：点击奇遇印记右侧“回放”可再次打开同一历史路线。
-122. `108-frost-defeat-route-replay.png`：失败战报同样读取已记录路线，战果条保留失败局真实数据。
-123. `109-no-event-result-no-replay.png`：无奇遇局保持明确空态，不显示回放入口也不自动展开。
-124. `110-route-replay-three-stages.png`：三章风险路线同画布比较章节色、几何标题与真实落点。
-125. `111-route-replay-six-routes.png`：三章六路线完整矩阵，验证风险 / 稳健空间结果均可辨认。
-126. `112-route-replay-before-after.png`：旧静态印记、关闭态战报与展开态回放的密度变化对比。
-127. `113-route-replay-source-implementation.png`：旧战报与新增寒潭回放置于同一比较输入审查。
-128. `114-route-replay-interactions.png`：打开、关闭、重开、失败、无奇遇和稳健路线边界集合。
-129. `115-sts2-mobile-map-reference.png`：Slay the Spire 2 官方移动地图改版参考，展示放大、
+114. `101-qingshi-route-replay.webp`：青石风险路线战报回放，三座剑碑按真实山道坐标停驻。
+115. `102-bamboo-route-replay.webp`：竹林风险路线回放，两处焚障火环与开阔正面结果一致。
+116. `103-frost-route-replay.webp`：寒潭风险路线回放，上层潮核、确认文案和战果验证完整。
+117. `104-qingshi-stable-route-replay.webp`：青石稳健路线回放，三处侧路灵泉与恢复收益一致。
+118. `105-bamboo-stable-route-replay.webp`：竹林稳健路线回放，三段夹道竹影保持低频动作语言。
+119. `106-frost-stable-route-replay.webp`：寒潭稳健路线回放，下层封脉结界与安全区承诺一致。
+120. `107-route-replay-closed-result.webp`：关闭覆盖层后恢复原第三章战报，奇遇印记与双按钮未变。
+121. `107b-route-replay-reopened.webp`：点击奇遇印记右侧“回放”可再次打开同一历史路线。
+122. `108-frost-defeat-route-replay.webp`：失败战报同样读取已记录路线，战果条保留失败局真实数据。
+123. `109-no-event-result-no-replay.webp`：无奇遇局保持明确空态，不显示回放入口也不自动展开。
+124. `110-route-replay-three-stages.webp`：三章风险路线同画布比较章节色、几何标题与真实落点。
+125. `111-route-replay-six-routes.webp`：三章六路线完整矩阵，验证风险 / 稳健空间结果均可辨认。
+126. `112-route-replay-before-after.webp`：旧静态印记、关闭态战报与展开态回放的密度变化对比。
+127. `113-route-replay-source-implementation.webp`：旧战报与新增寒潭回放置于同一比较输入审查。
+128. `114-route-replay-interactions.webp`：打开、关闭、重开、失败、无奇遇和稳健路线边界集合。
+129. `115-sts2-mobile-map-reference.webp`：Slay the Spire 2 官方移动地图改版参考，展示放大、
     着色节点与手绘风险 / 收益路线。
 130. `116-current-route-scroll-audit.jpg`：本轮当前态审计；章节节点可读，但默认路线图未表达
     选定分支的连续走法。
@@ -391,9 +391,9 @@
   `qaRouteHud=1` 后可观察山门三点出怪与敌群穿碑。选择页、两条稳定路线和动态出怪状态的
   浏览器 error / warning / warn 日志均为 0。
 - 六条路线的真实 2×2 地面动作表均已在 1200 × 1404 实机画布中验证；`55-risk-stable-
-  route-motion-comparison.png` 证明高风险路线更亮、更快、更外扩，稳健路线更小、更慢且
+  route-motion-comparison.webp` 证明高风险路线更亮、更快、更外扩，稳健路线更小、更慢且
   保留战场可读性。三条新增稳健路线的浏览器 error / warning / warn 日志均为 0。
-- 三章路线节点均已实机切换并捕捉预演峰值；`61-chapter-motion-before-after.png` 证明动效
+- 三章路线节点均已实机切换并捕捉预演峰值；`61-chapter-motion-before-after.webp` 证明动效
   仅覆盖缩略图内部，没有改变字体、间距、卡片尺寸和按钮安全区。寒潭预演结束后仍能从同一
   主按钮进入第一波，浏览器 error / warning / warn 日志为 0。
 - 本地可用 `?qaVictory=1&qaRouteReplay=1` 在进入任意章节后直接检查风险路线回放；叠加
@@ -559,13 +559,13 @@
 
 - 用户来源图：`codex-clipboard-7895f743-3467-4fe8-aeed-fcd3fa41cc35.png`（`1062×1498`），
   显示固定 750 设计宽的遮罩与宽屏背景之间存在左右硬接缝。
-- `230-menu-background-cohesive-qingshi.png`：青石调试构建宽屏修复。
-- `231-menu-background-cohesive-bamboo.png`：竹林切换状态，背景连续且无独立侧栏。
-- `232-menu-background-cohesive-frost.png`：寒潭切换状态，菜单 cover 后无黑边或贴图断层。
-- `235-menu-background-cohesive-release.png`：`830×1170` 同比例正式构建截图，无 profiler，
+- `230-menu-background-cohesive-qingshi.webp`：青石调试构建宽屏修复。
+- `231-menu-background-cohesive-bamboo.webp`：竹林切换状态，背景连续且无独立侧栏。
+- `232-menu-background-cohesive-frost.webp`：寒潭切换状态，菜单 cover 后无黑边或贴图断层。
+- `235-menu-background-cohesive-release.webp`：`830×1170` 同比例正式构建截图，无 profiler，
   浏览器 error / warning / warn 为 0。
-- `236-menu-background-before-after-release.png`：来源图与正式构建归一化后的并排对照。
-- `237-debug-profiler-hidden.png`：调试 Web Mobile 构建；左下角引擎性能统计已隐藏，浏览器
+- `236-menu-background-before-after-release.webp`：来源图与正式构建归一化后的并排对照。
+- `237-debug-profiler-hidden.webp`：调试 Web Mobile 构建；左下角引擎性能统计已隐藏，浏览器
   error / warning / warn 为 0。
 - 结论：不重生成地图图片；根因是 `SHOW_ALL` 宽屏坐标与固定遮罩宽度不一致。菜单背景按
   可视区 cover，战斗仍使用关卡标定尺寸，视觉修复不会改变碰撞和机关坐标。

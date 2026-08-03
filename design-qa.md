@@ -87,9 +87,9 @@
 - Source visual truth：
   `/var/folders/7w/hsspqlq52mj2vrwmmpdjptsh0000gn/T/codex-clipboard-7895f743-3467-4fe8-aeed-fcd3fa41cc35.png`
 - Implementation：
-  `docs/qa/current-audit/235-menu-background-cohesive-release.png`
+  `docs/qa/current-audit/235-menu-background-cohesive-release.webp`
 - Full-view comparison：
-  `docs/qa/current-audit/236-menu-background-before-after-release.png`
+  `docs/qa/current-audit/236-menu-background-before-after-release.webp`
 - 浏览器 CSS 视口：`830×1170`，与来源图 `1062×1498` 保持相同比例；两者 density 均按 1×
   处理，正式构建截图归一化至 `1062×1498` 后并排比较。
 - 状态：章节菜单、青石山道、`qaProgress=1`；另以 `231`、`232` 检查竹林与寒潭切换状态。
@@ -135,9 +135,9 @@ final result: passed
 
 ### 目标与实现
 
-- 用户选定目标稿：`docs/design/upgrade-rework/selected-sword-phantom-aura-small.png`。
-- 393px 手机预览：`docs/design/upgrade-rework/implementation-sword-phantom-aura-small.png`。
-- 同图聚焦比较：`docs/design/upgrade-rework/sword-phantom-aura-comparison.png`。
+- 用户选定目标稿：`docs/design/upgrade-rework/selected-sword-phantom-aura-small.webp`。
+- 393px 手机预览：`docs/design/upgrade-rework/implementation-sword-phantom-aura-small.webp`。
+- 同图聚焦比较：`docs/design/upgrade-rework/sword-phantom-aura-comparison.webp`。
 - 原先的圆点、完整灵纹环已被替换为真实法宝飞剑残影；一重道基对应一柄剑影，最多显示三柄。
 - 按用户反馈将轨道收至 40 设计像素，剑身 34 设计像素；短轨迹不闭合，避免误读为敌方范围预警。
 
@@ -161,10 +161,10 @@ final result: passed
 
 ### 视觉真值与实现证据
 
-- 视觉真值：`docs/design/selected-hud-redesign-v1.png`（941×1672）以及本轮方案中指定的章节、破境、奇遇、结算结构；现状基线分别为 `54-menu-layout-final-v16.png`、`51-upgrade-spacing-focused-final-v14.png`、`45-event-spacing-after-v9.png`、`50-result-spacing-after-v12.png`（均为 1280×720 浏览器截图，其中游戏画布为 393×679）。
+- 视觉真值：`docs/design/selected-hud-redesign-v1.webp`（941×1672）以及本轮方案中指定的章节、破境、奇遇、结算结构；现状基线分别为 `54-menu-layout-final-v16.webp`、`51-upgrade-spacing-focused-final-v14.webp`、`45-event-spacing-after-v9.webp`、`50-result-spacing-after-v12.webp`（均为 1280×720 浏览器截图，其中游戏画布为 393×679）。
 - 浏览器实现：Cocos Creator 3.8.8 本地预览，1280×720 浏览器视口，Apple iPhone 14 Pro 模式；从浏览器截图裁取 393×679 游戏画布，deviceScaleFactor 1，无二次密度缩放。
-- 最终状态：`58-ui-system-menu-final.png`、`59-ui-system-upgrade-final.png`、`60-ui-system-event-final.png`、`61-ui-system-victory-final.png`、`62-ui-system-hud-final.png`、`63-ui-system-defeat-final.png`。
-- 同尺寸比较：`65-compare-menu-before-after.png`、`66-compare-upgrade-before-after.png`、`67-compare-event-before-after.png`、`68-compare-result-before-after.png`、`69-compare-hud-target-after.png`。
+- 最终状态：`58-ui-system-menu-final.webp`、`59-ui-system-upgrade-final.webp`、`60-ui-system-event-final.webp`、`61-ui-system-victory-final.webp`、`62-ui-system-hud-final.webp`、`63-ui-system-defeat-final.webp`。
+- 同尺寸比较：`65-compare-menu-before-after.webp`、`66-compare-upgrade-before-after.webp`、`67-compare-event-before-after.webp`、`68-compare-result-before-after.webp`、`69-compare-hud-target-after.webp`。
 
 ### 全屏与重点区域比较
 
@@ -186,7 +186,7 @@ final result: passed
 
 1. 首次同尺寸检查发现 P1：破境与奇遇宽卡的文本框仍从图标列左侧起排，真实图标与标题/收益出现局部相撞。
 2. 修正：重新划分选择卡左右栏，将标题、定位、地势与收益文本统一右移并收窄，保持右侧品阶/风险区独立。
-3. 修正后证据：`59-ui-system-upgrade-final.png` 与 `60-ui-system-event-final.png`；图标、正文和右侧状态三列均无重叠。无剩余 P0 / P1 / P2。
+3. 修正后证据：`59-ui-system-upgrade-final.webp` 与 `60-ui-system-event-final.webp`；图标、正文和右侧状态三列均无重叠。无剩余 P0 / P1 / P2。
 
 ### 交互、响应式与工程验证
 
@@ -202,7 +202,7 @@ final result: passed
 
 ### 视觉目标
 
-- 选定参考：`docs/design/selected-hud-redesign-v1.png`。
+- 选定参考：`docs/design/selected-hud-redesign-v1.webp`。
 - 保留现有水墨战场、角色与技能素材，降低顶部和底部大面积暗色蒙层的不透明度。
 - 左下摇杆移除方向刻度与额外提示，只保留圆形底座和拇指圆点。
 - 御剑、踏云、剑阵、天劫固定在右下操作区；天劫由底部横条改为圆形长按技能键。
@@ -227,20 +227,20 @@ final result: blocked
 
 ### 对照基准
 
-- Source visual truth：`docs/design/selected-hud-redesign-v1.png`（942×1676）。
-- Implementation：`docs/design/audit-2026-08-01/07-final-combat.png`（1280×720 浏览器截图）。
-- Full-view comparison：`docs/design/audit-2026-08-01/08-reference-vs-final.png`。
+- Source visual truth：`docs/design/selected-hud-redesign-v1.webp`（942×1676）。
+- Implementation：`docs/design/audit-2026-08-01/07-final-combat.webp`（1280×720 浏览器截图）。
+- Full-view comparison：`docs/design/audit-2026-08-01/08-reference-vs-final.webp`。
 - 目标设备：Apple iPhone 14 Pro，CSS 设备宽度 393；Cocos 游戏画布实测 393×679，device scale factor 1。
 - 归一化：从浏览器截图裁取 393×679 游戏画布，等比 contain 到 942×1676 后与参考图并排；未把浏览器工具栏或左右黑边计入差异。
-- 状态：第二境战斗，敌人、血条、顶部目标和右下技能簇同时可见；升级双选状态另见 `05-updated-upgrade.png`。
+- 状态：第二境战斗，敌人、血条、顶部目标和右下技能簇同时可见；升级双选状态另见 `05-updated-upgrade.webp`。
 
 ### Comparison history
 
-1. 第一轮 `04-reference-vs-current.png` 发现 P1：敌人/血条存在感弱、顶部状态重复、三项升级卡片覆盖大部分战场、技能锁定态接近不可见。
+1. 第一轮 `04-reference-vs-current.webp` 发现 P1：敌人/血条存在感弱、顶部状态重复、三项升级卡片覆盖大部分战场、技能锁定态接近不可见。
 2. 第二轮修复：角色与普通敌人显示尺寸提高；普通敌人血条加宽并按真实视觉高度上移；未选择路线时隐藏重复路线状态条；调试数值条从正式 HUD 隐藏。
 3. 第二轮修复：升级界面改为战场下方 620×330 局部面板，只显示两项并排选择；选择后沿用状态机立即清除。
 4. 第二轮修复：摇杆去除方向刻度并扩大触控底座；右下技能簇保持固定，锁定态图标和名称提高可见度。
-5. Post-fix evidence：`05-updated-upgrade.png`、`06-updated-combat.png`、`07-final-combat.png`、`08-reference-vs-final.png`。
+5. Post-fix evidence：`05-updated-upgrade.webp`、`06-updated-combat.webp`、`07-final-combat.webp`、`08-reference-vs-final.webp`。
 
 ### Required fidelity surfaces
 
@@ -249,7 +249,7 @@ final result: blocked
 - 色彩与 token：深青、赤金、青绿和红色血条语义保持一致；青石关卡的暖灰绿色战场与参考冰蓝场景属于章节资源差异，作为当前关卡约束保留。
 - 图像质量：当前角色、狐妖、背景均使用正式 PNG 资源，无占位图、代码绘图或伪造资产；但参考图的圆形头像、波次章纹、冰境装饰和高精度敌人没有对应正式资源，P1。
 - 文案与内容：升级改为两项且明确“选择后消失”；目标文案仍偏长，P2。
-- Focused comparison：升级界面单独使用 `05-updated-upgrade.png` 检查；其余差异在 `08-reference-vs-final.png` 已可读。
+- Focused comparison：升级界面单独使用 `05-updated-upgrade.webp` 检查；其余差异在 `08-reference-vs-final.webp` 已可读。
 
 ### Findings
 
@@ -271,10 +271,10 @@ final result: blocked
 
 ### 对照基准
 
-- Source visual truth：`docs/design/selected-hud-redesign-v1.png`（941×1672）。
-- Implementation：`docs/design/audit-2026-08-01/13-frozen-hud-upgrade.png`。
-- Full-view comparison：`docs/design/audit-2026-08-01/14-reference-vs-frozen-final.png`。
-- Interaction comparison：`docs/design/audit-2026-08-01/17-upgrade-before-after.png`。
+- Source visual truth：`docs/design/selected-hud-redesign-v1.webp`（941×1672）。
+- Implementation：`docs/design/audit-2026-08-01/13-frozen-hud-upgrade.webp`。
+- Full-view comparison：`docs/design/audit-2026-08-01/14-reference-vs-frozen-final.webp`。
+- Interaction comparison：`docs/design/audit-2026-08-01/17-upgrade-before-after.webp`。
 - 目标设备：Apple iPhone 14 Pro；游戏画布 393×679，归一化到 942×1676 后并排比较。
 - 对照状态：寒渊遗迹第二波、顶部状态完整、升级双选面板显示、右下技能区固定。
 
@@ -285,7 +285,7 @@ final result: blocked
 3. 顶部目标合并为单行局部底板，未选择路线时不再显示重复状态层。
 4. 使用与参考稿同属冰蓝遗迹语汇的正式 `frozen-ruins` 章节资源复核，排除青石章节色调造成的误判。
 5. 升级面板保持局部双选，右下技能簇不因浮层出现而移动；选中后沿用原状态机立即消失。
-6. 最终交互复核新增 `15-frozen-upgrade-before-choice.png` 与 `16-frozen-upgrade-after-choice.png`；同画布裁剪并排见 `17-upgrade-before-after.png`，证明选项消失、战斗恢复且技能簇未位移。
+6. 最终交互复核新增 `15-frozen-upgrade-before-choice.webp` 与 `16-frozen-upgrade-after-choice.webp`；同画布裁剪并排见 `17-upgrade-before-after.webp`，证明选项消失、战斗恢复且技能簇未位移。
 
 ### Required fidelity surfaces
 
@@ -294,8 +294,8 @@ final result: blocked
 - 色彩与 token：寒渊背景、玉青章纹、赤色血条与金色标题统一；大面积纯黑蒙层已移除。
 - 图像质量：头像、波次章纹、寒渊背景、角色和技能均为正式 PNG 资源；未使用占位框、emoji、CSS/Graphics 伪造关键美术。
 - 文案与内容：升级仅显示两个可选项并明确“选择后消失”；波次和余敌合并显示，目标保持一条。
-- Focused comparison：战斗态见 `12-frozen-hud-combat.png`，升级态见 `13-frozen-hud-upgrade.png`，完整并排见 `14-reference-vs-frozen-final.png`。
-- Focused interaction comparison：`17-upgrade-before-after.png` 只比较 393×679 游戏画布；升级前后右下技能中心点和间距保持一致，左下无常驻摇杆。
+- Focused comparison：战斗态见 `12-frozen-hud-combat.webp`，升级态见 `13-frozen-hud-upgrade.webp`，完整并排见 `14-reference-vs-frozen-final.webp`。
+- Focused interaction comparison：`17-upgrade-before-after.webp` 只比较 393×679 游戏画布；升级前后右下技能中心点和间距保持一致，左下无常驻摇杆。
 
 ### Findings
 
@@ -321,11 +321,11 @@ final result: passed
 ### 对照与实机证据
 
 - 用户当前首页截图：`C:/Users/Administrator/AppData/Local/Temp/codex-clipboard-ae0fd18e-73dc-484e-bc14-57980b748a09.png`。
-- 战斗 HUD 视觉基准：`docs/design/selected-hud-redesign-v1.png`。
-- 首页实机：`docs/design/audit-2026-08-01/30-menu-final-v3.png`。
-- 升级双选实机：`docs/design/audit-2026-08-01/31-upgrade-final-v3.png`。
-- 选择后战斗实机：`docs/design/audit-2026-08-01/32-hud-final-v3.png`。
-- 同画布对照：`docs/design/audit-2026-08-01/33-reference-vs-ui-redesign-v3.png`。
+- 战斗 HUD 视觉基准：`docs/design/selected-hud-redesign-v1.webp`。
+- 首页实机：`docs/design/audit-2026-08-01/30-menu-final-v3.webp`。
+- 升级双选实机：`docs/design/audit-2026-08-01/31-upgrade-final-v3.webp`。
+- 选择后战斗实机：`docs/design/audit-2026-08-01/32-hud-final-v3.webp`。
+- 同画布对照：`docs/design/audit-2026-08-01/33-reference-vs-ui-redesign-v3.webp`。
 
 ### 本轮调整
 
@@ -372,10 +372,10 @@ final result: passed
 
 ### 对照证据
 
-- 首页最终态：`docs/design/audit-2026-08-01/38-readable-menu-final-v7.png`。
-- 升级弹窗最终态：`docs/design/audit-2026-08-01/39-readable-upgrade-final-v7.png`。
-- 设计稿并排对照：`docs/design/audit-2026-08-01/40-reference-vs-readable-final-v7.png`。
-- 选择升级后的战斗态：`docs/design/audit-2026-08-01/41-readable-hud-final-v7.png`。
+- 首页最终态：`docs/design/audit-2026-08-01/38-readable-menu-final-v7.webp`。
+- 升级弹窗最终态：`docs/design/audit-2026-08-01/39-readable-upgrade-final-v7.webp`。
+- 设计稿并排对照：`docs/design/audit-2026-08-01/40-reference-vs-readable-final-v7.webp`。
+- 选择升级后的战斗态：`docs/design/audit-2026-08-01/41-readable-hud-final-v7.webp`。
 
 ### 结果
 
@@ -407,12 +407,12 @@ final result: passed
 
 ### 实机证据
 
-- 调整前战斗奇遇：`docs/design/audit-2026-08-02/43-event-crowded-before.png`。
-- 调整后战斗奇遇：`docs/design/audit-2026-08-02/45-event-spacing-after-v9.png`。
-- 升级双选复核：`docs/design/audit-2026-08-02/46-upgrade-spacing-after-v9.png`。
-- 首页常规态：`docs/design/audit-2026-08-02/47-menu-spacing-after-v10.png`。
-- 首页路线简报最终态：`docs/design/audit-2026-08-02/49-route-brief-spacing-final-v11.png`。
-- 结算页复核：`docs/design/audit-2026-08-02/50-result-spacing-after-v12.png`。
+- 调整前战斗奇遇：`docs/design/audit-2026-08-02/43-event-crowded-before.webp`。
+- 调整后战斗奇遇：`docs/design/audit-2026-08-02/45-event-spacing-after-v9.webp`。
+- 升级双选复核：`docs/design/audit-2026-08-02/46-upgrade-spacing-after-v9.webp`。
+- 首页常规态：`docs/design/audit-2026-08-02/47-menu-spacing-after-v10.webp`。
+- 首页路线简报最终态：`docs/design/audit-2026-08-02/49-route-brief-spacing-final-v11.webp`。
+- 结算页复核：`docs/design/audit-2026-08-02/50-result-spacing-after-v12.webp`。
 
 ### 结果
 
@@ -442,9 +442,9 @@ final result: passed
 
 ### 证据与验证
 
-- 最终弹窗：`docs/design/audit-2026-08-02/51-upgrade-spacing-focused-final-v14.png`。
-- 与设计稿并排：`docs/design/audit-2026-08-02/52-reference-vs-upgrade-spacing-v14.png`。
-- 选择后状态：`docs/design/audit-2026-08-02/53-upgrade-selected-after-v14.png`。
+- 最终弹窗：`docs/design/audit-2026-08-02/51-upgrade-spacing-focused-final-v14.webp`。
+- 与设计稿并排：`docs/design/audit-2026-08-02/52-reference-vs-upgrade-spacing-v14.webp`。
+- 选择后状态：`docs/design/audit-2026-08-02/53-upgrade-selected-after-v14.webp`。
 - 标题、副标题、卡片和底部反馈无重叠或贴边。
 - 选择升级后弹窗正常关闭，战斗继续。
 - 20/20 规则测试、TypeScript 检查和 `git diff --check` 通过。
@@ -470,10 +470,10 @@ final result: passed
 ### 视觉对照
 
 - 问题截图：`C:/Users/Administrator/AppData/Local/Temp/codex-clipboard-8cf855dd-b4ad-4975-94af-ece94c349521.png`，457×503，用户标注的首页关卡区域。
-- 浏览器完整实现：`docs/design/audit-2026-08-02/54-menu-layout-final-v16.png`，1280×720，Apple iPhone 14 Pro 预览，CSS 画布约 393×679，设备像素比 1。
-- 路线预演交互态：`docs/design/audit-2026-08-02/55-menu-route-brief-final-v16.png`，1280×720。
-- 聚焦实现：`docs/design/audit-2026-08-02/56-menu-layout-focused-v16.png`，457×543；对浏览器中的关卡区域做等宽归一化。
-- 同图比较：`docs/design/audit-2026-08-02/57-menu-layout-comparison-v16.png`。左侧为问题参考，右侧为修复后的同区域。
+- 浏览器完整实现：`docs/design/audit-2026-08-02/54-menu-layout-final-v16.webp`，1280×720，Apple iPhone 14 Pro 预览，CSS 画布约 393×679，设备像素比 1。
+- 路线预演交互态：`docs/design/audit-2026-08-02/55-menu-route-brief-final-v16.webp`，1280×720。
+- 聚焦实现：`docs/design/audit-2026-08-02/56-menu-layout-focused-v16.webp`，457×543；对浏览器中的关卡区域做等宽归一化。
+- 同图比较：`docs/design/audit-2026-08-02/57-menu-layout-comparison-v16.webp`。左侧为问题参考，右侧为修复后的同区域。
 - 本轮来源是用户指出问题的现状截图，不是要求逐像素复刻的设计稿；对照重点为字号、信息层级、间距和可读性。
 
 ### Required fidelity surfaces
@@ -499,11 +499,11 @@ final result: passed
 
 ### Source visual truth 与验收状态
 
-- 目标稿：`docs/design/upgrade-rework/selected-sword-phantom-aura-small.png`，853×1844。
-- 旧实现：`docs/design/upgrade-rework/implementation-sword-phantom-aura-small.png`。
-- V2 手机实机：`docs/design/upgrade-rework/implementation-sword-phantom-aura-v2-mobile.png`，393×679 CSS px，deviceScaleFactor 1。
-- 聚焦同屏比较：`docs/design/upgrade-rework/sword-phantom-aura-comparison-v2.png`。
-- 改前 / 目标 / 改后：`docs/design/upgrade-rework/sword-phantom-aura-comparison-history-v2.png`。
+- 目标稿：`docs/design/upgrade-rework/selected-sword-phantom-aura-small.webp`，853×1844。
+- 旧实现：`docs/design/upgrade-rework/implementation-sword-phantom-aura-small.webp`。
+- V2 手机实机：`docs/design/upgrade-rework/implementation-sword-phantom-aura-v2-mobile.webp`，393×679 CSS px，deviceScaleFactor 1。
+- 聚焦同屏比较：`docs/design/upgrade-rework/sword-phantom-aura-comparison-v2.webp`。
+- 改前 / 目标 / 改后：`docs/design/upgrade-rework/sword-phantom-aura-comparison-history-v2.webp`。
 - 状态：`qaCultivation=1`，完成一次锋芒升级并等待“道基共鸣”揭示动画结束后的战斗稳定态。
 - 密度归一化：目标稿裁取 503×503 角色特效区域；实机裁取 172×172 原生区域并放大到 503×503，仅用于观察轮廓与层级，不以插值锐度判断资源质量。
 
