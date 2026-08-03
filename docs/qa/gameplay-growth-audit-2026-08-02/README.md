@@ -4,25 +4,25 @@
 
 ## 1. 入场与常驻信息
 
-- 证据：`01-current-state.webp`
+- 证据：[01-current-state.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/4f8c-audiotest/64/DB/GAqSpGcORfOfAACj4gACEFs1.webp)
 - 健康度：需重构。
 - 结论：菜单没有建立本局装备期待；战斗左下角只呈现技术数值，不能回答“我装备了什么、目前是什么形态、下一次进化还差多少”。
 
 ## 2. 破境选择
 
-- 证据：`02-upgrade-choice.webp`
+- 证据：[02-upgrade-choice.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/59c1-audiotest/97/38/GAqSoUUORfOfAADe8AACEFsz.webp)
 - 健康度：一般。
 - 结论：三张卡已能区分锋芒、玄术、守元，但升级的装备归属、流派联动与战斗形态变化埋在小字里。玩家能读到收益，不能快速想象选择后的打法。
 
 ## 3. 升级确认
 
-- 证据：`03-upgrade-commit.webp`
+- 证据：[03-upgrade-commit.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/ddfb-audiotest/F7/53/GAqSoUUORfOfAADYgAACEFs0.webp)
 - 健康度：较差。
 - 结论：确认层只重复图标、名称和描述，没有“升级前 → 升级后”、本命法宝阶位、共鸣里程碑和下一轮攻击预告。反馈与角色和敌人脱节。
 
 ## 4. 升级后战斗
 
-- 证据：`04-post-upgrade-combat.webp`
+- 证据：[04-post-upgrade-combat.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/0508-audiotest/69/DD/GAqSpGcORfOeAADjAgACEFsy.webp)
 - 健康度：较差。
 - 结论：规则层已有回旋剑、雷印、护盾反震和真诀，但常驻 HUD、飞剑颜色、弹道体量与命中反馈没有形成一致的流派身份，因此变化看起来仍像隐藏数值。
 

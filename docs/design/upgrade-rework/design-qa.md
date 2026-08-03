@@ -1,9 +1,9 @@
 # 战场悟法 Design QA
 
-- 目标稿：`selected-battlefield-cultivation.webp`（853×1844）
-- 最终实机：`implementation-battlefield-cultivation-final.webp`（1280×720，内嵌 393×679 游戏视口）
-- 首悟道种：`implementation-seed-choice-final.webp`
-- 同屏比较：`battlefield-cultivation-comparison-final.webp`
+- 目标稿：[selected-battlefield-cultivation.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/4890-audiotest/38/C8/GAqSoUUORfOXAAPujgACEFrq.webp)（853×1844）
+- 最终实机：[implementation-battlefield-cultivation-final.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/b1d0-audiotest/C2/A2/GAqSpGcORfOYAAD9BgACEFr1.webp)（1280×720，内嵌 393×679 游戏视口）
+- 首悟道种：[implementation-seed-choice-final.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/c985-audiotest/BC/47/GAqSpGcORfOYAAD3LAACEFry.webp)
+- 同屏比较：[battlefield-cultivation-comparison-final.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/bd51-audiotest/0D/A4/GAqSoUUORfOXAAH5QAACEFrs.webp)
 - 验收状态：`qaCultivation=1` 与 `qaUpgrade=1`
 
 ## 对照结论
@@ -34,6 +34,6 @@ final result: passed
 - 标题直接显示主修路线、当前重数、共鸣状态以及距离下一次成诀还差多少重。
 - 新增“生效来源”，明确当前数值由道种和最近获得的功法共同产生。
 - 三条路线统一显示“锋芒 / 玄术 / 守元 N重”，不再展示缺少单位的裸数字。
-- iPhone 14 Pro 实机截图：`hud-bonus-detail-final.webp`。
+- iPhone 14 Pro 实机截图：[hud-bonus-detail-final.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/40e2-audiotest/88/DB/GAqSoUUORfOYAAEeTAACEFru.webp)。
 
 final result: passed

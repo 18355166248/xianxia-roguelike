@@ -4,17 +4,17 @@
 
 ## 改版前
 
-- `01-current-menu.webp`：主菜单已有水墨修仙基调，但尚未传达局内地图目标。
-- `02-current-battle.webp`：战斗空间主要承担刷怪与走位，顶部只显示波次，缺少可争夺目标。
-- `03-current-midbattle.webp`：中段反馈以敌人、伤害数字和技能冷却为主，路线决策较弱。
+- [01-current-menu.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/0c74-audiotest/D6/13/GAqSpGcORfOsAAHTkgACEFu7.webp)：主菜单已有水墨修仙基调，但尚未传达局内地图目标。
+- [02-current-battle.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/9810-audiotest/DD/2B/GAqSoUUORfOsAAI5EAACEFu-.webp)：战斗空间主要承担刷怪与走位，顶部只显示波次，缺少可争夺目标。
+- [03-current-midbattle.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/fac3-audiotest/33/F6/GAqSoUUORfOsAAFK0gACEFvA.webp)：中段反馈以敌人、伤害数字和技能冷却为主，路线决策较弱。
 
 ## 改版后
 
-- `04-improved-battle.webp`：加入波次名称、阶段目标、剩余敌人数和场内灵脉地标，玩家需要在清怪与驻足引灵之间取舍。
-- `05-improved-upgrade.webp`：升级卡拆分为类别、标题、说明、境界与品阶，使用现有法宝图标建立稳定的信息层级。
-- `06-map-select.webp`：首页加入双章节地图卡，直接展示章节、地图名、玩法标签与进入动作。
-- `07-bamboo-battle.webp`：竹林地图使用独立背景，道路内出现两处真实竹障，HUD 同步显示剩余竹障与灵脉进度。
-- `08-bamboo-upgrade.webp`：竹林战斗中的破境覆盖层保持地图上下文，法宝图标与品阶信息仍可快速扫读。
+- [04-improved-battle.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/fd1f-audiotest/E4/FC/GAqSpGcORfOsAAJTdAACEFu9.webp)：加入波次名称、阶段目标、剩余敌人数和场内灵脉地标，玩家需要在清怪与驻足引灵之间取舍。
+- [05-improved-upgrade.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/ed04-audiotest/0C/2F/GAqSoUUORfOtAAFI3AACEFvC.webp)：升级卡拆分为类别、标题、说明、境界与品阶，使用现有法宝图标建立稳定的信息层级。
+- [06-map-select.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/f379-audiotest/56/F6/GAqSpGcORfOsAADbAgACEFvB.webp)：首页加入双章节地图卡，直接展示章节、地图名、玩法标签与进入动作。
+- [07-bamboo-battle.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/68dc-audiotest/3E/72/GAqSpGcORfOsAAEWOgACEFu_.webp)：竹林地图使用独立背景，道路内出现两处真实竹障，HUD 同步显示剩余竹障与灵脉进度。
+- [08-bamboo-upgrade.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/a32e-audiotest/68/46/GAqSoUUORfOsAACYUgACEFu8.webp)：竹林战斗中的破境覆盖层保持地图上下文，法宝图标与品阶信息仍可快速扫读。
 
 ## 回归结论
 

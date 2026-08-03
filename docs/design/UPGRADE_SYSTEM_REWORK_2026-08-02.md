@@ -15,7 +15,7 @@
 
 ## 当前证据与问题
 
-当前实机证据：`docs/design/audit-2026-08-02/upgrade-rework/01-current-upgrade-choice.webp`。
+当前实机证据：[docs/design/audit-2026-08-02/upgrade-rework/01-current-upgrade-choice.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/fa8b-audiotest/39/F3/GAqSoUUORfOWAACsrgACEFrd.webp)。
 
 ### 规则问题
 

@@ -8,237 +8,237 @@
 
 ## 步骤
 
-1. `01-menu.jpg`：章节选择页。整体视觉统一，但旧版章节卡对风险、机关和收益预告不足。
-2. `02-bamboo-battle.jpg`：竹林战斗首屏。地图机关和操作区清晰，但旧版只显示当前波次，
+1. [01-menu.jpg](https://audiopaytest.cos.tx.xmcdn.com/storages/4d9e-audiotest/6E/60/GAqSoUUORfNpAADMDQACEFqj.jpg)：章节选择页。整体视觉统一，但旧版章节卡对风险、机关和收益预告不足。
+2. [02-bamboo-battle.jpg](https://audiopaytest.cos.tx.xmcdn.com/storages/6dba-audiotest/FA/BD/GAqSpGcORfNJAADmxQACEFpQ.jpg)：竹林战斗首屏。地图机关和操作区清晰，但旧版只显示当前波次，
    玩家难以感知距离精英与首领还有多远。
-3. `04-improved-menu.webp`：章节卡加入“初试/险境”和地图机制标签，卡片仍保持单次点击进入。
-4. `05-improved-battle.webp`：顶部新增四段道途节点，当前波使用金色描边，关底节点单独着色。
-5. `06-wave-reward.webp`：波次横幅把“本波目标”和“剑脉增伤/灵泉续战”合并展示。
-6. `08-three-stage-menu.jpg`：第三章加入后，三张章节卡仍完整落在首屏安全区内。
-7. `09-frozen-battle.jpg`：寒潭遗迹实机首屏，冰面、角色、敌人与操作 HUD 的明暗层级清楚。
-8. `10-frost-tide.jpg`：寒潮扫场状态；青色命中带与顶部“寒潮横渡”反馈同时出现。
-9. `11-hanyuan-boss-entry.jpg`：寒渊山魈独立动作表的待机/追击实机帧，冰甲与符文重棒无需
+3. [04-improved-menu.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/1e4a-audiotest/F0/AF/GAqSpGcORfOmAADf8AACEFt-.webp)：章节卡加入“初试/险境”和地图机制标签，卡片仍保持单次点击进入。
+4. [05-improved-battle.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/35ad-audiotest/D7/7B/GAqSpGcORfOhAAEcHAACEFtQ.webp)：顶部新增四段道途节点，当前波使用金色描边，关底节点单独着色。
+5. [06-wave-reward.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/5af9-audiotest/A4/16/GAqSoUUORfOjAAEbagACEFtj.webp)：波次横幅把“本波目标”和“剑脉增伤/灵泉续战”合并展示。
+6. [08-three-stage-menu.jpg](https://audiopaytest.cos.tx.xmcdn.com/storages/4640-audiotest/99/4E/GAqSpGcORfNoAADOGQACEFqg.jpg)：第三章加入后，三张章节卡仍完整落在首屏安全区内。
+7. [09-frozen-battle.jpg](https://audiopaytest.cos.tx.xmcdn.com/storages/34ea-audiotest/11/C9/GAqSoUUORfNeAABrmwACEFqF.jpg)：寒潭遗迹实机首屏，冰面、角色、敌人与操作 HUD 的明暗层级清楚。
+8. [10-frost-tide.jpg](https://audiopaytest.cos.tx.xmcdn.com/storages/f14e-audiotest/85/CC/GAqSpGcORfNuAADi8wACEFqw.jpg)：寒潮扫场状态；青色命中带与顶部“寒潮横渡”反馈同时出现。
+9. [11-hanyuan-boss-entry.jpg](https://audiopaytest.cos.tx.xmcdn.com/storages/16c9-audiotest/AA/2E/GAqSpGcORfNXAADg-QACEFp0.jpg)：寒渊山魈独立动作表的待机/追击实机帧，冰甲与符文重棒无需
    依赖名字即可和普通山魈区分。
-10. `12-hanyuan-boss-phase-two.jpg`：首领在 55% 血线进入“寒狱相”，狂化帧、青色屏闪、
+10. [12-hanyuan-boss-phase-two.jpg](https://audiopaytest.cos.tx.xmcdn.com/storages/42cb-audiotest/D7/5B/GAqSpGcORfNHAADghQACEFpK.jpg)：首领在 55% 血线进入“寒狱相”，狂化帧、青色屏闪、
     冻尸增援与被强制推进的寒潮预警同时出现。
-11. `13-hanyuan-frost-impact.jpg`：寒渊重棒命中后的主裂扩散帧，中心与首领落点、预警圆心
+11. [13-hanyuan-frost-impact.jpg](https://audiopaytest.cos.tx.xmcdn.com/storages/7178-audiotest/0D/2F/GAqSoUUORfNiAADmtAACEFqR.jpg)：寒渊重棒命中后的主裂扩散帧，中心与首领落点、预警圆心
     保持一致，爆发范围没有侵入底部操作区。
-12. `14-three-path-upgrade.webp`：破境三选一稳定覆盖锋芒、玄术、守元三路，卡片展示战斗角色、
+12. [14-three-path-upgrade.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/e80d-audiotest/93/03/GAqSoUUORfOrAAD5AAACEFu4.webp)：破境三选一稳定覆盖锋芒、玄术、守元三路，卡片展示战斗角色、
     本阶收益与三阶进度，底部同步汇总当前道基。
-13. `14-upgrade-comparison.webp`：左侧为上一版破境页，右侧为本轮同画布实机；用于核对信息层级、
+13. [14-upgrade-comparison.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/dc1a-audiotest/93/6C/GAqSpGcORfOjAAJAgAACEFtk.webp)：左侧为上一版破境页，右侧为本轮同画布实机；用于核对信息层级、
     卡片密度、图标清晰度与三路线辨识。
-14. `15-result-before.webp`：旧版结算弹层，仅提供胜负标题和两个动作，缺少战斗表现、地图机制
+14. [15-result-before.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/70db-audiotest/9D/4B/GAqSpGcORfOkAACZYgACEFtu.webp)：旧版结算弹层，仅提供胜负标题和两个动作，缺少战斗表现、地图机制
     与构筑复盘。
-15. `16-result-after.webp`：新版“试炼战报”，展示真实局内统计、地图功绩、三路道基和主动技能。
-16. `16-result-comparison.webp`：旧版与新版同画布并排，核对结果层级、数字密度、头像质量、
+15. [16-result-after.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/7bc7-audiotest/7A/E2/GAqSoUUORfOiAADHlgACEFtT.webp)：新版“试炼战报”，展示真实局内统计、地图功绩、三路道基和主动技能。
+16. [16-result-comparison.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/950e-audiotest/BF/69/GAqSoUUORfOpAAFgngACEFud.webp)：旧版与新版同画布并排，核对结果层级、数字密度、头像质量、
     构筑色彩和双按钮安全区。
-17. `17-map-event.webp`：第一章“残碑问剑”奇遇实机，双卡完整展示路线、选择、代价和收益。
-18. `17-map-event-comparison.webp`：左侧为既有破境视觉基准，右侧为地图奇遇；核对模态层语言、
+17. [17-map-event.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/0bf0-audiotest/1D/46/GAqSpGcORfOrAADJ1gACEFuv.webp)：第一章“残碑问剑”奇遇实机，双卡完整展示路线、选择、代价和收益。
+18. [17-map-event-comparison.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/681f-audiotest/C8/61/GAqSoUUORfOiAAHDPgACEFtd.webp)：左侧为既有破境视觉基准，右侧为地图奇遇；核对模态层语言、
     真实法宝图标、卡片边界、路线色和信息密度。
-19. `18-result-event.webp`：胜利战报新增“奇遇印记”，记录路线角色、选择名、最终收益和真实
+19. [18-result-event.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/4933-audiotest/70/A2/GAqSpGcORfOnAADTdgACEFuG.webp)：胜利战报新增“奇遇印记”，记录路线角色、选择名、最终收益和真实
     法宝图标。
-20. `18-result-event-comparison.webp`：左侧为上一版战报，右侧为本轮奇遇闭环；核对新增内容
+20. [18-result-event-comparison.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/6008-audiotest/09/2C/GAqSpGcORfOkAAGZbAACEFty.webp)：左侧为上一版战报，右侧为本轮奇遇闭环；核对新增内容
     没有挤压地图功绩、道基摘要和双按钮安全区。
-21. `19-route-scroll-source.webp`：将旧版三章节入口从历史实机截图归一化为 750 × 1334，
+21. [19-route-scroll-source.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/ecdf-audiotest/92/0D/GAqSoUUORfOkAAFp6AACEFtp.webp)：将旧版三章节入口从历史实机截图归一化为 750 × 1334，
     作为路线页信息架构对比基准。
-22. `19-route-scroll.webp`：新版“试炼路线”实机，第一章选中态完整展示机关、奇遇、首领与
+22. [19-route-scroll.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/9abb-audiotest/6C/35/GAqSoUUORfOhAAFSLAACEFtJ.webp)：新版“试炼路线”实机，第一章选中态完整展示机关、奇遇、首领与
     确认入场动作。
-23. `19-route-scroll-comparison.webp`：旧版平铺章节卡与新版路线卷轴并排，核对首屏层级、
+23. [19-route-scroll-comparison.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/12a1-audiotest/7B/26/GAqSoUUORfOqAAK-6AACEFus.webp)：旧版平铺章节卡与新版路线卷轴并排，核对首屏层级、
     地图素材复用、章节切换和底部安全区。
-24. `20-stage-record.webp`：路线节点新增“已破”道印，详情区展示通关次数与最快历时；截图
+24. [20-stage-record.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/0ac4-audiotest/77/7C/GAqSoUUORfOpAAFapgACEFuk.webp)：路线节点新增“已破”道印，详情区展示通关次数与最快历时；截图
     同时覆盖已破当前章、已破非当前章和未通关章节。
-25. `20-stage-record-comparison.webp`：左侧为无长期战绩的路线卷轴，右侧为道印与最快记录
+25. [20-stage-record-comparison.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/b380-audiotest/27/DA/GAqSpGcORfOkAAKsTgACEFts.webp)：左侧为无长期战绩的路线卷轴，右侧为道印与最快记录
     接入后的同画布实机，核对信息层级、节点间距与主按钮安全区。
-26. `21-stage-reward.webp`：路线详情新增真实法宝图标、首破奖励状态与永久收益，青石与竹林
+26. [21-stage-reward.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/0011-audiotest/B2/89/GAqSpGcORfOoAAFkNAACEFuW.webp)：路线详情新增真实法宝图标、首破奖励状态与永久收益，青石与竹林
     已获得、寒潭首破可得。
-27. `21-stage-reward-comparison.webp`：左侧为仅有战绩的路线页，右侧为首破奖励接入后的同画布
+27. [21-stage-reward-comparison.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/d714-audiotest/85/AA/GAqSpGcORfOgAAK9OgACEFtG.webp)：左侧为仅有战绩的路线页，右侧为首破奖励接入后的同画布
     实机，核对奖励行、战绩行与确认按钮的垂直节奏。
-28. `22-first-clear-result.webp`：第一章首次通关战报，“首破道印 · 青石剑印”与“永久生效 ·
+28. [22-first-clear-result.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/bf11-audiotest/FF/E3/GAqSpGcORfOoAADklgACEFuY.webp)：第一章首次通关战报，“首破道印 · 青石剑印”与“永久生效 ·
     御剑伤害 +2”在本局构筑和双按钮之间完整显示。
-29. `23-route-branch-hud.webp`：战斗 HUD 在事件触发前持续显示“本境后分岔 · 残碑问剑”，
+29. [23-route-branch-hud.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/2a6a-audiotest/79/EE/GAqSpGcORfOrAAH3dgACEFux.webp)：战斗 HUD 在事件触发前持续显示“本境后分岔 · 残碑问剑”，
     与波次目标保持独立层级。
-30. `24-route-branch-choice.webp`：第二章奇遇两条路线同时展示下一波“伏兵合围”及敌伤、
+30. [24-route-branch-choice.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/e75c-audiotest/BE/1D/GAqSoUUORfOpAADoagACEFub.webp)：第二章奇遇两条路线同时展示下一波“伏兵合围”及敌伤、
     敌血、敌速修正。
-31. `25-route-branch-selected.webp`：选择“敛息入影”后，路线名持续保留在战斗 HUD，且不与
+31. [25-route-branch-selected.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/a36d-audiotest/14/01/GAqSpGcORfOqAAJbfgACEFut.webp)：选择“敛息入影”后，路线名持续保留在战斗 HUD，且不与
     波次横幅、敌人或操作区重叠。
-32. `24-route-branch-comparison.webp`：左侧旧版奇遇只展示即时收益，右侧新版补全下一波风险；
+32. [24-route-branch-comparison.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/6b14-audiotest/29/22/GAqSoUUORfOhAAGz0AACEFtN.webp)：左侧旧版奇遇只展示即时收益，右侧新版补全下一波风险；
     核对信息密度、卡片高度、辅助字号和底部安全区。
-33. `26-spatial-route-choice.webp`：竹林两张路线卡在“下境”行分别增加“开阔正面”和“竹影
+33. [26-spatial-route-choice.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/5db9-audiotest/10/FF/GAqSpGcORfOhAADtjgACEFtK.webp)：竹林两张路线卡在“下境”行分别增加“开阔正面”和“竹影
     夹道”，点击前即可预判战场形状。
-34. `27-open-lane.webp`：选择“焚竹开径”后的稳定实机；两段竹障全部清除，目标条显示
+34. [27-open-lane.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/d3d1-audiotest/84/B6/GAqSoUUORfOhAAJACAACEFtP.webp)：选择“焚竹开径”后的稳定实机；两段竹障全部清除，目标条显示
     “开阔正面 · 竹障 0”。
-35. `28-shadow-corridor.webp`：选择“敛息入影”后的稳定实机；三段真实竹障左右交错形成夹道，
+35. [28-shadow-corridor.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/8fb2-audiotest/A7/D4/GAqSpGcORfOhAAJyrgACEFtO.webp)：选择“敛息入影”后的稳定实机；三段真实竹障左右交错形成夹道，
     目标条显示“竹影夹道 · 竹障 3”。
-36. `29-shadow-spawn.webp`：夹道战斗实机，狐妖从左右两翼交替切入并被竹障分流。
-37. `26-spatial-choice-comparison.webp`：左侧为只预告数值风险的选择页，右侧补充空间承诺；
+36. [29-shadow-spawn.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/03a3-audiotest/32/B8/GAqSoUUORfOhAAJ_XAACEFtR.webp)：夹道战斗实机，狐妖从左右两翼交替切入并被竹障分流。
+37. [26-spatial-choice-comparison.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/ea41-audiotest/9B/C0/GAqSpGcORfOpAAHSggACEFul.webp)：左侧为只预告数值风险的选择页，右侧补充空间承诺；
     核对新增文案不挤压路线名、收益条和底部安全区。
-38. `28-route-geometry-comparison.webp`：同一竹林背景下并排对照“开阔正面”与“竹影夹道”，
+38. [28-route-geometry-comparison.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/789f-audiotest/C0/F1/GAqSpGcORfOgAASwcAACEFtA.webp)：同一竹林背景下并排对照“开阔正面”与“竹影夹道”，
     确认两条路线不依赖文字也能从场地轮廓区分。
-39. `30-open-spawn.webp`：开阔路线战斗实机，狐妖从道路上端组成三点扇形正面推进。
-40. `31-frost-route-choice.webp`：寒潭奇遇两张卡分别预告“潮线聚敌”和“封脉结界”，最长
+39. [30-open-spawn.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/0ec6-audiotest/D5/03/GAqSoUUORfOmAAJMRAACEFuF.webp)：开阔路线战斗实机，狐妖从道路上端组成三点扇形正面推进。
+40. [31-frost-route-choice.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/c649-audiotest/54/46/GAqSoUUORfOrAAEB1gACEFu0.webp)：寒潭奇遇两张卡分别预告“潮线聚敌”和“封脉结界”，最长
     下境文案未挤压路线名、风险标签或收益条。
-41. `32-tide-convergence.webp`：选择“逆祭借潮”后的稳定实机；上层冰台显示真实法宝祭纹，
+41. [32-tide-convergence.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/380a-audiotest/C6/1C/GAqSoUUORfOgAALu0AACEFtB.webp)：选择“逆祭借潮”后的稳定实机；上层冰台显示真实法宝祭纹，
     HUD 持续显示“潮线聚敌”，并在确认后立即进入寒潮预警。
-42. `33-sealed-sanctuary.webp`：选择“封脉稳息”后的稳定实机；下层冰台形成可站位避潮圈，
+42. [33-sealed-sanctuary.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/404e-audiotest/AA/DB/GAqSpGcORfOgAALptAACEFtC.webp)：选择“封脉稳息”后的稳定实机；下层冰台形成可站位避潮圈，
     玩家位于圈内且法宝图标、结界名均无遮挡。
-43. `34-tide-convergence-combat.webp`：逆潮路线动态实机；冻尸围绕上层祭纹三点聚集，强化
+43. [34-tide-convergence-combat.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/483d-audiotest/A4/45/GAqSpGcORfOiAAL1GAACEFtY.webp)：逆潮路线动态实机；冻尸围绕上层祭纹三点聚集，强化
     环境潮伤已经清除部分敌人。
-44. `35-tide-surge.webp`：寒潮横渡命中帧；潮带、伤害闪屏、敌群和聚敌祭纹同时可见。
-45. `33-frost-route-geometry-comparison.webp`：同一寒潭背景并排对照“潮线聚敌”与“封脉
+44. [35-tide-surge.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/8192-audiotest/1D/5E/GAqSpGcORfOlAAIzMgACEFt6.webp)：寒潮横渡命中帧；潮带、伤害闪屏、敌群和聚敌祭纹同时可见。
+45. [33-frost-route-geometry-comparison.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/f735-audiotest/C9/EE/GAqSoUUORfOkAAXakAACEFtr.webp)：同一寒潭背景并排对照“潮线聚敌”与“封脉
     结界”，确认两条路线拥有不同且持续可读的空间落点。
-46. `35-tide-runtime-comparison.webp`：逆潮路线稳定敌群与寒潮横渡帧并排，验证祭纹聚敌、
+46. [35-tide-runtime-comparison.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/5d9a-audiotest/8B/D8/GAqSoUUORfOiAAU8nAACEFtX.webp)：逆潮路线稳定敌群与寒潮横渡帧并排，验证祭纹聚敌、
     环境伤害和玩家风险在真实战斗中同时生效。
-47. `36-qingshi-route-choice.webp`：青石奇遇两张卡分别预告“剑碑阵列”和“灵泉侧路”，最长
+47. [36-qingshi-route-choice.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/0ceb-audiotest/E8/07/GAqSoUUORfOnAADh3gACEFuP.webp)：青石奇遇两张卡分别预告“剑碑阵列”和“灵泉侧路”，最长
     下境信息未挤压路线名、收益条或风险标签。
-48. `36-qingshi-choice-comparison.webp`：左侧为原始青石奇遇，右侧补充下一波敌军与空间承诺；
+48. [36-qingshi-choice-comparison.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/b1f8-audiotest/3A/AA/GAqSoUUORfOkAAGuVgACEFtx.webp)：左侧为原始青石奇遇，右侧补充下一波敌军与空间承诺；
     核对新增信息条没有改变双卡主体比例和底部安全区。
-49. `37-sword-stele-array.webp`：修正后的悟痕路线稳定实机；三座真实法宝剑碑纵向错落，普通
+49. [37-sword-stele-array.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/9666-audiotest/F9/CB/GAqSoUUORfOmAAIXdAACEFt_.webp)：修正后的悟痕路线稳定实机；三座真实法宝剑碑纵向错落，普通
     阵眼已被替换，目标条显示“剑碑阵列 · 入碑承伤 +35%”。
-50. `38-spring-detour.webp`：调息路线稳定实机；第一波阵眼移至左下侧路并改为灵泉，玩家出生
+50. [38-spring-detour.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/54f4-audiotest/B8/90/GAqSoUUORfOlAAIGuAACEFt1.webp)：调息路线稳定实机；第一波阵眼移至左下侧路并改为灵泉，玩家出生
     点、驻足条与法宝图标互不遮挡。
-51. `38-qingshi-route-geometry-comparison.webp`：同一青石背景并排对照三碑纵阵与侧路灵泉，
+51. [38-qingshi-route-geometry-comparison.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/8469-audiotest/E6/65/GAqSpGcORfOmAAQdogACEFuA.webp)：同一青石背景并排对照三碑纵阵与侧路灵泉，
     两条路线不依赖颜色也能从实体数量和落点区分。
-52. `39-sword-stele-combat.webp`：真实刷怪状态；山精从山门三点压入并聚集到上段剑碑附近，
+52. [39-sword-stele-combat.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/8a31-audiotest/D0/45/GAqSpGcORfOlAAIoKAACEFt8.webp)：真实刷怪状态；山精从山门三点压入并聚集到上段剑碑附近，
     证明出怪路径与选择卡承诺一致。
-53. `40-route-choice-before-commit.webp`：青石路线确认前的完整实机画布，作为新增确认节奏的
+53. [40-route-choice-before-commit.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/ea23-audiotest/A9/84/GAqSpGcORfOlAAGN7AACEFt0.webp)：青石路线确认前的完整实机画布，作为新增确认节奏的
     同尺寸基线。
-54. `41-qingshi-route-commit.webp`：悟痕路线确认后的“道途已定”帧；真实剑器图标、锋芒角色、
+54. [41-qingshi-route-commit.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/547f-audiotest/0C/CA/GAqSpGcORfOlAAHDVgACEFt3.webp)：悟痕路线确认后的“道途已定”帧；真实剑器图标、锋芒角色、
     “剑碑阵列”和“三碑落阵”空间承诺同时可读。
-55. `42-qingshi-route-after-commit.webp`：揭示层结束后的稳定战场；三碑实体、路线 HUD 与玩家
+55. [42-qingshi-route-after-commit.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/b6ac-audiotest/E9/46/GAqSoUUORfOpAALbnAACEFuj.webp)：揭示层结束后的稳定战场；三碑实体、路线 HUD 与玩家
     出生点无遮挡，战斗状态已经恢复。
-56. `43-bamboo-route-commit.webp`：焚竹路线确认帧；章节暖色、法宝图标、“开阔正面”和正面
+56. [43-bamboo-route-commit.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/3a41-audiotest/96/52/GAqSpGcORfOpAAHGPgACEFui.webp)：焚竹路线确认帧；章节暖色、法宝图标、“开阔正面”和正面
     压境承诺保持同一信息层级。
-57. `44-frost-route-commit.webp`：逆潮路线确认帧；寒潭青色、祭纹法宝、“潮线聚敌”和寒潮
+57. [44-frost-route-commit.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/215f-audiotest/BF/17/GAqSoUUORfOrAAF_agACEFuy.webp)：逆潮路线确认帧；寒潭青色、祭纹法宝、“潮线聚敌”和寒潮
     穿阵承诺保持同一信息层级。
-58. `45-route-commit-sequence-comparison.webp`：左侧为确认前选择页，右侧为确认后的地势揭示；
+58. [45-route-commit-sequence-comparison.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/2809-audiotest/51/17/GAqSoUUORfOrAANVRAACEFu2.webp)：左侧为确认前选择页，右侧为确认后的地势揭示；
     两个状态使用相同 1200 × 1404 实机画布，验证视觉语言连续但节奏职责不同。
-59. `46-route-commit-three-chapters.webp`：三章确认帧同画布并排，检查标题、图标、章节色、
+59. [46-route-commit-three-chapters.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/2af5-audiotest/65/78/GAqSpGcORfOpAAUDZAACEFug.webp)：三章确认帧同画布并排，检查标题、图标、章节色、
     空间后果和底部安全区的一致性。
-60. `47-qingshi-stele-burst.webp`：悟痕路线的真实 2×2 落阵首帧；三处剑碑坐标同时亮起，
+60. [47-qingshi-stele-burst.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/019d-audiotest/0B/4A/GAqSpGcORfOiAAFzsgACEFtS.webp)：悟痕路线的真实 2×2 落阵首帧；三处剑碑坐标同时亮起，
     面板尚未入场。
-61. `48-bamboo-burn-burst.webp`：焚竹路线的真实 2×2 焚障首帧；火环逐一绑定两处旧竹障坐标。
-62. `49-frost-tide-burst.webp`：逆潮路线的真实 2×2 聚潮首帧；潮纹直接落在寒潭祭坛中心。
-63. `50-route-commit-sprite-bursts.webp`：三章首帧同画布并排，验证数量、坐标、章节色与地面
+61. [48-bamboo-burn-burst.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/7b27-audiotest/6E/1B/GAqSpGcORfOpAAFidAACEFuc.webp)：焚竹路线的真实 2×2 焚障首帧；火环逐一绑定两处旧竹障坐标。
+62. [49-frost-tide-burst.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/5a15-audiotest/AB/B9/GAqSoUUORfOnAACuTgACEFuR.webp)：逆潮路线的真实 2×2 聚潮首帧；潮纹直接落在寒潭祭坛中心。
+63. [50-route-commit-sprite-bursts.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/38fb-audiotest/D7/85/GAqSpGcORfOqAAC51AACEFur.webp)：三章首帧同画布并排，验证数量、坐标、章节色与地面
     材质均有独立表现，不再只是确认面板换色。
-64. `51-qingshi-spring-burst.webp`：引泉路线的真实 2×2 灵泉回气帧；单一水纹落在当波侧路
+64. [51-qingshi-spring-burst.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/43fd-audiotest/24/23/GAqSpGcORfOhAAEh-AACEFtI.webp)：引泉路线的真实 2×2 灵泉回气帧；单一水纹落在当波侧路
     灵泉坐标，尺寸与亮度均低于三碑落阵。
-65. `52-bamboo-shadow-burst.webp`：入影路线的真实 2×2 竹影敛息峰值帧；三处墨叶风环逐一
+65. [52-bamboo-shadow-burst.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/9859-audiotest/06/DB/GAqSpGcORfOqAAHUTgACEFun.webp)：入影路线的真实 2×2 竹影敛息峰值帧；三处墨叶风环逐一
     绑定夹道竹障，仍保留战场材质和敌人轮廓。
-66. `53-frost-seal-burst.webp`：封脉路线的真实 2×2 封脉结界帧；收束箭纹落在法宝结界中心，
+66. [53-frost-seal-burst.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/e8b5-audiotest/96/19/GAqSpGcORfOhAAGIXgACEFtM.webp)：封脉路线的真实 2×2 封脉结界帧；收束箭纹落在法宝结界中心，
     玩家出生点、结界说明与底部技能簇均无遮挡。
-67. `54-stable-route-sprite-bursts.webp`：三条稳健路线同画布并排，验证一泉、三障、一结界的
+67. [54-stable-route-sprite-bursts.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/7012-audiotest/E2/61/GAqSoUUORfOnAADrhgACEFuM.webp)：三条稳健路线同画布并排，验证一泉、三障、一结界的
     数量与场地落点，同时检查低强度视觉层级。
-68. `55-risk-stable-route-motion-comparison.webp`：上排为三条高风险路线，下排为三条稳健路线；
+68. [55-risk-stable-route-motion-comparison.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/d135-audiotest/E8/77/GAqSoUUORfOkAAGhDAACEFtt.webp)：上排为三条高风险路线，下排为三条稳健路线；
     同一实机构建与画布直接比较亮度、尺寸、播放节奏和空间数量。
-69. `56-bamboo-chapter-static.webp`：竹林章节切换完成后的静态缩略图，作为菜单动效加入前的
+69. [56-bamboo-chapter-static.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/50fb-audiotest/36/E2/GAqSoUUORfOkAAInMAACEFtv.webp)：竹林章节切换完成后的静态缩略图，作为菜单动效加入前的
     同状态视觉基线。
-70. `57-bamboo-chapter-preview.webp`：竹林节点切换后的竹影峰值帧；风环只出现在左上地图
+70. [57-bamboo-chapter-preview.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/68b7-audiotest/54/39/GAqSoUUORfOgAAIlzgACEFtD.webp)：竹林节点切换后的竹影峰值帧；风环只出现在左上地图
     缩略图内，章节名、风险、道途和主按钮保持稳定。
-71. `58-qingshi-chapter-preview.webp`：青石节点切换后的灵泉峰值帧，水纹与青石道路材质同屏。
-72. `59-frost-chapter-preview.webp`：寒潭节点切换后的封脉峰值帧，结界保持在地图缩略图边界内。
-73. `60-chapter-motion-three-stages.webp`：三章预演同画布并排，核对主体尺度、章节辨识和卡片
+71. [58-qingshi-chapter-preview.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/b99e-audiotest/5E/21/GAqSoUUORfOqAAIjkAACEFuo.webp)：青石节点切换后的灵泉峰值帧，水纹与青石道路材质同屏。
+72. [59-frost-chapter-preview.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/af93-audiotest/7C/FA/GAqSpGcORfOfAAHnsgACEFs8.webp)：寒潭节点切换后的封脉峰值帧，结界保持在地图缩略图边界内。
+73. [60-chapter-motion-three-stages.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/b837-audiotest/DC/A2/GAqSoUUORfOiAAE_7AACEFtb.webp)：三章预演同画布并排，核对主体尺度、章节辨识和卡片
     信息密度一致。
-74. `61-chapter-motion-before-after.webp`：左侧为竹林静态基线，右侧为同状态动效峰值；同一
+74. [61-chapter-motion-before-after.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/c8bd-audiotest/62/30/GAqSpGcORfOrAAGBxAACEFu1.webp)：左侧为竹林静态基线，右侧为同状态动效峰值；同一
     1200 × 1404 画布直接验证新增动画没有推动或遮挡任何 UI。
-75. `62-route-brief-collapsed.webp`：青石章节展开卡的收起态基线；中央节点明确标记“路线
+75. [62-route-brief-collapsed.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/ffa6-audiotest/9C/35/GAqSoUUORfOfAAIkagACEFs9.webp)：青石章节展开卡的收起态基线；中央节点明确标记“路线
     奇遇 · 点此预览”，原三段道途、首破奖励和主按钮均保留。
-76. `63-qingshi-route-brief.webp`：青石双路线简报；“以血悟痕 / 引泉调息”使用真实法宝，
+76. [63-qingshi-route-brief.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/2de1-audiotest/D6/78/GAqSpGcORfOnAAI6qAACEFuL.webp)：青石双路线简报；“以血悟痕 / 引泉调息”使用真实法宝，
     空间后果、确认文案、即时收益与下境修正完整落在首屏。
-77. `64-bamboo-route-brief.webp`：竹林双路线简报；“焚竹开径 / 敛息入影”的正面开阔与
+77. [64-bamboo-route-brief.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/4604-audiotest/56/E0/GAqSpGcORfOjAAJFhAACEFtm.webp)：竹林双路线简报；“焚竹开径 / 敛息入影”的正面开阔与
     竹影夹道承诺保持并列可比。
-78. `65-frost-route-brief.webp`：寒潭双路线简报；“逆祭借潮 / 封脉稳息”的聚敌潮线与
+78. [65-frost-route-brief.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/df09-audiotest/EC/B0/GAqSoUUORfOjAAIFwAACEFtf.webp)：寒潭双路线简报；“逆祭借潮 / 封脉稳息”的聚敌潮线与
     避潮结界信息没有溢出卡片。
-79. `66-route-brief-three-stages.webp`：三章展开态同画布并排，检查两列宽度、图标尺度、
+79. [66-route-brief-three-stages.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/671b-audiotest/3E/D8/GAqSpGcORfOjAAFP5gACEFtg.webp)：三章展开态同画布并排，检查两列宽度、图标尺度、
     风险标签、最长结果文案与底部按钮的一致性。
-80. `67-route-brief-before-after.webp`：左侧为收起态，右侧为青石展开态；同一构建与视口
+80. [67-route-brief-before-after.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/9775-audiotest/AE/2D/GAqSpGcORfOfAAGgPgACEFs6.webp)：左侧为收起态，右侧为青石展开态；同一构建与视口
     验证展开仅替换道途内容区，没有改变章节标题、背景、地图缩略图和主按钮位置。
-81. `68-frost-expanded-enter.webp`：寒潭简报保持展开时点击主按钮后的第一波实机画面，证明
+81. [68-frost-expanded-enter.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/b72c-audiotest/35/A5/GAqSoUUORfOoAAL45AACEFuZ.webp)：寒潭简报保持展开时点击主按钮后的第一波实机画面，证明
     简报不会截断正式入场路径。
-82. `69-qingshi-risk-spatial-preview.webp`：青石风险路线首版落点预演，三座剑碑按真实纵向
+82. [69-qingshi-risk-spatial-preview.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/7b78-audiotest/F5/0C/GAqSpGcORfOjAAJAdgACEFti.webp)：青石风险路线首版落点预演，三座剑碑按真实纵向
     坐标投影到章节缩略图。
-83. `70-qingshi-stable-spatial-preview.webp`：稳健路线首版截图；完整播放后停在淡出帧，三处
+83. [70-qingshi-stable-spatial-preview.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/c42e-audiotest/C6/6F/GAqSoUUORfOoAAI-OAACEFuX.webp)：稳健路线首版截图；完整播放后停在淡出帧，三处
     灵泉几乎不可辨，作为本轮 P2 基线。
-84. `71-qingshi-stable-spatial-preview-fixed.webp`：放大尺寸后仍停留淡出帧，证明问题来自
+84. [71-qingshi-stable-spatial-preview-fixed.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/56d9-audiotest/75/84/GAqSoUUORfOjAAI97AACEFtl.webp)：放大尺寸后仍停留淡出帧，证明问题来自
     常驻帧而非单纯尺度。
-85. `72-qingshi-stable-spatial-preview-final.webp`：四帧播完回驻峰值帧后的青石三泉终态，
+85. [72-qingshi-stable-spatial-preview-final.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/32e9-audiotest/2F/26/GAqSpGcORfOjAAJAegACEFte.webp)：四帧播完回驻峰值帧后的青石三泉终态，
     三处侧路落点持续可读。
-86. `73-qingshi-risk-spatial-preview-final.webp`：最终青石三碑预演；风险卡选中描边、预演中
+86. [73-qingshi-risk-spatial-preview-final.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/f2f0-audiotest/06/CE/GAqSoUUORfOlAAJEegACEFt4.webp)：最终青石三碑预演；风险卡选中描边、预演中
     标签和地图落点一致。
-87. `74-bamboo-risk-spatial-preview.webp`：焚竹路线把两处原障位投影为橙色焚烧落点。
-88. `75-bamboo-stable-spatial-preview.webp`：入影路线显示三段交错夹道，墨绿风环保持低强度
+87. [74-bamboo-risk-spatial-preview.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/8bf4-audiotest/E5/D3/GAqSoUUORfOlAAJNLAACEFt5.webp)：焚竹路线把两处原障位投影为橙色焚烧落点。
+88. [75-bamboo-stable-spatial-preview.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/bcd4-audiotest/C0/79/GAqSoUUORfOlAAJJQgACEFt7.webp)：入影路线显示三段交错夹道，墨绿风环保持低强度
     但持续可见。
-89. `76-frost-risk-spatial-preview.webp`：逆祭路线将聚敌祭纹落在上层冰台。
-90. `77-frost-stable-spatial-preview.webp`：封脉路线将结界落在下层安全区，与风险路线形成
+89. [76-frost-risk-spatial-preview.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/abbc-audiotest/70/DA/GAqSpGcORfOiAAIL1AACEFtU.webp)：逆祭路线将聚敌祭纹落在上层冰台。
+90. [77-frost-stable-spatial-preview.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/798c-audiotest/3F/FB/GAqSpGcORfOiAAIKwAACEFta.webp)：封脉路线将结界落在下层安全区，与风险路线形成
     清晰纵向差异。
-91. `78-frost-spatial-preview-closed.webp`：收起简报后恢复三段道途，地图预演选择同步清空。
-92. `79-frost-spatial-preview-entry.webp`：重新展开后直接入场的寒潭第一波，证明地图预演没有
+91. [78-frost-spatial-preview-closed.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/debb-audiotest/AD/30/GAqSoUUORfOgAAHqHAACEFtF.webp)：收起简报后恢复三段道途，地图预演选择同步清空。
+92. [79-frost-spatial-preview-entry.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/eebf-audiotest/6C/1A/GAqSpGcORfOnAAL4xgACEFuQ.webp)：重新展开后直接入场的寒潭第一波，证明地图预演没有
     写入正式路线选择或阻断主按钮。
-93. `80-route-spatial-before-after.webp`：旧简报与三碑空间预演同状态并排，验证外框、标题、
+93. [80-route-spatial-before-after.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/bebe-audiotest/4F/BF/GAqSoUUORfOpAAGsggACEFuf.webp)：旧简报与三碑空间预演同状态并排，验证外框、标题、
     双卡与主按钮没有布局漂移。
-94. `81-route-spatial-six-choices.webp`：三章六条路线同画布对比，核对真实落点数量、上下位置、
+94. [81-route-spatial-six-choices.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/92e9-audiotest/66/21/GAqSpGcORfOkAAJHQgACEFtq.webp)：三章六条路线同画布对比，核对真实落点数量、上下位置、
     章节色、选中态与最长文案。
-95. `82-route-spatial-focused-comparison.webp`：简报核心区域放大对比，检查地图缩略图、选中
+95. [82-route-spatial-focused-comparison.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/c2d6-audiotest/B6/6C/GAqSpGcORfOoAAEYHAACEFuS.webp)：简报核心区域放大对比，检查地图缩略图、选中
     描边、“预演中”标签和底部提示的细节可读性。
-96. `83-qingshi-branch-memory.webp`：青石首境用章节金色短暂复述“剑碑阵列 / 灵泉侧路”。
-97. `84-bamboo-branch-memory.webp`：竹林首境复述“开阔正面 / 竹影夹道”，竹障与目标条无重叠。
-98. `85-frost-branch-memory.webp`：寒潭最长分岔文案保持单行，下方“祭坛逆潮”时机条完整保留。
-99. `86-frost-branch-memory-timed.webp`：正式计时入口在入场约 0.45 秒仍显示空间分岔记忆。
-100. `87-frost-objective-restored.webp`：约 3.65 秒后目标条自动恢复冰面、寒潮与阵眼实时状态。
-101. `88-branch-memory-three-stages.webp`：三章首境同画布比较章节色、字号、间距和单行可读性。
-102. `89-branch-memory-source-implementation.webp`：左侧旧首境实时目标，右侧新首境分岔记忆；确认
+96. [83-qingshi-branch-memory.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/155f-audiotest/91/3E/GAqSpGcORfOmAALBVgACEFuE.webp)：青石首境用章节金色短暂复述“剑碑阵列 / 灵泉侧路”。
+97. [84-bamboo-branch-memory.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/bb68-audiotest/20/D2/GAqSpGcORfOiAAMohgACEFtc.webp)：竹林首境复述“开阔正面 / 竹影夹道”，竹障与目标条无重叠。
+98. [85-frost-branch-memory.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/7b60-audiotest/10/90/GAqSpGcORfOpAAL0ggACEFua.webp)：寒潭最长分岔文案保持单行，下方“祭坛逆潮”时机条完整保留。
+99. [86-frost-branch-memory-timed.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/f298-audiotest/74/BB/GAqSoUUORfOjAAL5dAACEFth.webp)：正式计时入口在入场约 0.45 秒仍显示空间分岔记忆。
+100. [87-frost-objective-restored.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/ddd3-audiotest/E8/DA/GAqSpGcORfOoAAL9NgACEFuU.webp)：约 3.65 秒后目标条自动恢复冰面、寒潮与阵眼实时状态。
+101. [88-branch-memory-three-stages.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/fe96-audiotest/A6/F9/GAqSpGcORfOkAAGuKAACEFtw.webp)：三章首境同画布比较章节色、字号、间距和单行可读性。
+102. [89-branch-memory-source-implementation.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/d0e7-audiotest/8C/11/GAqSpGcORfOfAAI5hgACEFs-.webp)：左侧旧首境实时目标，右侧新首境分岔记忆；确认
     只替换目标条内容，不改变波次横幅、奇遇时机条与战场布局。
-103. `90-branch-memory-auto-restore.webp`：左侧短时分岔记忆，右侧自动恢复后的实时目标，验证
+103. [90-branch-memory-auto-restore.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/f38a-audiotest/31/43/GAqSoUUORfOoAAI8PAACEFuT.webp)：左侧短时分岔记忆，右侧自动恢复后的实时目标，验证
     提示不会成为常驻 HUD 噪音。
-104. `91-qingshi-event-prelude.webp`：青石奇遇前奏固定峰值，三碑纵阵与侧路灵泉同时可辨。
-105. `92-bamboo-event-prelude.webp`：竹林前奏显示两处焚障和三段夹道，重合处仍可凭素材与
+104. [91-qingshi-event-prelude.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/62b4-audiotest/C0/2D/GAqSpGcORfOqAAKDUAACEFup.webp)：青石奇遇前奏固定峰值，三碑纵阵与侧路灵泉同时可辨。
+105. [92-bamboo-event-prelude.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/4084-audiotest/08/2C/GAqSoUUORfOfAAJ84AACEFs5.webp)：竹林前奏显示两处焚障和三段夹道，重合处仍可凭素材与
     数量区分。
-106. `93-frost-event-prelude.webp`：寒潭前奏把潮线祭纹放在上层、封脉结界放在下层。
-107. `94-frost-event-prelude-risk.webp`：正式时序第一拍只点亮上层“潮线聚敌”落点。
-108. `95-frost-event-prelude-stable.webp`：正式时序第二拍切换为下层“封脉结界”落点。
-109. `96-frost-event-prelude-choice.webp`：约 0.72 秒后自动进入原“祭坛逆潮”双路线选择页。
-110. `97-frost-event-prelude-resolved.webp`：选择风险路线后仍进入既有“道途已定”并恢复战斗，
+106. [93-frost-event-prelude.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/fed1-audiotest/04/45/GAqSoUUORfOgAAJILAACEFs_.webp)：寒潭前奏把潮线祭纹放在上层、封脉结界放在下层。
+107. [94-frost-event-prelude-risk.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/b4d5-audiotest/7A/9F/GAqSpGcORfOpAAIROAACEFue.webp)：正式时序第一拍只点亮上层“潮线聚敌”落点。
+108. [95-frost-event-prelude-stable.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/9571-audiotest/94/18/GAqSpGcORfOkAAIPjgACEFto.webp)：正式时序第二拍切换为下层“封脉结界”落点。
+109. [96-frost-event-prelude-choice.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/94d1-audiotest/A9/8C/GAqSpGcORfOnAAEdrAACEFuI.webp)：约 0.72 秒后自动进入原“祭坛逆潮”双路线选择页。
+110. [97-frost-event-prelude-resolved.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/7f7a-audiotest/11/61/GAqSoUUORfOoAAMRJAACEFuV.webp)：选择风险路线后仍进入既有“道途已定”并恢复战斗，
     HUD、祭纹与奇遇印记均正常。
-111. `98-event-prelude-three-stages.webp`：三章固定峰值同画布比较真实落点、章节色和顶部文案。
-112. `99-event-prelude-timeline.webp`：寒潭“风险落点 → 稳健落点 → 正式选择”三段时序对比。
-113. `100-event-prelude-source-implementation.webp`：旧首波战场、新前奏、既有奇遇页置于同一
+111. [98-event-prelude-three-stages.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/e03e-audiotest/D2/29/GAqSoUUORfOfAAFBYAACEFs7.webp)：三章固定峰值同画布比较真实落点、章节色和顶部文案。
+112. [99-event-prelude-timeline.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/9caa-audiotest/54/DD/GAqSoUUORfOiAADt9AACEFtV.webp)：寒潭“风险落点 → 稳健落点 → 正式选择”三段时序对比。
+113. [100-event-prelude-source-implementation.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/890a-audiotest/06/19/GAqSpGcORfOrAAEiwAACEFuz.webp)：旧首波战场、新前奏、既有奇遇页置于同一
     比较输入，确认新增的是两者之间的过渡，不是替换原界面。
-114. `101-qingshi-route-replay.webp`：青石风险路线战报回放，三座剑碑按真实山道坐标停驻。
-115. `102-bamboo-route-replay.webp`：竹林风险路线回放，两处焚障火环与开阔正面结果一致。
-116. `103-frost-route-replay.webp`：寒潭风险路线回放，上层潮核、确认文案和战果验证完整。
-117. `104-qingshi-stable-route-replay.webp`：青石稳健路线回放，三处侧路灵泉与恢复收益一致。
-118. `105-bamboo-stable-route-replay.webp`：竹林稳健路线回放，三段夹道竹影保持低频动作语言。
-119. `106-frost-stable-route-replay.webp`：寒潭稳健路线回放，下层封脉结界与安全区承诺一致。
-120. `107-route-replay-closed-result.webp`：关闭覆盖层后恢复原第三章战报，奇遇印记与双按钮未变。
-121. `107b-route-replay-reopened.webp`：点击奇遇印记右侧“回放”可再次打开同一历史路线。
-122. `108-frost-defeat-route-replay.webp`：失败战报同样读取已记录路线，战果条保留失败局真实数据。
-123. `109-no-event-result-no-replay.webp`：无奇遇局保持明确空态，不显示回放入口也不自动展开。
-124. `110-route-replay-three-stages.webp`：三章风险路线同画布比较章节色、几何标题与真实落点。
-125. `111-route-replay-six-routes.webp`：三章六路线完整矩阵，验证风险 / 稳健空间结果均可辨认。
-126. `112-route-replay-before-after.webp`：旧静态印记、关闭态战报与展开态回放的密度变化对比。
-127. `113-route-replay-source-implementation.webp`：旧战报与新增寒潭回放置于同一比较输入审查。
-128. `114-route-replay-interactions.webp`：打开、关闭、重开、失败、无奇遇和稳健路线边界集合。
-129. `115-sts2-mobile-map-reference.webp`：Slay the Spire 2 官方移动地图改版参考，展示放大、
+114. [101-qingshi-route-replay.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/677a-audiotest/40/C4/GAqSoUUORfOnAAF3EgACEFuH.webp)：青石风险路线战报回放，三座剑碑按真实山道坐标停驻。
+115. [102-bamboo-route-replay.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/4992-audiotest/A7/D8/GAqSpGcORfOmAAFkqgACEFuC.webp)：竹林风险路线回放，两处焚障火环与开阔正面结果一致。
+116. [103-frost-route-replay.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/d89f-audiotest/54/48/GAqSoUUORfOqAADq7AACEFuu.webp)：寒潭风险路线回放，上层潮核、确认文案和战果验证完整。
+117. [104-qingshi-stable-route-replay.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/fd78-audiotest/60/8B/GAqSoUUORfOmAAFtTAACEFt9.webp)：青石稳健路线回放，三处侧路灵泉与恢复收益一致。
+118. [105-bamboo-stable-route-replay.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/131d-audiotest/17/D5/GAqSoUUORfOpAAFW6gACEFuh.webp)：竹林稳健路线回放，三段夹道竹影保持低频动作语言。
+119. [106-frost-stable-route-replay.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/1a91-audiotest/48/F4/GAqSoUUORfOjAADeYAACEFtn.webp)：寒潭稳健路线回放，下层封脉结界与安全区承诺一致。
+120. [107-route-replay-closed-result.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/b241-audiotest/A1/B1/GAqSpGcORfOnAAEMbAACEFuO.webp)：关闭覆盖层后恢复原第三章战报，奇遇印记与双按钮未变。
+121. [107b-route-replay-reopened.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/ed43-audiotest/39/32/GAqSoUUORfOrAADq7AACEFuw.webp)：点击奇遇印记右侧“回放”可再次打开同一历史路线。
+122. [108-frost-defeat-route-replay.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/cae4-audiotest/6B/DE/GAqSoUUORfOlAADqsgACEFtz.webp)：失败战报同样读取已记录路线，战果条保留失败局真实数据。
+123. [109-no-event-result-no-replay.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/3bf7-audiotest/41/AE/GAqSoUUORfOgAAGIOAACEFtH.webp)：无奇遇局保持明确空态，不显示回放入口也不自动展开。
+124. [110-route-replay-three-stages.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/4167-audiotest/17/53/GAqSpGcORfOlAACnSgACEFt2.webp)：三章风险路线同画布比较章节色、几何标题与真实落点。
+125. [111-route-replay-six-routes.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/e2c0-audiotest/1E/33/GAqSpGcORfOnAAFJbAACEFuK.webp)：三章六路线完整矩阵，验证风险 / 稳健空间结果均可辨认。
+126. [112-route-replay-before-after.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/2bbc-audiotest/95/9A/GAqSpGcORfOgAACXMgACEFtE.webp)：旧静态印记、关闭态战报与展开态回放的密度变化对比。
+127. [113-route-replay-source-implementation.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/6fed-audiotest/78/EC/GAqSoUUORfOiAAC3dgACEFtZ.webp)：旧战报与新增寒潭回放置于同一比较输入审查。
+128. [114-route-replay-interactions.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/8683-audiotest/16/E5/GAqSpGcORfOrAAESAgACEFu3.webp)：打开、关闭、重开、失败、无奇遇和稳健路线边界集合。
+129. [115-sts2-mobile-map-reference.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/a4de-audiotest/2D/3B/GAqSoUUORfOmAAEeOgACEFuD.webp)：Slay the Spire 2 官方移动地图改版参考，展示放大、
     着色节点与手绘风险 / 收益路线。
-130. `116-current-route-scroll-audit.jpg`：本轮当前态审计；章节节点可读，但默认路线图未表达
+130. [116-current-route-scroll-audit.jpg](https://audiopaytest.cos.tx.xmcdn.com/storages/b212-audiotest/C6/CC/GAqSoUUORfNNAAIDLwACEFpZ.jpg)：本轮当前态审计；章节节点可读，但默认路线图未表达
     选定分支的连续走法。
-131. `117-current-route-brief-audit.jpg`：旧双路线简报；真实落点已经可见，但仍是彼此孤立的
+131. [117-current-route-brief-audit.jpg](https://audiopaytest.cos.tx.xmcdn.com/storages/5f0f-audiotest/D0/7F/GAqSpGcORfNrAAIhnAACEFqo.jpg)：旧双路线简报；真实落点已经可见，但仍是彼此孤立的
     特效标记。
-132. `118-qingshi-route-trace-brief.jpg`：青石风险路线新增“入境—三碑—关底”章节色墨迹。
-133. `119-qingshi-route-trace-replay.jpg`：同一青石走法在战报回放中以更完整尺度复现。
-134. `120-qingshi-risk-trace-replay.jpg`：青石风险路线三碑折线路径。
-135. `121-bamboo-risk-trace-replay.jpg`：竹林风险路线双焚障路径。
-136. `122-frost-risk-trace-replay.jpg`：寒潭风险路线单祭坛直线路径。
-137. `123-qingshi-stable-trace-replay.jpg`：青石稳健路线三泉路径。
-138. `124-bamboo-stable-trace-replay.jpg`：竹林稳健路线三段夹道路径。
-139. `125-frost-stable-trace-replay.jpg`：寒潭稳健路线下层结界路径。
-140. `126-route-trace-six-routes.jpg`：三章六路线矩阵，验证不同落点数量形成不同路径轮廓。
-141. `127-route-trace-source-implementation.jpg`：官方地图参考与当前回放实现置于同一输入审查。
-142. `128-route-trace-before-after.jpg`：旧孤立落点与新增连续路线墨迹同状态对比。
-143. `129-route-trace-menu-result.jpg`：菜单预演与战报回放保持同一入境 / 关底方向。
-144. `130-route-trace-reveal-early.jpg`：路线墨迹起笔阶段。
-145. `131-route-trace-reveal-full.jpg`：约 0.53 秒后完整连接全部真实落点。
-146. `132-qingshi-stable-trace-brief.jpg`：菜单内切换稳健卡后，路径与三泉落点同步重算。
-147. `133-route-trace-reveal-timeline.jpg`：起笔与完整路径并排验证，动画没有改变卡片布局。
+132. [118-qingshi-route-trace-brief.jpg](https://audiopaytest.cos.tx.xmcdn.com/storages/fdde-audiotest/2C/D7/GAqSpGcORfNGAAIh9gACEFpG.jpg)：青石风险路线新增“入境—三碑—关底”章节色墨迹。
+133. [119-qingshi-route-trace-replay.jpg](https://audiopaytest.cos.tx.xmcdn.com/storages/bcc8-audiotest/8A/C4/GAqSoUUORfM3AAGp7wACEFoh.jpg)：同一青石走法在战报回放中以更完整尺度复现。
+134. [120-qingshi-risk-trace-replay.jpg](https://audiopaytest.cos.tx.xmcdn.com/storages/fe83-audiotest/50/C5/GAqSoUUORfM_AAGp7wACEFo1.jpg)：青石风险路线三碑折线路径。
+135. [121-bamboo-risk-trace-replay.jpg](https://audiopaytest.cos.tx.xmcdn.com/storages/73f5-audiotest/67/BD/GAqSoUUORfNxAAGSvAACEFq6.jpg)：竹林风险路线双焚障路径。
+136. [122-frost-risk-trace-replay.jpg](https://audiopaytest.cos.tx.xmcdn.com/storages/4cd0-audiotest/7A/36/GAqSoUUORfNEAAEV0AACEFpD.jpg)：寒潭风险路线单祭坛直线路径。
+137. [123-qingshi-stable-trace-replay.jpg](https://audiopaytest.cos.tx.xmcdn.com/storages/0582-audiotest/51/3C/GAqSpGcORfNZAAGbwQACEFp6.jpg)：青石稳健路线三泉路径。
+138. [124-bamboo-stable-trace-replay.jpg](https://audiopaytest.cos.tx.xmcdn.com/storages/edb7-audiotest/10/31/GAqSpGcORfM8AAGEWwACEFos.jpg)：竹林稳健路线三段夹道路径。
+139. [125-frost-stable-trace-replay.jpg](https://audiopaytest.cos.tx.xmcdn.com/storages/5902-audiotest/B6/0C/GAqSoUUORfNXAAEMxAACEFp1.jpg)：寒潭稳健路线下层结界路径。
+140. [126-route-trace-six-routes.jpg](https://audiopaytest.cos.tx.xmcdn.com/storages/e79d-audiotest/2C/DC/GAqSpGcORfNhAAFNMgACEFqM.jpg)：三章六路线矩阵，验证不同落点数量形成不同路径轮廓。
+141. [127-route-trace-source-implementation.jpg](https://audiopaytest.cos.tx.xmcdn.com/storages/9385-audiotest/44/7A/GAqSpGcORfM-AAD8TAACEFoy.jpg)：官方地图参考与当前回放实现置于同一输入审查。
+142. [128-route-trace-before-after.jpg](https://audiopaytest.cos.tx.xmcdn.com/storages/a842-audiotest/45/61/GAqSpGcORfNSAAIO3AACEFpm.jpg)：旧孤立落点与新增连续路线墨迹同状态对比。
+143. [129-route-trace-menu-result.jpg](https://audiopaytest.cos.tx.xmcdn.com/storages/17da-audiotest/69/6A/GAqSoUUORfNVAAG8ggACEFpv.jpg)：菜单预演与战报回放保持同一入境 / 关底方向。
+144. [130-route-trace-reveal-early.jpg](https://audiopaytest.cos.tx.xmcdn.com/storages/1ca8-audiotest/83/00/GAqSpGcORfMrAAIg7gACEFoD.jpg)：路线墨迹起笔阶段。
+145. [131-route-trace-reveal-full.jpg](https://audiopaytest.cos.tx.xmcdn.com/storages/3c7d-audiotest/BF/9E/GAqSoUUORfNuAAIh_QACEFqv.jpg)：约 0.53 秒后完整连接全部真实落点。
+146. [132-qingshi-stable-trace-brief.jpg](https://audiopaytest.cos.tx.xmcdn.com/storages/2f89-audiotest/EE/B2/GAqSoUUORfNFAAIfwgACEFpF.jpg)：菜单内切换稳健卡后，路径与三泉落点同步重算。
+147. [133-route-trace-reveal-timeline.jpg](https://audiopaytest.cos.tx.xmcdn.com/storages/7965-audiotest/4C/12/GAqSoUUORfM5AAIPBAACEFol.jpg)：起笔与完整路径并排验证，动画没有改变卡片布局。
 
 ## 本轮修正
 
@@ -393,7 +393,7 @@
 - 六条路线的真实 2×2 地面动作表均已在 1200 × 1404 实机画布中验证；`55-risk-stable-
   route-motion-comparison.webp` 证明高风险路线更亮、更快、更外扩，稳健路线更小、更慢且
   保留战场可读性。三条新增稳健路线的浏览器 error / warning / warn 日志均为 0。
-- 三章路线节点均已实机切换并捕捉预演峰值；`61-chapter-motion-before-after.webp` 证明动效
+- 三章路线节点均已实机切换并捕捉预演峰值；[61-chapter-motion-before-after.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/c8bd-audiotest/62/30/GAqSpGcORfOrAAGBxAACEFu1.webp) 证明动效
   仅覆盖缩略图内部，没有改变字体、间距、卡片尺寸和按钮安全区。寒潭预演结束后仍能从同一
   主按钮进入第一波，浏览器 error / warning / warn 日志为 0。
 - 本地可用 `?qaVictory=1&qaRouteReplay=1` 在进入任意章节后直接检查风险路线回放；叠加
@@ -406,114 +406,114 @@
 - 三章六路线墨迹已在 `?qaVictory=1&qaRouteReplay=1` 与 `qaStableRoute=1` 两组入口下实机
   验证；风险 / 稳健切换会同步更换颜色、落点与折线路径，入境和关底方向保持一致。浏览器
   error / warning / warn 日志为 0。
-- `134-sts2-top-bar-reference.jpg` 为 Slay the Spire 2 官方移动顶部状态栏参考；
-  `135-qingshi-selected-route-hud.jpg`、`136-bamboo-selected-route-hud.jpg` 与
-  `137-frost-selected-route-hud.jpg` 为本轮三章已选路线 HUD 实机。四境分岔菱形、路线色、
+- [134-sts2-top-bar-reference.jpg](https://audiopaytest.cos.tx.xmcdn.com/storages/892c-audiotest/00/A1/GAqSoUUORfNoAAEjogACEFqf.jpg) 为 Slay the Spire 2 官方移动顶部状态栏参考；
+  [135-qingshi-selected-route-hud.jpg](https://audiopaytest.cos.tx.xmcdn.com/storages/d85b-audiotest/38/76/GAqSoUUORfM0AAJI7QACEFoZ.jpg)、[136-bamboo-selected-route-hud.jpg](https://audiopaytest.cos.tx.xmcdn.com/storages/3fec-audiotest/06/51/GAqSpGcORfMwAALnQwACEFoO.jpg) 与
+  [137-frost-selected-route-hud.jpg](https://audiopaytest.cos.tx.xmcdn.com/storages/ec9c-audiotest/29/C8/GAqSoUUORfNbAAInfAACEFp_.jpg) 为本轮三章已选路线 HUD 实机。四境分岔菱形、路线色、
   第 1/4 境与路线代价均保持单行，没有遮挡气血、波次目标、场地机关或底部操作区；三章
   error / warning / warn 日志均为 0。
-- `139-hades-boss-phase-reference.jpg` 为 Hades 官方“Big Bad”更新的首领换相原则参考；
-  `140-current-boss-hud-audit.jpg` 记录改造前首领血条与目标/路线条竞争顶部空间的问题。
-- `141-boss-two-phase-entrance.jpg` 与 `142-boss-phase-one-hud.jpg` 分别证明关底入场会预告
+- [139-hades-boss-phase-reference.jpg](https://audiopaytest.cos.tx.xmcdn.com/storages/9aad-audiotest/42/79/GAqSoUUORfNaAADcIQACEFp9.jpg) 为 Hades 官方“Big Bad”更新的首领换相原则参考；
+  [140-current-boss-hud-audit.jpg](https://audiopaytest.cos.tx.xmcdn.com/storages/53e8-audiotest/49/EB/GAqSoUUORfNyAAIekgACEFq8.jpg) 记录改造前首领血条与目标/路线条竞争顶部空间的问题。
+- [141-boss-two-phase-entrance.jpg](https://audiopaytest.cos.tx.xmcdn.com/storages/f308-audiotest/28/48/GAqSpGcORfNlAAIXTAACEFqY.jpg) 与 [142-boss-phase-one-hud.jpg](https://audiopaytest.cos.tx.xmcdn.com/storages/4435-audiotest/73/10/GAqSpGcORfM1AAIXyQACEFoc.jpg) 分别证明关底入场会预告
   二相风险，第一相专属 HUD 会替换普通目标/路线条，并持续显示 55% 阈值。
-- `143-boss-phase-two-reveal.jpg`、`144-boss-phase-two-hud.jpg` 与
-  `145-bamboo-boss-phase-two-hud.jpg` 证明青石/竹影转相卡、魇影增援和震地提速在同一
+- [143-boss-phase-two-reveal.jpg](https://audiopaytest.cos.tx.xmcdn.com/storages/8a5a-audiotest/EF/2B/GAqSoUUORfMtAAG75wACEFoL.jpg)、[144-boss-phase-two-hud.jpg](https://audiopaytest.cos.tx.xmcdn.com/storages/e9af-audiotest/AB/55/GAqSoUUORfNQAAHlYwACEFph.jpg) 与
+  [145-bamboo-boss-phase-two-hud.jpg](https://audiopaytest.cos.tx.xmcdn.com/storages/9f5e-audiotest/19/39/GAqSoUUORfM1AAIOtgACEFod.jpg) 证明青石/竹影转相卡、魇影增援和震地提速在同一
   顶部结构内可读；转相不阻塞角色移动或伤害反馈。
-- `146-frost-boss-phase-two-reveal.jpg` 与 `147-frost-boss-phase-two-hud.jpg` 证明寒狱相
+- [146-frost-boss-phase-two-reveal.jpg](https://audiopaytest.cos.tx.xmcdn.com/storages/b271-audiotest/66/2C/GAqSoUUORfNLAAG6ZgACEFpT.jpg) 与 [147-frost-boss-phase-two-hud.jpg](https://audiopaytest.cos.tx.xmcdn.com/storages/5357-audiotest/DA/B3/GAqSoUUORfMtAAHO0gACEFoI.jpg) 证明寒狱相
   会同步显示唤潮预警、冻尸增援和青色阶段 tone，寒潮屏闪没有遮住首领血条。
-- `148-boss-phase-source-implementation.jpg` 将官方原则、改造前状态、第一相与寒狱相置于
+- [148-boss-phase-source-implementation.jpg](https://audiopaytest.cos.tx.xmcdn.com/storages/9ffa-audiotest/1B/8F/GAqSpGcORfNdAALN-AACEFqE.jpg) 将官方原则、改造前状态、第一相与寒狱相置于
   同一比较输入。1200×1500 视口三章实机均无裁切、重叠或异常换行，浏览器 error / warning /
   warn 日志为 0。
-- `149-frost-boss-phase-two-release.jpg` 为最终非调试 Web Mobile 构建，性能统计面板已移除，
+- [149-frost-boss-phase-two-release.jpg](https://audiopaytest.cos.tx.xmcdn.com/storages/bf04-audiotest/8F/13/GAqSoUUORfNqAAH31wACEFql.jpg) 为最终非调试 Web Mobile 构建，性能统计面板已移除，
   寒狱相 HUD、敌人、潮圈与底部安全区均完整。
 - 本地可用 `?qaBoss=1&qaBossHud=1` 检查第一相，叠加 `qaBossPhase=2` 检查稳定二相，叠加
   `qaBossPhaseReveal=1` 固定转相峰值帧；二相回归入口会跳过入场横幅，避免两个只在测试中
   同帧出现的覆盖层互相遮挡。所有参数只对本地地址生效。
-- `150-qingshi-boss-shared-pulse-audit.jpg`、`151-bamboo-boss-shared-pulse-audit.jpg` 与
-  `152-frost-boss-shared-pulse-audit.jpg` 记录独立招式改造前的首领战：青石、竹林仍复用
+- [150-qingshi-boss-shared-pulse-audit.jpg](https://audiopaytest.cos.tx.xmcdn.com/storages/13ca-audiotest/13/A7/GAqSpGcORfM6AAHc5wACEFoo.jpg)、[151-bamboo-boss-shared-pulse-audit.jpg](https://audiopaytest.cos.tx.xmcdn.com/storages/a63e-audiotest/D9/E1/GAqSpGcORfNjAAIHDgACEFqU.jpg) 与
+  [152-frost-boss-shared-pulse-audit.jpg](https://audiopaytest.cos.tx.xmcdn.com/storages/5114-audiotest/66/10/GAqSoUUORfMyAAHt2AACEFoT.jpg) 记录独立招式改造前的首领战：青石、竹林仍复用
   同一圆形震地，寒潭虽然叠加寒潮，但局部施法身份仍不够强。
-- `153-qingshi-three-seal-chain.jpg` 验证“三叠地脉”会沿玩家斜向轨迹依次落下三枚金色地印；
+- [153-qingshi-three-seal-chain.jpg](https://audiopaytest.cos.tx.xmcdn.com/storages/7ebc-audiotest/D7/18/GAqSoUUORfNKAAEMYwACEFpR.jpg) 验证“三叠地脉”会沿玩家斜向轨迹依次落下三枚金色地印；
   三个预警圈在命中前保持清晰边界，首领、玩家和底部操作区无遮挡。
-- `154-bamboo-pincer-gap.jpg` 验证“竹影合围”以两条纵向边界和六个真实竹障标出安全隙；
+- [154-bamboo-pincer-gap.jpg](https://audiopaytest.cos.tx.xmcdn.com/storages/782b-audiotest/F2/DF/GAqSoUUORfNEAAEI8gACEFpB.jpg) 验证“竹影合围”以两条纵向边界和六个真实竹障标出安全隙；
   危险区覆盖道路两翼而不覆盖底部操作区，安全隙与本章夹道主题一致。
-- `155-frost-tide-slam.jpg` 验证“唤潮落印”在玩家脚下生成冰印的同时推进横向寒潮预警；
+- [155-frost-tide-slam.jpg](https://audiopaytest.cos.tx.xmcdn.com/storages/2e61-audiotest/82/9A/GAqSoUUORfM6AAEAqgACEFop.jpg) 验证“唤潮落印”在玩家脚下生成冰印的同时推进横向寒潮预警；
   局部圆形与潮带保持不同层级，玩家可以先离印、再看潮。
-- `156-hades-combat-readability-reference.jpg` 为 Supergiant 官方 Nighty Night 更新原页，
+- [156-hades-combat-readability-reference.jpg](https://audiopaytest.cos.tx.xmcdn.com/storages/b6f4-audiotest/63/0D/GAqSpGcORfNOAADuGwACEFpc.jpg) 为 Supergiant 官方 Nighty Night 更新原页，
   明确提出让激烈战斗更容易解析且不牺牲冲击力；本轮只借鉴可读性原则，不复制其美术。
-- `157-boss-ability-source-implementation.jpg` 将官方原则和三章招式峰值置于同一 1280×720
+- [157-boss-ability-source-implementation.jpg](https://audiopaytest.cos.tx.xmcdn.com/storages/4425-audiotest/3A/22/GAqSoUUORfM-AAEqDQACEFoz.jpg) 将官方原则和三章招式峰值置于同一 1280×720
   对照输入，并以原始分辨率打开审查；三章在颜色、几何、场地资产和动作后续上均可区分。
-- `158-frost-boss-ability-release.jpg` 为最终非调试 Web Mobile 构建；寒潭落印、横向潮带、
+- [158-frost-boss-ability-release.jpg](https://audiopaytest.cos.tx.xmcdn.com/storages/2803-audiotest/34/3C/GAqSoUUORfNnAADiXgACEFqd.jpg) 为最终非调试 Web Mobile 构建；寒潭落印、横向潮带、
   首领 HUD 和底部操作区完整，调试性能统计面板已移除。
 - 本地叠加 `qaBossAbility=1` 后，二相首轮招式会在转相锁招结束后约 0.42 秒触发，便于稳定
   捕捉三章峰值；该参数不改变正式流程的施法间隔、伤害或首领血量。
-- `159-boss-kill-interrupted-by-upgrade.jpg`、`160-boss-kill-empty-gap-audit.jpg` 与
-  `161-boss-result-after-upgrade-audit.jpg` 记录改造前断点：关底最后一击先弹破境，关闭后
+- [159-boss-kill-interrupted-by-upgrade.jpg](https://audiopaytest.cos.tx.xmcdn.com/storages/2ce0-audiotest/5D/0F/GAqSoUUORfNLAACopgACEFpV.jpg)、[160-boss-kill-empty-gap-audit.jpg](https://audiopaytest.cos.tx.xmcdn.com/storages/08fa-audiotest/B0/5C/GAqSoUUORfNgAADlYAACEFqL.jpg) 与
+  [161-boss-result-after-upgrade-audit.jpg](https://audiopaytest.cos.tx.xmcdn.com/storages/97eb-audiotest/34/85/GAqSoUUORfNsAAClHQACEFqr.jpg) 记录改造前断点：关底最后一击先弹破境，关闭后
   还会短暂露出空战场，击破高潮和战报被拆成三段。
-- `162-qingshi-boss-finish.jpg`、`163-bamboo-boss-finish.jpg` 与
-  `164-frost-boss-finish.jpg` 证明三章使用独立伏诛标题、章节色与真实场地序列帧；首领
+- [162-qingshi-boss-finish.jpg](https://audiopaytest.cos.tx.xmcdn.com/storages/0107-audiotest/8D/CE/GAqSoUUORfNJAADynwACEFpP.jpg)、[163-bamboo-boss-finish.jpg](https://audiopaytest.cos.tx.xmcdn.com/storages/424d-audiotest/66/D5/GAqSoUUORfNmAAD3LgACEFqZ.jpg) 与
+  [164-frost-boss-finish.jpg](https://audiopaytest.cos.tx.xmcdn.com/storages/55cd-audiotest/0B/2D/GAqSpGcORfM0AADmDwACEFoY.jpg) 证明三章使用独立伏诛标题、章节色与真实场地序列帧；首领
   动作表末行的受击 / 踉跄帧承担倒地姿态，没有伪造死亡格。
-- `165-boss-finish-direct-result.jpg` 证明寒渊终结后直接进入战报，没有破境覆盖层或空场
+- [165-boss-finish-direct-result.jpg](https://audiopaytest.cos.tx.xmcdn.com/storages/46ee-audiotest/FC/16/GAqSpGcORfNsAACREwACEFqq.jpg) 证明寒渊终结后直接进入战报，没有破境覆盖层或空场
   间隙；三章实机浏览器 error / warning / warn 日志均为 0。
-- `166-hades-boss-vanquish-reference.jpg` 为 Supergiant 官方 Nighty Night 更新原页，
-  明确列出“击败首领时使用独立文字视觉”；`167-boss-finish-source-implementation.jpg`
+- [166-hades-boss-vanquish-reference.jpg](https://audiopaytest.cos.tx.xmcdn.com/storages/3d82-audiotest/20/8D/GAqSoUUORfNkAACwIQACEFqV.jpg) 为 Supergiant 官方 Nighty Night 更新原页，
+  明确列出“击败首领时使用独立文字视觉”；[167-boss-finish-source-implementation.jpg](https://audiopaytest.cos.tx.xmcdn.com/storages/8307-audiotest/3B/BD/GAqSoUUORfNlAAEAyAACEFqX.jpg)
   将该参考与三章实机峰值合并为同一 1280×720 比较输入，并以原始分辨率打开审查。
-- `168-frost-boss-finish-release.jpg` 为最终非调试 Web Mobile 构建；寒渊标题、冰裂潮光、
+- [168-frost-boss-finish-release.jpg](https://audiopaytest.cos.tx.xmcdn.com/storages/a164-audiotest/09/6A/GAqSpGcORfMsAADEUwACEFoF.jpg) 为最终非调试 Web Mobile 构建；寒渊标题、冰裂潮光、
   顶部 HUD 与底部安全区完整，性能统计面板已移除，浏览器 error / warning / warn 为 0。
 - 本地叠加 `qaBossFinish=1` 可稳定检查终结峰值；该入口只跳过视觉回归中的随机召援，
   正式流程仍要求首领与召援一同清场。最后一击不会再触发破境，但普通击杀成长规则不变。
-- `169-qingshi-victory-current-audit.jpg`、`170-bamboo-victory-current-audit.jpg` 与
-  `171-frost-victory-current-audit.jpg` 记录升级前的三章胜利页：底图与一行奖励文字虽不同，
+- [169-qingshi-victory-current-audit.jpg](https://audiopaytest.cos.tx.xmcdn.com/storages/4cb2-audiotest/47/5D/GAqSoUUORfNPAACW2QACEFpf.jpg)、[170-bamboo-victory-current-audit.jpg](https://audiopaytest.cos.tx.xmcdn.com/storages/0c73-audiotest/E5/4B/GAqSpGcORfNpAACNQwACEFqk.jpg) 与
+  [171-frost-victory-current-audit.jpg](https://audiopaytest.cos.tx.xmcdn.com/storages/f8d8-audiotest/3E/30/GAqSpGcORfM7AABtrQACEFoq.jpg) 记录升级前的三章胜利页：底图与一行奖励文字虽不同，
   但战报构图几乎同构，永久首破奖励位于普通统计下方且层级偏低。
-- `172-hades-victory-commendations-reference.jpg` 与 `173-hades-clear-record-reference.jpg`
+- [172-hades-victory-commendations-reference.jpg](https://audiopaytest.cos.tx.xmcdn.com/storages/1b6e-audiotest/EB/67/GAqSpGcORfNKAADcCQACEFpS.jpg) 与 [173-hades-clear-record-reference.jpg](https://audiopaytest.cos.tx.xmcdn.com/storages/73ad-audiotest/78/80/GAqSoUUORfM9AAC8oQACEFox.jpg)
   为 Supergiant 官方更新页原图，分别证明胜利评价可成为独立反馈层，以及长期档案记录通关
   次数与最速；本轮只借鉴信息层级，不复制其英文、美术或横屏构图。
-- `174-qingshi-victory-reward-hero.jpg`、`175-bamboo-victory-reward-hero.jpg` 与
-  `176-frost-victory-reward-hero.jpg` 验证三章首破战报已使用独立章节标题、收束语、色彩、
+- [174-qingshi-victory-reward-hero.jpg](https://audiopaytest.cos.tx.xmcdn.com/storages/a5d0-audiotest/88/81/GAqSoUUORfNtAAC_kQACEFqt.jpg)、[175-bamboo-victory-reward-hero.jpg](https://audiopaytest.cos.tx.xmcdn.com/storages/2aab-audiotest/16/4D/GAqSoUUORfNDAACzBQACEFo_.jpg) 与
+  [176-frost-victory-reward-hero.jpg](https://audiopaytest.cos.tx.xmcdn.com/storages/4fba-audiotest/4E/20/GAqSpGcORfNnAACWQwACEFqe.jpg) 验证三章首破战报已使用独立章节标题、收束语、色彩、
   真实序列帧水印和永久奖励主卡；最长文案、双按钮与竖屏安全区均无裁切。
-- `177-qingshi-repeat-victory-result.jpg` 验证普通重复通关显示累计次数与既有最速；
-  `178-bamboo-new-best-result.jpg` 验证刷新最速状态；二者不会冒充新的永久奖励。
-- `179-defeat-result-regression.jpg` 验证失败战报仍使用克制红色反馈，不错误出现胜利水印或
-  奖励主卡；`180-result-route-replay-regression.jpg` 验证战报路线回放仍可打开并保持原交互。
-- `181-victory-result-source-implementation.jpg` 将 Hades 官方反馈原则与三章实机首破战报
+- [177-qingshi-repeat-victory-result.jpg](https://audiopaytest.cos.tx.xmcdn.com/storages/38a1-audiotest/D2/61/GAqSpGcORfNpAAC8qgACEFqi.jpg) 验证普通重复通关显示累计次数与既有最速；
+  [178-bamboo-new-best-result.jpg](https://audiopaytest.cos.tx.xmcdn.com/storages/6249-audiotest/CC/8F/GAqSoUUORfMsAACv-gACEFoG.jpg) 验证刷新最速状态；二者不会冒充新的永久奖励。
+- [179-defeat-result-regression.jpg](https://audiopaytest.cos.tx.xmcdn.com/storages/5fcb-audiotest/81/01/GAqSpGcORfNbAAC5DwACEFqA.jpg) 验证失败战报仍使用克制红色反馈，不错误出现胜利水印或
+  奖励主卡；[180-result-route-replay-regression.jpg](https://audiopaytest.cos.tx.xmcdn.com/storages/9f73-audiotest/CD/2D/GAqSpGcORfMxAACnjwACEFoS.jpg) 验证战报路线回放仍可打开并保持原交互。
+- [181-victory-result-source-implementation.jpg](https://audiopaytest.cos.tx.xmcdn.com/storages/9344-audiotest/70/DE/GAqSpGcORfNtAADruQACEFqu.jpg) 将 Hades 官方反馈原则与三章实机首破战报
   置于同一 1280×720 比较输入，并已按原始分辨率打开审查；修复后 P1/P2 均已关闭。
-- `182-frost-victory-reward-release.jpg` 为最终非调试 Web Mobile 构建；寒渊首破奖励主卡、
+- [182-frost-victory-reward-release.jpg](https://audiopaytest.cos.tx.xmcdn.com/storages/c6fa-audiotest/4F/14/GAqSoUUORfNwAAB3KwACEFq2.jpg) 为最终非调试 Web Mobile 构建；寒渊首破奖励主卡、
   双按钮与完整战场安全区均清晰，性能统计面板已移除，浏览器 error / warning / warn 为 0。
-- `183-entry-flow-menu-current.jpg` 至 `186-entry-flow-qingshi-3020ms-current.jpg` 记录入境
+- [183-entry-flow-menu-current.jpg](https://audiopaytest.cos.tx.xmcdn.com/storages/2a27-audiotest/C9/DD/GAqSoUUORfNvAACs2wACEFqx.jpg) 至 [186-entry-flow-qingshi-3020ms-current.jpg](https://audiopaytest.cos.tx.xmcdn.com/storages/ed3b-audiotest/62/71/GAqSpGcORfMyAADcsQACEFoU.jpg) 记录入境
   改造前链路：点击主按钮后约 120ms 即出现完整 HUD 与第一波横幅，章节身份、路线和首波威胁
   同时并发；约 720ms 已开始刷怪，没有独立空间落点。
-- `187-hades-official-entry-reference.jpg` 为 Supergiant 官方 Hades 页面；
-  `188-hades-biome-travel-presentation-reference.jpg` 为官方更新页原图，其中可见 biome map
+- [187-hades-official-entry-reference.jpg](https://audiopaytest.cos.tx.xmcdn.com/storages/22cf-audiotest/3B/2B/GAqSoUUORfMxAAHN-gACEFoR.jpg) 为 Supergiant 官方 Hades 页面；
+  [188-hades-biome-travel-presentation-reference.jpg](https://audiopaytest.cos.tx.xmcdn.com/storages/a217-audiotest/F1/43/GAqSoUUORfM9AADefQACEFov.jpg) 为官方更新页原图，其中可见 biome map
   travel sequence 图标和首次进入 Temple of Styx 主厅呈现均被单独强化。
-- `189-qingshi-stage-entry.jpg`、`190-bamboo-stage-entry.jpg` 与
-  `191-frost-stage-entry.jpg` 验证三章分别使用剑碑、焚竹和寒潮真实序列帧，并显示独立章节
+- [189-qingshi-stage-entry.jpg](https://audiopaytest.cos.tx.xmcdn.com/storages/1f44-audiotest/71/F4/GAqSpGcORfMtAADRAgACEFoK.jpg)、[190-bamboo-stage-entry.jpg](https://audiopaytest.cos.tx.xmcdn.com/storages/3f8a-audiotest/F3/FF/GAqSpGcORfNHAADAegACEFpI.jpg) 与
+  [191-frost-stage-entry.jpg](https://audiopaytest.cos.tx.xmcdn.com/storages/1454-audiotest/D5/C5/GAqSpGcORfM0AAC0WAACEFoa.jpg) 验证三章分别使用剑碑、焚竹和寒潮真实序列帧，并显示独立章节
   标题、路线方向与首境戒律；HUD 和底部操作区只作为被压暗的后续战斗上下文。
-- `192-stage-entry-auto-peak.jpg` 至 `194-stage-entry-first-enemy.jpg` 验证正式时序：
+- [192-stage-entry-auto-peak.jpg](https://audiopaytest.cos.tx.xmcdn.com/storages/43be-audiotest/65/CF/GAqSpGcORfNbAADQ-gACEFp-.jpg) 至 [194-stage-entry-first-enemy.jpg](https://audiopaytest.cos.tx.xmcdn.com/storages/b1f3-audiotest/16/AE/GAqSoUUORfNrAAD69AACEFqn.jpg) 验证正式时序：
   入境峰值时没有敌人，约 1.9 秒后先交给第一波横幅，再按原刷怪间隔出现首敌；浏览器
   error / warning / warn 为 0。
-- `195-stage-entry-source-implementation.jpg` 将官方呈现原则、旧版 120ms 直切与三章入境
+- [195-stage-entry-source-implementation.jpg](https://audiopaytest.cos.tx.xmcdn.com/storages/c548-audiotest/BB/ED/GAqSoUUORfNxAAFczQACEFq4.jpg) 将官方呈现原则、旧版 120ms 直切与三章入境
   峰值、第一波交权置于同一 1280×1080 比较输入；六格均保留完整 640×360 游戏上下文，
   证明新增层承担章节落点而非替换战斗 HUD。
-- `196-frost-stage-entry-release.jpg` 为最终非调试 Web Mobile 构建；寒潭标题、路线、首境
+- [196-frost-stage-entry-release.jpg](https://audiopaytest.cos.tx.xmcdn.com/storages/1156-audiotest/4E/DA/GAqSoUUORfNMAACUCwACEFpX.jpg) 为最终非调试 Web Mobile 构建；寒潭标题、路线、首境
   戒律、真实寒潮帧与底部操作区完整，性能统计面板已移除，浏览器 error / warning / warn
   为 0。
 - 本地叠加 `?qaStageEntry=1` 可将三章入境固定在约 1.18 秒峰值用于视觉回归；正式流程播放
   1.9 秒后才交权给第一波。`prefers-reduced-motion` 下保留静态落点信息并缩短为 0.82 秒，
   不播放大幅镜头位移；测试参数只对本地地址生效。
-- `197-opening-wave-menu-current.jpg` 至 `200-frost-opening-wave-current.jpg` 记录首境动作
+- [197-opening-wave-menu-current.jpg](https://audiopaytest.cos.tx.xmcdn.com/storages/35da-audiotest/0C/F2/GAqSpGcORfNwAACs2wACEFq3.jpg) 至 [200-frost-opening-wave-current.jpg](https://audiopaytest.cos.tx.xmcdn.com/storages/3a10-audiotest/30/13/GAqSpGcORfNVAADe5gACEFpu.jpg) 记录首境动作
   改造前状态：三章虽然已有剑脉、竹障和寒潮规则，但 HUD 只报告对象数量或倒计时，缺少
   “去哪里、先做什么、来敌从哪里出现”的同屏闭环。
-- `204-hades2-steam-combat-reference.jpg` 与 `205-dead-cells-steam-biome-reference.jpg`
+- [204-hades2-steam-combat-reference.jpg](https://audiopaytest.cos.tx.xmcdn.com/storages/d8a6-audiotest/F9/50/GAqSoUUORfNYAADPvAACEFp3.jpg) 与 [205-dead-cells-steam-biome-reference.jpg](https://audiopaytest.cos.tx.xmcdn.com/storages/b5c1-audiotest/E1/7B/GAqSoUUORfNXAAEpRwACEFpz.jpg)
   来自官方 Steam 实机页面，分别提供高对比地面行动圈和发光通行符文 / 路线轮廓参考；本轮
   只借鉴场内可行动目标的识别原则，不复制美术和玩法。
-- `206-qingshi-opening-objective.jpg`、`208-bamboo-opening-objective-final.jpg` 与
-  `209-frost-opening-objective.jpg` 验证三章首境动作已分化为抢占剑脉、击破下段竹障和
+- [206-qingshi-opening-objective.jpg](https://audiopaytest.cos.tx.xmcdn.com/storages/7664-audiotest/38/08/GAqSpGcORfNAAAECeAACEFo4.jpg)、[208-bamboo-opening-objective-final.jpg](https://audiopaytest.cos.tx.xmcdn.com/storages/6ee7-audiotest/FF/9C/GAqSpGcORfNtAAEJSgACEFqs.jpg) 与
+  [209-frost-opening-objective.jpg](https://audiopaytest.cos.tx.xmcdn.com/storages/244f-audiotest/82/A2/GAqSpGcORfNaAAD_JAACEFp8.jpg) 验证三章首境动作已分化为抢占剑脉、击破下段竹障和
   进入左侧封脉圈候过首潮；场内标记使用本章真实四帧资源，第一波来敌方向与目标位置配套。
-- `207-bamboo-opening-objective.jpg` 记录竹林初版标记被障碍遮挡的 P2 基线；提高层级、直径
-  与不透明度后由 `208` 关闭。`211-frost-opening-recovery-final.jpg` 验证未及时入圈时会在
+- [207-bamboo-opening-objective.jpg](https://audiopaytest.cos.tx.xmcdn.com/storages/f160-audiotest/C2/F6/GAqSpGcORfNMAAEKOAACEFpY.jpg) 记录竹林初版标记被障碍遮挡的 P2 基线；提高层级、直径
+  与不透明度后由 `208` 关闭。[211-frost-opening-recovery-final.jpg](https://audiopaytest.cos.tx.xmcdn.com/storages/b6fe-audiotest/40/D7/GAqSpGcORfNmAAEA_wACEFqa.jpg) 验证未及时入圈时会在
   首潮后给出“下次提前入圈”的恢复反馈，而不是把失败伪装成成功。
-- `212-opening-objective-source-implementation.jpg` 将两项官方视觉原则、旧版首境与新版
-  青石 / 寒潭实机置于同一 1280×1080 输入；`213-opening-objective-three-stage-before-after.jpg`
+- [212-opening-objective-source-implementation.jpg](https://audiopaytest.cos.tx.xmcdn.com/storages/06d9-audiotest/0E/5A/GAqSpGcORfM5AAF2XQACEFom.jpg) 将两项官方视觉原则、旧版首境与新版
+  青石 / 寒潭实机置于同一 1280×1080 输入；[213-opening-objective-three-stage-before-after.jpg](https://audiopaytest.cos.tx.xmcdn.com/storages/f02b-audiotest/D9/B8/GAqSpGcORfNkAAKc4wACEFqW.jpg)
   以 1280×1440 六格对照三章改造前后，原始分辨率审查未发现文字裁切、操作区遮挡或 P1/P2。
-- `214-opening-objective-release.jpg` 为最终非调试 Web Mobile 构建中的寒潭首境动作：
+- [214-opening-objective-release.jpg](https://audiopaytest.cos.tx.xmcdn.com/storages/7154-audiotest/B0/4F/GAqSpGcORfNwAADeSgACEFq1.jpg) 为最终非调试 Web Mobile 构建中的寒潭首境动作：
   封脉圈、首潮倒计时、上方来敌与完整底部操作区同时可读，性能统计面板已移除，浏览器
   error / warning / warn 为 0。
 
@@ -533,16 +533,16 @@
 
 ### 对照证据（新增）
 
-- `222-qingshi-elite-encounter.jpg`、`223-bamboo-elite-encounter.jpg`、`224-frost-elite-encounter.jpg`
+- [222-qingshi-elite-encounter.jpg](https://audiopaytest.cos.tx.xmcdn.com/storages/3ad2-audiotest/64/C2/GAqSoUUORfNoAAEBbgACEFqh.jpg)、[223-bamboo-elite-encounter.jpg](https://audiopaytest.cos.tx.xmcdn.com/storages/a2bc-audiotest/79/87/GAqSoUUORfNjAAEBJwACEFqT.jpg)、[224-frost-elite-encounter.jpg](https://audiopaytest.cos.tx.xmcdn.com/storages/1db8-audiotest/D6/28/GAqSoUUORfNUAAEG7AACEFpt.jpg)
   分别展示三章二境联动前后场景状态与目标条，竹林二境可见冲锋撞击后竹障残存，完成后反馈仍可识别。
-- `217-frost-elite-current.jpg`、`215-qingshi-elite-current.jpg`、`216-bamboo-elite-current.jpg`
+- [217-frost-elite-current.jpg](https://audiopaytest.cos.tx.xmcdn.com/storages/232b-audiotest/45/B6/GAqSoUUORfNUAAD7XQACEFpr.jpg)、[215-qingshi-elite-current.jpg](https://audiopaytest.cos.tx.xmcdn.com/storages/aea8-audiotest/90/B0/GAqSoUUORfM2AAD9fgACEFof.jpg)、[216-bamboo-elite-current.jpg](https://audiopaytest.cos.tx.xmcdn.com/storages/23f8-audiotest/B8/A0/GAqSpGcORfNBAAEDbwACEFo8.jpg)
   为最小本地验收截图：参数固定在 `?qaElite=1`；
   主要对照点为二境目标开始、推进、完成短时反馈、波次衔接 HUD。
-- `221-dead-cells-elite-lane-reference.jpg`、`219-ravenswatch-elite-reference.jpg`、`220-hades2-elite-telegraph-reference.jpg`
+- [221-dead-cells-elite-lane-reference.jpg](https://audiopaytest.cos.tx.xmcdn.com/storages/72e3-audiotest/C8/B0/GAqSoUUORfNmAAE3agACEFqb.jpg)、[219-ravenswatch-elite-reference.jpg](https://audiopaytest.cos.tx.xmcdn.com/storages/2461-audiotest/C0/63/GAqSoUUORfNeAAG0rwACEFqH.jpg)、[220-hades2-elite-telegraph-reference.jpg](https://audiopaytest.cos.tx.xmcdn.com/storages/61b0-audiotest/54/5D/GAqSpGcORfMzAAEH9QACEFoW.jpg)
   为外部参考，对应入口承诺与环境压迫节奏，不作为功能实现依赖。
-- `206-qingshi-opening-objective.jpg`、`208-bamboo-opening-objective-final.jpg`、`209-frost-opening-objective.jpg`
-  与 `214-opening-objective-release.jpg` 保持一体化闭环：二境开启前后的目标引导与后续入场回归一致。
-- `158-frost-boss-ability-release.jpg`、`168-frost-boss-finish-release.jpg`、`182-frost-victory-reward-release.jpg`
+- [206-qingshi-opening-objective.jpg](https://audiopaytest.cos.tx.xmcdn.com/storages/7664-audiotest/38/08/GAqSpGcORfNAAAECeAACEFo4.jpg)、[208-bamboo-opening-objective-final.jpg](https://audiopaytest.cos.tx.xmcdn.com/storages/6ee7-audiotest/FF/9C/GAqSpGcORfNtAAEJSgACEFqs.jpg)、[209-frost-opening-objective.jpg](https://audiopaytest.cos.tx.xmcdn.com/storages/244f-audiotest/82/A2/GAqSpGcORfNaAAD_JAACEFp8.jpg)
+  与 [214-opening-objective-release.jpg](https://audiopaytest.cos.tx.xmcdn.com/storages/7154-audiotest/B0/4F/GAqSpGcORfNwAADeSgACEFq1.jpg) 保持一体化闭环：二境开启前后的目标引导与后续入场回归一致。
+- [158-frost-boss-ability-release.jpg](https://audiopaytest.cos.tx.xmcdn.com/storages/2803-audiotest/34/3C/GAqSoUUORfNnAADiXgACEFqd.jpg)、[168-frost-boss-finish-release.jpg](https://audiopaytest.cos.tx.xmcdn.com/storages/a164-audiotest/09/6A/GAqSpGcORfMsAADEUwACEFoF.jpg)、[182-frost-victory-reward-release.jpg](https://audiopaytest.cos.tx.xmcdn.com/storages/c6fa-audiotest/4F/14/GAqSoUUORfNwAAB3KwACEFq2.jpg)
   与 `214` 共同覆盖三章完成反馈→终局→战报的连续链路，均为非调试构建且未出现 `profiler`。
 
 ### 本轮结论
@@ -559,13 +559,13 @@
 
 - 用户来源图：`codex-clipboard-7895f743-3467-4fe8-aeed-fcd3fa41cc35.png`（`1062×1498`），
   显示固定 750 设计宽的遮罩与宽屏背景之间存在左右硬接缝。
-- `230-menu-background-cohesive-qingshi.webp`：青石调试构建宽屏修复。
-- `231-menu-background-cohesive-bamboo.webp`：竹林切换状态，背景连续且无独立侧栏。
-- `232-menu-background-cohesive-frost.webp`：寒潭切换状态，菜单 cover 后无黑边或贴图断层。
-- `235-menu-background-cohesive-release.webp`：`830×1170` 同比例正式构建截图，无 profiler，
+- [230-menu-background-cohesive-qingshi.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/12b2-audiotest/74/4D/GAqSoUUORfOnAAHHFAACEFuN.webp)：青石调试构建宽屏修复。
+- [231-menu-background-cohesive-bamboo.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/f372-audiotest/68/9E/GAqSpGcORfOiAAHVIgACEFtW.webp)：竹林切换状态，背景连续且无独立侧栏。
+- [232-menu-background-cohesive-frost.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/372a-audiotest/78/9B/GAqSoUUORfOnAAIgvgACEFuJ.webp)：寒潭切换状态，菜单 cover 后无黑边或贴图断层。
+- [235-menu-background-cohesive-release.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/17f5-audiotest/F4/75/GAqSoUUORfOmAAFRmAACEFuB.webp)：`830×1170` 同比例正式构建截图，无 profiler，
   浏览器 error / warning / warn 为 0。
-- `236-menu-background-before-after-release.webp`：来源图与正式构建归一化后的并排对照。
-- `237-debug-profiler-hidden.webp`：调试 Web Mobile 构建；左下角引擎性能统计已隐藏，浏览器
+- [236-menu-background-before-after-release.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/e3cf-audiotest/6E/28/GAqSoUUORfOqAAQV3gACEFuq.webp)：来源图与正式构建归一化后的并排对照。
+- [237-debug-profiler-hidden.webp](https://audiopaytest.cos.tx.xmcdn.com/storages/5513-audiotest/3B/47/GAqSoUUORfOhAAF9bAACEFtL.webp)：调试 Web Mobile 构建；左下角引擎性能统计已隐藏，浏览器
   error / warning / warn 为 0。
 - 结论：不重生成地图图片；根因是 `SHOW_ALL` 宽屏坐标与固定遮罩宽度不一致。菜单背景按
   可视区 cover，战斗仍使用关卡标定尺寸，视觉修复不会改变碰撞和机关坐标。
