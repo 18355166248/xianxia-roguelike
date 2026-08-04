@@ -1,5 +1,6 @@
 import {
     PlayerActionRuntime,
+    resolveTapMovePoint,
     resolveTapMoveStep,
     resolveSwordGesture,
     shouldConfirmTapMove,
@@ -15,6 +16,9 @@ assertEqual(resolveSwordGesture(2, 0.2, 40), 'aimed', 'tier two unlocks directio
 assertEqual(resolveSwordGesture(3, 0.6, 5), 'charged', 'tier three unlocks hold attack');
 assertEqual(shouldConfirmTapMove(0.18, 8), true, 'short steady touch confirms a move target');
 assertEqual(shouldConfirmTapMove(0.18, 40), false, 'dragging across the battlefield does not move');
+assertEqual(resolveTapMovePoint({ x: 386, y: 667 }, 772, 1334).x, 0, 'portrait viewport center maps to battlefield center');
+assertEqual(resolveTapMovePoint({ x: 1186, y: 667 }, 2372, 1334).x, 0, 'wide viewport center does not inherit the 750 design-width offset');
+assertEqual(resolveTapMovePoint({ x: 1286, y: 767 }, 2372, 1334).y, 100, 'tap offset is preserved in battlefield coordinates');
 assertEqual(resolveTapMoveStep({ x: 0, y: 0 }, { x: 30, y: 40 }).distance, 50, 'tap move measures target distance');
 assertEqual(resolveTapMoveStep({ x: 0, y: 0 }, { x: 3, y: 4 }, 8).arrived, true, 'tap move stops inside arrival radius');
 assertEqual(resolveTapMoveStep({ x: 0, y: 0 }, { x: 30, y: 40 }).x, 0.6, 'tap move resolves normalized x');

@@ -18,6 +18,7 @@ stats.recordDamageTaken(7);
 stats.recordSpiritVeinClaimed();
 stats.recordObstacleBroken();
 stats.recordTideEnemyHit();
+stats.recordCombatFlow(12, 2);
 stats.recordMapEvent({
     choiceId: 'read-the-scar',
     title: '以血悟痕',
@@ -35,6 +36,8 @@ assertEqual(formatRunDuration(snapshot.elapsedSeconds), '01:01', 'duration shoul
 assertEqual(snapshot.enemiesDefeated, 1, 'enemy count');
 assertEqual(snapshot.damageDealt, 28, 'damage dealt');
 assertEqual(snapshot.damageTaken, 7, 'damage taken');
+assertEqual(snapshot.bestCombo, 12, 'best combo');
+assertEqual(snapshot.peakFlowTier, 2, 'peak combat flow tier');
 assertEqual(
     describeMapAchievement('bamboo-ambush', snapshot),
     '破竹 1 道  ·  灵脉共鸣 1 次',

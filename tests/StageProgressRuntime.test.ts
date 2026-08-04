@@ -49,10 +49,21 @@ assertEqual(
     'updated record summary',
 );
 
+progress.recordVictory('qingshi-road', 120, {
+    bestCombo: 24,
+    buildName: '太初剑匣 · 万剑归宗',
+    path: 'edge',
+    tier: 3,
+});
+const archive = progress.cultivationArchive();
+assertEqual(archive.bestCombo, 24, 'archive should preserve the best combo');
+assertEqual(archive.masteredPaths.includes('edge'), true, 'true-form path should enter the archive');
+assertEqual(archive.lastBuild, '太初剑匣 · 万剑归宗', 'archive should preserve the latest build identity');
+
 const serialized = progress.serialize();
 const restored = new StageProgressRuntime();
 assertEqual(restored.restore(serialized), true, 'serialized progress should restore');
-assertEqual(restored.recordFor('qingshi-road').clears, 3, 'restored clear count');
+assertEqual(restored.recordFor('qingshi-road').clears, 4, 'restored clear count');
 restored.recordVictory('bamboo-ambush', 176.2);
 restored.recordVictory('frozen-ruins', 210);
 const allBonuses = restored.rewardBonuses();
@@ -60,6 +71,6 @@ assertEqual(allBonuses.swordDamage, 2, 'restored sword reward');
 assertEqual(allBonuses.moveSpeed, 10, 'bamboo reward should add movement speed');
 assertEqual(allBonuses.maxHp, 8, 'frozen reward should add maximum health');
 assertEqual(restored.restore('{broken'), false, 'invalid json should be ignored');
-assertEqual(restored.recordFor('qingshi-road').clears, 3, 'invalid restore should preserve current state');
+assertEqual(restored.recordFor('qingshi-road').clears, 4, 'invalid restore should preserve current state');
 
 console.log('StageProgressRuntime tests passed');

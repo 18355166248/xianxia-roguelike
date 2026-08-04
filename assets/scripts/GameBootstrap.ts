@@ -77,6 +77,7 @@ import {
     VisualEffectState,
 } from './runtime/GameRuntimeTypes';
 import { loadSpriteFrame } from './runtime/SpriteAssetLoader';
+import { PlatformFeedbackService } from './runtime/PlatformFeedbackService';
 import {
     getDashCooldown,
     getDashDistance,
@@ -113,6 +114,7 @@ import {
 } from './systems/PlayerAnimationRuntime';
 import {
     PlayerActionRuntime,
+    resolveTapMovePoint,
     resolveTapMoveStep,
     resolveSwordGesture,
     shouldConfirmTapMove,
@@ -157,16 +159,22 @@ import {
     pickUpgradeChoices,
     pickBossCultivationChoices,
     summarizeUpgradePaths,
+    upgradeRarityPresentation,
     UPGRADE_PATH_DESCRIPTIONS,
     UPGRADE_PATH_LABELS,
     UPGRADE_PATH_ORDER,
 } from './systems/UpgradeChoiceRuntime';
+import { CombatFlowRuntime } from './systems/CombatFlowRuntime';
 import {
     previewUpgradeImpact,
     resolveRelicPulse,
     resolveCultivationBuild,
+    resolveUpgradeMomentum,
+    resolveUpgradeShowcase,
     type CultivationBuildSnapshot,
     type UpgradeImpactPreview,
+    type UpgradeMomentumSpec,
+    type UpgradeShowcaseSpec,
 } from './systems/CultivationBuildRuntime';
 import {
     buildRouteTrace,
@@ -253,6 +261,18 @@ const MAP_EVENT_TONE_COLORS: Readonly<Record<MapEventTone, string>> = {
     jade: '#82D7AC',
     cyan: '#72DDE8',
     ember: '#E58B62',
+};
+
+interface CasualUpgradePresentation {
+    readonly title: string;
+    readonly result: string;
+    readonly accent: string;
+}
+
+const CASUAL_SEED_PRESENTATIONS: Readonly<Partial<Record<UpgradeId, CasualUpgradePresentation>>> = {
+    'seed-edge': { title: '万剑', result: '飞剑 ×3', accent: '#72DDE8' },
+    'seed-mystic': { title: '天雷', result: '连锁 4 敌', accent: '#A78BFA' },
+    'seed-vitality': { title: '护体', result: '护盾反震', accent: '#82D7AC' },
 };
 
 const STAGE_PROGRESS_STORAGE_KEY = 'xianxia-roguelike.stage-progress.v1';
@@ -361,6 +381,11 @@ export class GameBootstrap extends Component {
     private recentUpgradePanel?: Node;
     private recentUpgradeLabel?: Label;
     private recentUpgradeTimer = 0;
+    private recentUpgradeText = '';
+    private comboPanel?: Node;
+    private comboLabel?: Label;
+    private cultivationChoiceHistory: UpgradeId[] = [];
+    private upgradePreviewFx?: Node;
     private cultivationRelicVolley = 0;
     private buildPathLabels = new Map<UpgradePath, Label>();
     private hpBar!: Graphics;
@@ -428,6 +453,7 @@ export class GameBootstrap extends Component {
     private playerMoveAmount = 0;
     private playerFacing = 1;
     private cultivationRerolls = 1;
+    private cultivationRefineBonus = 0;
     private cultivationShield = 0;
     private cultivationShieldMax = 0;
     private cultivationAfterSpell = false;
@@ -436,6 +462,8 @@ export class GameBootstrap extends Component {
     private cultivationBossRewardShown = false;
     private cultivationUndyingUsed = false;
     private cultivationResumeAfterUpgrade?: () => void;
+    private cultivationMomentum?: UpgradeMomentumSpec;
+    private cultivationMomentumTimer = 0;
     private lastMoveDirection = new Vec2(0, 1);
     // 功法等级、冷却和蓄力统一由规则对象维护，场景类只负责节点、命中与表现编排。
     private readonly skills = new SkillRuntime();
@@ -448,6 +476,8 @@ export class GameBootstrap extends Component {
     private readonly mapEvent = new MapEventRuntime();
     private readonly runStats = new RunStatsRuntime();
     private readonly stageProgress = new StageProgressRuntime();
+    private readonly combatFlow = new CombatFlowRuntime();
+    private readonly platformFeedback = new PlatformFeedbackService();
     private lastStageVictory?: StageVictoryResult;
     private mapEventModifierWaveIndex = -1;
     private mapEventAdvanceAfterChoice = false;
@@ -479,8 +509,8 @@ export class GameBootstrap extends Component {
     }
 
     protected override onLoad(): void {
-        // 项目未依赖编辑器里的本机 View 配置，换设备时也固定按 750×1334 竖屏等比显示。
-        view.setDesignResolutionSize(this.designWidth, this.designHeight, ResolutionPolicy.SHOW_ALL);
+        // 休闲战斗以完整竖屏为主视觉，固定高度并裁切两侧，避免窄长设备出现上下黑边。
+        view.setDesignResolutionSize(this.designWidth, this.designHeight, ResolutionPolicy.FIXED_HEIGHT);
         // 调试构建也交付干净游戏画面；性能数据保留给开发工具，不在玩家视口叠加引擎统计面板。
         profiler.hideStats();
         this.buildRuntimeScene();
@@ -493,6 +523,7 @@ export class GameBootstrap extends Component {
     protected override onDestroy(): void {
         input.off(Input.EventType.KEY_DOWN, this.onKeyDown, this);
         input.off(Input.EventType.KEY_UP, this.onKeyUp, this);
+        this.platformFeedback.dispose();
     }
 
     protected override update(dt: number): void {
@@ -502,13 +533,15 @@ export class GameBootstrap extends Component {
         this.updateCameraFeedback(dt);
         if (this.recentUpgradeTimer > 0) {
             this.recentUpgradeTimer = Math.max(0, this.recentUpgradeTimer - dt);
-            if (this.recentUpgradePanel?.isValid) this.recentUpgradePanel.active = this.recentUpgradeTimer > 0;
+            // 最近一次的强反馈结束后退化为轻量累计入口，不让旧进化像被新选择覆盖。
+            if (this.recentUpgradeTimer <= 0) this.showUpgradeHistorySummary();
         }
         if (this.phase !== 'playing') return;
         if (this.chapterBranchMemoryTimer > 0) {
             this.chapterBranchMemoryTimer = Math.max(0, this.chapterBranchMemoryTimer - dt);
         }
         this.runStats.tick(dt);
+        this.combatFlow.tick(dt);
         this.updatePlayer(dt);
         this.updateFrostTide(dt);
         this.updateSpiritVein(dt);
@@ -580,11 +613,17 @@ export class GameBootstrap extends Component {
         art.addComponent(UITransform).setContentSize(BACKGROUND_ASSET.displayWidth, BACKGROUND_ASSET.displayHeight);
         this.backgroundSprite = art.addComponent(Sprite);
         this.backgroundSprite.sizeMode = Sprite.SizeMode.CUSTOM;
-        art.on(Node.EventType.TOUCH_START, (event: EventTouch) => this.onTouchStart(event));
-        art.on(Node.EventType.TOUCH_MOVE, (event: EventTouch) => this.onTouchMove(event));
-        art.on(Node.EventType.TOUCH_END, (event: EventTouch) => this.onTouchEnd(event));
-        art.on(Node.EventType.TOUCH_CANCEL, () => this.onTouchCancel());
         this.world.addChild(art);
+
+        const inputSurface = new Node('BattleInputSurface');
+        inputSurface.layer = Layers.Enum.UI_2D;
+        // 输入面覆盖 FIXED_HEIGHT 下的完整可视宽度，不能跟着各章节背景图宽度变化。
+        inputSurface.addComponent(UITransform).setContentSize(this.visibleDesignWidth(), this.designHeight);
+        inputSurface.on(Node.EventType.TOUCH_START, (event: EventTouch) => this.onTouchStart(event));
+        inputSurface.on(Node.EventType.TOUCH_MOVE, (event: EventTouch) => this.onTouchMove(event));
+        inputSurface.on(Node.EventType.TOUCH_END, (event: EventTouch) => this.onTouchEnd(event));
+        inputSurface.on(Node.EventType.TOUCH_CANCEL, () => this.onTouchCancel());
+        this.world.addChild(inputSurface);
 
         this.createArenaAmbience();
     }
@@ -640,7 +679,19 @@ export class GameBootstrap extends Component {
         // 单张 CDN 图失败时仍允许进入：现有角色、敌人和地形都有程序化占位表现，不应让弱网变成白屏。
         this.updateLoadingProgress(1, 1, failed);
         this.initializationFinished = true;
-        this.showMenu();
+        // 休闲破境验收链接直达实战暂停帧，方便设计对照与回归截图；
+        // 其他本地 QA 标记和正式流程仍从章节选择开始。
+        if (
+            this.hasLocalQaFlag('qaCultivation=1')
+            || this.hasLocalQaFlag('qaCultivationHistory=1')
+            || this.hasLocalQaFlag('qaUpgradeAdvanced=1')
+            || this.hasLocalQaFlag('qaCultivationGoal=1')
+            || this.hasLocalQaFlag('qaCombo=1')
+        ) {
+            this.startStage();
+        } else {
+            this.showMenu();
+        }
     }
 
     private showLoadingScreen(): void {
@@ -767,8 +818,8 @@ export class GameBootstrap extends Component {
     private visibleDesignWidth(): number {
         const frame = screen.windowSize;
         if (frame.width <= 0 || frame.height <= 0) return this.designWidth;
-        // SHOW_ALL 会固定设计高度并在横向暴露额外世界坐标，需由真实画布比例反推，而不是读取仍为 750 的设计宽。
-        return Math.max(this.designWidth, this.designHeight * frame.width / frame.height);
+        // FIXED_HEIGHT 下可视宽度随设备纵横比变化；全屏遮罩和底图必须使用真实宽度，不能沿用 750。
+        return this.designHeight * frame.width / frame.height;
     }
 
     private applyStageVisual(coverMenuViewport = false): void {
@@ -888,8 +939,8 @@ export class GameBootstrap extends Component {
     private onTouchStart(event: EventTouch): void {
         if (this.phase !== 'playing') return;
         const point = this.touchWorldPoint(event);
-        // 顶部 HUD 不是战场落点；技能节点会主动阻止冒泡，因此底部空白区域仍可点按移动。
-        if (point.y > 430 || point.y < this.arena.bottom) {
+        // 可交互 HUD 会主动阻止冒泡；这里只排除真实战场边界，避免顶部近百单位地图变成点击盲区。
+        if (point.y > this.arena.top || point.y < this.arena.bottom) {
             this.onTouchCancel();
             return;
         }
@@ -931,12 +982,15 @@ export class GameBootstrap extends Component {
 
     private touchWorldPoint(event: EventTouch): Vec2 {
         const ui = event.getUILocation();
-        // getUILocation 已经按 Cocos 设计分辨率换算，Canvas 根节点仍使用左下角 UI 坐标；
-        // 转为以画布中心为原点的战场坐标即可，不能再次走 UITransform 造成二次偏移。
-        return new Vec2(
-            ui.x - this.designWidth / 2 - this.world.position.x,
-            ui.y - this.designHeight / 2 - this.world.position.y,
+        // getUILocation 已移除设备像素比与视口缩放，但 FIXED_HEIGHT 的逻辑宽度会随设备比例变化。
+        // 以真实可视宽度取中心，避免横屏、折叠屏和嵌入式预览把目标点整体推向一侧。
+        const point = resolveTapMovePoint(
+            ui,
+            this.visibleDesignWidth(),
+            this.designHeight,
+            this.world.position,
         );
+        return new Vec2(point.x, point.y);
     }
 
     private setMoveTarget(point: Readonly<Vec2>): void {
@@ -1027,6 +1081,25 @@ export class GameBootstrap extends Component {
         const subtitle = this.makeLabel('御 剑 破 劫  ·  三 境 问 道', 18, new Color('#CFE5DB'));
         subtitle.node.setPosition(0, 478);
         this.overlay.addChild(subtitle.node);
+
+        const archive = this.stageProgress.cultivationArchive();
+        const archivePill = this.makeRect(
+            410,
+            38,
+            new Color(3, 18, 22, 206),
+            new Color('#9B8150'),
+            13,
+            1,
+        );
+        archivePill.setPosition(0, 438);
+        const archiveLabel = this.makeLabel(
+            `道藏 · 真形 ${archive.masteredPaths.length}/3 · 最高连斩 ${archive.bestCombo} · 渡劫 ${archive.totalClears}`,
+            16,
+            new Color('#EBD9A7'),
+        );
+        archiveLabel.node.getComponent(UITransform)?.setContentSize(390, 28);
+        archivePill.addChild(archiveLabel.node);
+        this.overlay.addChild(archivePill);
 
         const heroGlow = new Node('HeroGlow');
         heroGlow.layer = Layers.Enum.UI_2D;
@@ -1667,8 +1740,20 @@ export class GameBootstrap extends Component {
     private restoreStageProgress(): void {
         if (this.hasLocalQaFlag('qaProgress=1')) {
             this.stageProgress.restore(JSON.stringify({
-                'qingshi-road': { clears: 3, bestSeconds: 128.4 },
-                'bamboo-ambush': { clears: 1, bestSeconds: 176.2 },
+                'qingshi-road': {
+                    clears: 3,
+                    bestSeconds: 128.4,
+                    bestCombo: 27,
+                    lastBuild: '太初剑匣 · 万剑归宗',
+                    masteredPaths: ['edge'],
+                },
+                'bamboo-ambush': {
+                    clears: 1,
+                    bestSeconds: 176.2,
+                    bestCombo: 18,
+                    lastBuild: '九霄雷篆 · 术剑相引',
+                    masteredPaths: [],
+                },
             }));
             return;
         }
@@ -1730,6 +1815,8 @@ export class GameBootstrap extends Component {
         this.lastMoveDirection.set(0, 1);
         this.skills.reset();
         this.cultivationRerolls = 1;
+        this.cultivationRefineBonus = 0;
+        this.cultivationChoiceHistory = [];
         this.cultivationShield = 0;
         this.cultivationShieldMax = 0;
         this.cultivationAfterSpell = false;
@@ -1738,6 +1825,10 @@ export class GameBootstrap extends Component {
         this.cultivationRelicVolley = 0;
         this.cultivationBossRewardShown = false;
         this.cultivationUndyingUsed = false;
+        this.cultivationMomentum = undefined;
+        this.cultivationMomentumTimer = 0;
+        this.recentUpgradeText = '';
+        this.combatFlow.reset();
         this.mapEvent.begin(
             this.currentStage.mapId,
             this.hasLocalQaFlag('qaRouteHud=1') ? () => 0 : Math.random,
@@ -1790,17 +1881,58 @@ export class GameBootstrap extends Component {
             // 固定首境分岔并暂停刷怪，便于检查 HUD 预告而不被升级页或随机触发时机打断。
             this.spawnTimer = Number.POSITIVE_INFINITY;
         }
-        if (this.hasLocalQaFlag('qaCultivationAura=1')) {
+        if (this.hasLocalQaFlag('qaCultivationHistory=1')) {
+            // 累计进化验收使用真实确认路径写入三次选择，再直达修行卷检查历史、阶数与叠加结果。
+            this.phase = 'playing';
+            this.clearOverlay();
+            this.applyUpgrade('seed-mystic');
+            this.applyUpgrade('cycle-breath');
+            this.applyUpgrade('spell-sword');
+            this.updateHud();
+            this.showUpgradeHistorySummary();
+            this.showCultivationSheet();
+        } else if (this.hasLocalQaFlag('qaCultivationAura=1')) {
             // 固定在锋芒共鸣后的可玩战场，便于核对本命法宝、常驻面板和周期追锋，不弹出选择层。
             this.skills.upgrade('seed-edge');
             this.skills.upgrade('returning-sword');
             this.level = 4;
             this.refreshPlayerAura();
             this.updateHud();
+        } else if (this.hasLocalQaFlag('qaCultivationGoal=1')) {
+            // 固定展示强反馈退场后的下一成形目标，不刷怪、不追加第二次破境。
+            this.phase = 'playing';
+            this.clearOverlay();
+            this.applyUpgrade('seed-edge');
+            this.spawnTimer = Number.POSITIVE_INFINITY;
+            this.showUpgradeHistorySummary();
+            this.updateHud();
+        } else if (this.hasLocalQaFlag('qaUpgradeAdvanced=1')) {
+            // 后续破境专门验收稀有度、观星和炼化；先走真实道种结算，再打开普通三槽命盘。
+            this.phase = 'playing';
+            this.clearOverlay();
+            this.applyUpgrade('seed-edge');
+            this.level = 3;
+            this.showUpgrade();
+        } else if (this.hasLocalQaFlag('qaCombo=1')) {
+            this.phase = 'playing';
+            for (let index = 0; index < 12; index += 1) this.combatFlow.recordKill();
+            this.runStats.recordCombatFlow(12, 2);
+            this.updateHud();
         } else if (this.hasLocalQaFlag('qaCultivation=1')) {
-            // 构筑重构视觉验收固定在“锋芒 2 → 3”的成形前一刻，方便核对投影、卡片和里程碑。
-            this.level = 4;
-            this.skills.upgrade('seed-edge');
+            // 休闲版视觉验收固定在第一次破境；保留三只真实波次敌人，
+            // 让升级特效的作用对象和实战层次在暂停界面里也能被直接看懂。
+            const qaWave = this.currentStage.waves[0];
+            const qaEnemyPositions = [
+                new Vec3(-148, 286),
+                new Vec3(142, 274),
+                new Vec3(18, 414),
+            ];
+            qaEnemyPositions.forEach((position) => {
+                this.spawnEnemy(qaWave);
+                this.spawned += 1;
+                this.enemies[this.enemies.length - 1]?.node.setPosition(position);
+            });
+            this.level = 2;
             this.showUpgrade();
         } else if (this.hasLocalQaFlag('qaUpgrade=1')) {
             // 视觉回归需要稳定进入同一破境状态；仅本地地址识别，线上流程与数值不受影响。
@@ -1845,6 +1977,8 @@ export class GameBootstrap extends Component {
                 spiritVeinsClaimed: 3,
                 obstaclesBroken: this.currentStage.mapId === 'bamboo-ambush' ? 2 : 0,
                 tideEnemyHits: this.currentStage.mapId === 'frozen-ruins' ? 9 : 0,
+                bestCombo: 18,
+                peakFlowTier: 2,
                 mapEvent: this.hasLocalQaFlag('qaNoEvent=1')
                     ? undefined
                     : {
@@ -2397,7 +2531,14 @@ export class GameBootstrap extends Component {
 
     private currentSwordDamage(): number {
         const seedMultiplier = this.hasCultivation('seed-edge') ? 1.15 : 1;
-        return this.swordDamage * seedMultiplier * this.spiritVein.damageMultiplier();
+        const momentumMultiplier = this.cultivationMomentumTimer > 0
+            ? this.cultivationMomentum?.damageMultiplier ?? 1
+            : 1;
+        return this.swordDamage
+            * seedMultiplier
+            * this.spiritVein.damageMultiplier()
+            * momentumMultiplier
+            * this.combatFlow.snapshot().damageMultiplier;
     }
 
     private currentAttackInterval(): number {
@@ -2405,7 +2546,10 @@ export class GameBootstrap extends Component {
             && this.hp / Math.max(this.maxHp, 1) < 0.45
             ? 0.78
             : 1;
-        return Math.max(0.2, this.attackInterval * lowHealthHaste);
+        const momentumMultiplier = this.cultivationMomentumTimer > 0
+            ? this.cultivationMomentum?.attackIntervalMultiplier ?? 1
+            : 1;
+        return Math.max(0.2, this.attackInterval * lowHealthHaste * momentumMultiplier);
     }
 
     private cultivationVisualTone(): { color: Color; tier: number } {
@@ -2421,55 +2565,51 @@ export class GameBootstrap extends Component {
         hud.layer = Layers.Enum.UI_2D;
         this.canvas.addChild(hud);
 
-        const backing = this.makeRect(716, 142, new Color(3, 16, 20, 62), new Color(91, 151, 137, 42), UI_THEME.radius.compact, 1);
+        const backing = this.makeRect(this.visibleDesignWidth(), 116, new Color(3, 16, 20, 72), new Color(91, 151, 137, 48), 0, 1);
         backing.name = 'HudBacking';
-        backing.setPosition(0, 596);
+        backing.setPosition(0, 609);
         hud.addChild(backing);
 
         const portrait = this.createResourceSprite(
             HUD_PORTRAIT_ASSET.resourcePath,
-            HUD_PORTRAIT_ASSET.displayHeight,
+            96,
         );
-        portrait.setPosition(-298, 594);
+        portrait.setPosition(-252, 608);
         hud.addChild(portrait);
-
-        const gameTitle = this.makeLabel('仙 途 劫', 28, new Color('#F8D992'));
-        gameTitle.horizontalAlign = Label.HorizontalAlign.LEFT;
-        gameTitle.node.setPosition(-104, 642);
-        gameTitle.node.getComponent(UITransform)?.setContentSize(250, 38);
-        hud.addChild(gameTitle.node);
 
         const hpBarNode = new Node('HpBar');
         hpBarNode.layer = Layers.Enum.UI_2D;
-        hpBarNode.setPosition(-104, 592);
+        hpBarNode.setPosition(-118, 589);
         this.hpBar = hpBarNode.addComponent(Graphics);
         hud.addChild(hpBarNode);
 
         const xpBarNode = new Node('XpBar');
         xpBarNode.layer = Layers.Enum.UI_2D;
-        xpBarNode.setPosition(-104, 541);
+        xpBarNode.setPosition(-118, 565);
         this.xpBar = xpBarNode.addComponent(Graphics);
+        xpBarNode.active = false;
         hud.addChild(xpBarNode);
 
         this.hpLabel = this.makeLabel('', 22, new Color('#FFE3D5'));
         this.hpLabel.horizontalAlign = Label.HorizontalAlign.LEFT;
-        this.hpLabel.node.setPosition(-104, 614);
+        this.hpLabel.node.setPosition(-118, 620);
         this.hpLabel.node.getComponent(UITransform)?.setContentSize(232, 42);
         hud.addChild(this.hpLabel.node);
         this.xpLabel = this.makeLabel('', 20, new Color('#A7F3D0'));
         this.xpLabel.horizontalAlign = Label.HorizontalAlign.LEFT;
-        this.xpLabel.node.setPosition(-104, 561);
+        this.xpLabel.node.setPosition(-118, 568);
         this.xpLabel.node.getComponent(UITransform)?.setContentSize(232, 32);
+        this.xpLabel.node.active = false;
         hud.addChild(this.xpLabel.node);
 
         const waveCrest = this.createResourceSprite(
             WAVE_CREST_ASSET.resourcePath,
-            WAVE_CREST_ASSET.displayHeight,
+            88,
         );
-        waveCrest.setPosition(260, 596);
+        waveCrest.setPosition(0, 606);
         hud.addChild(waveCrest);
         this.waveLabel = this.makeLabel('', 23, new Color('#FFE8A6'));
-        this.waveLabel.node.setPosition(260, 596);
+        this.waveLabel.node.setPosition(0, 606);
         this.waveLabel.node.getComponent(UITransform)?.setContentSize(188, 82);
         hud.addChild(this.waveLabel.node);
 
@@ -2482,7 +2622,8 @@ export class GameBootstrap extends Component {
             2,
         );
         this.objectiveBacking.name = 'WaveObjective';
-        this.objectiveBacking.setPosition(0, 486);
+        this.objectiveBacking.setPosition(0, 510);
+        this.objectiveBacking.active = false;
         hud.addChild(this.objectiveBacking);
         this.objectiveLabel = this.makeLabel('', 20, new Color('#D8F3E9'));
         this.objectiveLabel.node.getComponent(UITransform)?.setContentSize(598, 44);
@@ -2504,7 +2645,8 @@ export class GameBootstrap extends Component {
             1,
         );
         this.routeChoiceBacking.name = 'RouteChoiceStatus';
-        this.routeChoiceBacking.setPosition(0, 458);
+        this.routeChoiceBacking.setPosition(0, 482);
+        this.routeChoiceBacking.active = false;
         this.routeChoiceLabel = this.makeLabel('', 18, new Color('#CDE9DF'));
         this.routeChoiceLabel.node.getComponent(UITransform)?.setContentSize(450, 34);
         this.routeChoiceBacking.addChild(this.routeChoiceLabel.node);
@@ -2523,7 +2665,7 @@ export class GameBootstrap extends Component {
         );
         this.buildPanel.name = 'CultivationBuild';
         this.buildPanel.setPosition(-185, -504);
-        this.buildPanel.active = true;
+        this.buildPanel.active = false;
         this.buildRelicPath = undefined;
         this.buildRelicTier = -1;
         this.buildRelicIcon = new Node('CultivationRelicIcon');
@@ -2577,36 +2719,31 @@ export class GameBootstrap extends Component {
         this.recentUpgradeLabel.horizontalAlign = Label.HorizontalAlign.LEFT;
         this.recentUpgradeLabel.node.getComponent(UITransform)?.setContentSize(326, 38);
         this.recentUpgradePanel.addChild(this.recentUpgradeLabel.node);
+        this.recentUpgradePanel.on(Node.EventType.TOUCH_END, (event: EventTouch) => {
+            event.propagationStopped = true;
+            if (this.phase === 'playing') this.showCultivationSheet();
+        });
         hud.addChild(this.recentUpgradePanel);
+
+        this.comboPanel = this.makeRect(
+            178,
+            48,
+            new Color(3, 18, 22, 228),
+            new Color('#F0C879'),
+            UI_THEME.radius.compact,
+            1.5,
+        );
+        this.comboPanel.name = 'CombatFlow';
+        this.comboPanel.setPosition(244, 470);
+        this.comboPanel.active = false;
+        this.comboLabel = this.makeLabel('', 18, new Color('#FFF0BE'));
+        this.comboLabel.node.getComponent(UITransform)?.setContentSize(164, 38);
+        this.comboPanel.addChild(this.comboLabel.node);
+        hud.addChild(this.comboPanel);
 
         this.createAttackHud(hud);
         this.createAbilityHud(hud);
         this.createBossHud(hud);
-        const moveHint = this.makeRect(
-            262,
-            42,
-            new Color(3, 18, 22, 176),
-            new Color(111, 202, 177, 88),
-            UI_THEME.radius.compact,
-            1,
-        );
-        moveHint.name = 'TapMoveHint';
-        moveHint.setPosition(-210, -616);
-        const moveHintOpacity = moveHint.addComponent(UIOpacity);
-        const moveHintLabel = this.makeLabel('轻触战场 · 前往落点', 19, new Color(UI_THEME.colors.celadon));
-        moveHintLabel.node.getComponent(UITransform)?.setContentSize(244, 32);
-        moveHint.addChild(moveHintLabel.node);
-        hud.addChild(moveHint);
-        this.effects.push({
-            node: moveHint,
-            elapsed: 0,
-            life: 4.6,
-            update: (progress) => {
-                moveHintOpacity.opacity = progress < 0.72
-                    ? 220
-                    : Math.round(220 * Math.max(0, (1 - progress) / 0.28));
-            },
-        });
         this.updateHud();
     }
 
@@ -2617,6 +2754,8 @@ export class GameBootstrap extends Component {
         node.setPosition(285, -525);
         this.attackHud = node.addComponent(Graphics);
         hud.addChild(node);
+        // 自动御剑承担基础输出，休闲模式不再常驻一个重复功能的攻击按钮。
+        node.active = false;
         const sword = this.createResourceSprite('art/relics/xianxia-relics_00/spriteFrame', 80);
         sword.setRotationFromEuler(0, 0, -8);
         this.attackIconOpacity = sword.addComponent(UIOpacity);
@@ -2744,6 +2883,7 @@ export class GameBootstrap extends Component {
         arc.circle(212, -430, 4);
         arc.fill();
         hud.addChild(connector);
+        connector.active = false;
 
         this.dashHud = this.createSkillHud(
             hud,
@@ -2763,12 +2903,14 @@ export class GameBootstrap extends Component {
             'art/relics/xianxia-relics_05/spriteFrame',
             () => this.trySwordFormation(),
         );
+        this.dashHud.node.active = false;
+        this.formationHud.node.active = false;
 
         const tribulationNode = new Node('TribulationHud');
         tribulationNode.layer = Layers.Enum.UI_2D;
         const tribulationRadius = 48;
         tribulationNode.addComponent(UITransform).setContentSize(tribulationRadius * 2 + 14, tribulationRadius * 2 + 14);
-        tribulationNode.setPosition(145, -555);
+        tribulationNode.setPosition(250, -548);
         const tribulationGraphics = tribulationNode.addComponent(Graphics);
         const tribulationIcon = this.createResourceSprite('art/relics/xianxia-relics_11/spriteFrame', 56);
         const tribulationIconOpacity = tribulationIcon.addComponent(UIOpacity);
@@ -3028,6 +3170,14 @@ export class GameBootstrap extends Component {
 
     private updateAbilities(dt: number): void {
         if (this.skills.tick(dt)) this.castTribulation();
+        // 剑阵改为自动功法：解锁后在敌群出现且冷却结束时自动施放，减少一个常驻操作按钮。
+        if (
+            this.skills.getLevel('formation') > 0
+            && this.skills.formationCooldown <= 0
+            && this.enemies.some((enemy) => enemy.node.isValid && !enemy.dead)
+        ) {
+            this.trySwordFormation();
+        }
     }
 
     private hasCultivation(id: UpgradeId): boolean {
@@ -3035,6 +3185,7 @@ export class GameBootstrap extends Component {
     }
 
     private updateCultivation(dt: number): void {
+        this.updateUpgradeMomentum(dt);
         this.cultivationSplitCooldown = Math.max(0, this.cultivationSplitCooldown - dt);
         for (const enemy of this.enemies) {
             if ((enemy.thunderMarkTimer ?? 0) > 0) enemy.thunderMarkTimer = Math.max(0, (enemy.thunderMarkTimer ?? 0) - dt);
@@ -3054,6 +3205,58 @@ export class GameBootstrap extends Component {
         this.attackTimer = Math.max(this.attackTimer, this.attackInterval * 1.35);
         this.createAbilityHint('万剑归宗', new Color('#F6D88B'));
         this.createScreenFlash(new Color(240, 200, 121, 34), 0.22);
+    }
+
+    private activateUpgradeMomentum(
+        choice: UpgradeConfig,
+        build: CultivationBuildSnapshot,
+        milestone: boolean,
+    ): UpgradeMomentumSpec {
+        const resolved = resolveUpgradeMomentum(choice, build, milestone);
+        this.cultivationMomentum = {
+            ...resolved,
+            duration: resolved.duration + (this.cultivationRefineBonus > 0 ? 3 : 0),
+        };
+        this.cultivationRefineBonus = 0;
+        this.cultivationMomentumTimer = this.cultivationMomentum.duration;
+        return this.cultivationMomentum;
+    }
+
+    private refineUpgradeDraft(resumeAfterUpgrade?: () => void): void {
+        this.cultivationRefineBonus = 1;
+        const healed = Math.max(1, Math.round(this.maxHp * 0.18));
+        this.healCultivation(healed);
+        this.clearOverlay();
+        this.phase = 'playing';
+        this.cultivationResumeAfterUpgrade = undefined;
+        resumeAfterUpgrade?.();
+        this.recentUpgradeText = `炼化回气 +${healed} · 下次功法升品，余势 +3秒`;
+        if (this.recentUpgradePanel?.isValid && this.recentUpgradeLabel) {
+            this.recentUpgradeLabel.string = this.recentUpgradeText;
+            this.recentUpgradeLabel.color = new Color('#82D7AC');
+            this.recentUpgradePanel.active = true;
+            this.recentUpgradeTimer = 6;
+        }
+        this.createAbilityHint('炼化命盘 · 灵蕴留待下次破境', new Color('#82D7AC'));
+        this.createScreenFlash(new Color(130, 215, 172, 38), 0.26);
+    }
+
+    private updateUpgradeMomentum(dt: number): void {
+        const momentum = this.cultivationMomentum;
+        if (!momentum || this.cultivationMomentumTimer <= 0) return;
+        this.cultivationMomentumTimer = Math.max(0, this.cultivationMomentumTimer - dt);
+        if (momentum.cooldownAcceleration > 0) {
+            this.skills.reduceCooldowns(dt * momentum.cooldownAcceleration);
+        }
+        if (momentum.shieldPerSecond > 0) {
+            this.grantCultivationShield(dt * momentum.shieldPerSecond);
+        }
+        if (this.recentUpgradePanel?.active && this.recentUpgradeLabel && this.recentUpgradeText) {
+            this.recentUpgradeLabel.string = this.cultivationMomentumTimer > 0
+                ? `${this.recentUpgradeText} · ${momentum.label} ${this.cultivationMomentumTimer.toFixed(1)}秒`
+                : this.recentUpgradeText;
+        }
+        if (this.cultivationMomentumTimer <= 0) this.cultivationMomentum = undefined;
     }
 
     private healCultivation(amount: number): void {
@@ -3595,6 +3798,93 @@ export class GameBootstrap extends Component {
                 },
             });
         }
+    }
+
+    private playUpgradeShowcase(spec: UpgradeShowcaseSpec): void {
+        if (this.phase !== 'playing' || !this.player?.isValid) return;
+        const color = new Color(
+            spec.kind === 'sword-volley'
+                ? UPGRADE_PATH_COLORS.edge
+                : spec.kind === 'thunder-chain'
+                    ? UPGRADE_PATH_COLORS.mystic
+                    : UPGRADE_PATH_COLORS.vitality,
+        );
+        const alive = this.enemies
+            .filter((enemy) => enemy.node.isValid && !enemy.dead)
+            .sort((a, b) => (
+                Vec3.distance(a.node.position, this.player.position)
+                - Vec3.distance(b.node.position, this.player.position)
+            ));
+
+        if (spec.kind === 'sword-volley') {
+            const target = alive[0];
+            if (target) {
+                for (let index = 0; index < spec.amount; index += 1) {
+                    const spread = (index - (spec.amount - 1) / 2) * 0.12;
+                    this.fireSword(target, spread, spec.damageMultiplier);
+                }
+            }
+            // 波次间没有敌人时仍完整展示剑匣层级；下一波普攻继续沿用新的数量与真形外观。
+            this.createSwordFormationEffect(this.player.position, spec.radius, spec.amount);
+            this.actions.enter('aimedVolley', 0.48);
+        } else if (spec.kind === 'thunder-chain') {
+            const targets = alive.slice(0, spec.amount);
+            if (targets.length > 0) {
+                let previous = this.player.position.clone();
+                targets.forEach((target, index) => {
+                    this.createLightningArc(previous, target.node.position, color);
+                    this.dealSkillDamage(
+                        target,
+                        this.currentSwordDamage() * spec.damageMultiplier,
+                        color,
+                        46 + spec.tier * 6,
+                        'skill',
+                    );
+                    if (index === 0) this.createTribulationStrike(target.node.position, spec.radius, 0);
+                    previous = target.node.position.clone();
+                });
+            } else {
+                const fallback = this.constrainToRoad(
+                    new Vec3(this.player.position.x, this.player.position.y + 170),
+                    20,
+                );
+                this.createTribulationStrike(fallback, spec.radius, 0);
+            }
+            this.actions.enter('tribulation', 0.72);
+        } else {
+            this.grantCultivationShield(spec.shieldAmount);
+            this.createSwordFormationEffect(this.player.position, spec.radius, spec.amount);
+            for (const enemy of alive) {
+                const offset = new Vec2(
+                    enemy.node.position.x - this.player.position.x,
+                    enemy.node.position.y - this.player.position.y,
+                );
+                if (offset.length() > spec.radius + enemy.radius) continue;
+                this.dealSkillDamage(
+                    enemy,
+                    this.currentSwordDamage() * spec.damageMultiplier,
+                    color,
+                    42 + spec.tier * 6,
+                    'environment',
+                );
+                if (!enemy.dead && offset.lengthSqr() > 0.01) {
+                    offset.normalize().multiplyScalar(38 + spec.tier * 8);
+                    enemy.node.setPosition(this.constrainToRoad(
+                        enemy.node.position.clone().add(new Vec3(offset.x, offset.y)),
+                        enemy.radius,
+                    ));
+                }
+            }
+            this.actions.enter('formation', 0.5);
+        }
+
+        this.playerInvulnerableTimer = Math.max(this.playerInvulnerableTimer, 0.34);
+        this.attackTimer = Math.max(this.attackTimer, 0.42);
+        this.createAbilityHint(spec.label, color);
+        this.createScreenFlash(new Color(color.r, color.g, color.b, 62 + spec.tier * 12), 0.34);
+        this.cameraShakeTimer = 0.28 + spec.tier * 0.06;
+        this.cameraShakeStrength = Math.max(this.cameraShakeStrength, 8 + spec.tier * 3);
+        this.platformFeedback.playUpgradeImpact(spec.kind, spec.tier);
     }
 
     private createAbilityHint(text: string, color: Color): void {
@@ -4152,6 +4442,9 @@ export class GameBootstrap extends Component {
         const appliedDamage = Math.min(this.hp, remainingDamage);
         this.hp = Math.max(0, this.hp - remainingDamage);
         this.runStats.recordDamageTaken(appliedDamage);
+        if (this.combatFlow.breakFlow()) {
+            this.createAbilityHint('剑势中断 · 重新起势', new Color('#D9A08F'));
+        }
         this.playerInvulnerableTimer = 0.42;
         this.playerHitTimer = 0.24;
         this.actions.enter('hit', 0.24);
@@ -4562,17 +4855,54 @@ export class GameBootstrap extends Component {
         } else if (pulse.kind === 'thunder-brand') {
             target.thunderMarkTimer = 5;
             this.createHitBurst(target.node.position, color, 42, true);
-            const chain = build.tier >= 3
-                ? this.findNearestEnemyFrom(target.node.position, new Set([target.node]))
-                : undefined;
-            if (chain) {
+            // 雷篆初醒就连锁四名目标，选择后第一轮普攻即可验证“天雷”不是隐藏倍率。
+            const visited = new Set<Node>([target.node]);
+            let previous = target;
+            const secondaryTargets = build.tier >= 3 ? 5 : 3;
+            for (let index = 0; index < secondaryTargets; index += 1) {
+                const chain = this.findNearestEnemyFrom(previous.node.position, visited);
+                if (!chain) break;
+                visited.add(chain.node);
+                this.createLightningArc(previous.node.position, chain.node.position, color);
+                this.createHitBurst(chain.node.position, color, 34 + build.tier * 3, true);
                 this.dealSkillDamage(chain, this.currentSwordDamage() * pulse.magnitude, color, 38, 'environment');
+                previous = chain;
             }
         } else {
             this.grantCultivationShield(pulse.magnitude);
             this.createSwordFormationEffect(this.player.position, 74, 3 + build.tier);
         }
         this.createAbilityHint(pulse.label, color);
+    }
+
+    private createLightningArc(from: Readonly<Vec3>, to: Readonly<Vec3>, color: Color): void {
+        const node = new Node('CultivationLightningArc');
+        node.layer = Layers.Enum.UI_2D;
+        const opacity = node.addComponent(UIOpacity);
+        const graphics = node.addComponent(Graphics);
+        const midX = (from.x + to.x) / 2 + (to.y - from.y) * 0.08;
+        const midY = (from.y + to.y) / 2 - (to.x - from.x) * 0.08;
+        graphics.strokeColor = new Color(color.r, color.g, color.b, 235);
+        graphics.lineWidth = 7;
+        graphics.moveTo(from.x, from.y);
+        graphics.lineTo(midX, midY);
+        graphics.lineTo(to.x, to.y);
+        graphics.stroke();
+        graphics.strokeColor = new Color(236, 232, 255, 245);
+        graphics.lineWidth = 2;
+        graphics.moveTo(from.x, from.y);
+        graphics.lineTo(midX, midY);
+        graphics.lineTo(to.x, to.y);
+        graphics.stroke();
+        this.effectsLayer.addChild(node);
+        this.effects.push({
+            node,
+            elapsed: 0,
+            life: 0.26,
+            update: (progress) => {
+                opacity.opacity = Math.round(255 * (1 - progress));
+            },
+        });
     }
 
     private fireSword(target: EnemyState, spread: number, damageScale = 1): void {
@@ -4727,6 +5057,20 @@ export class GameBootstrap extends Component {
         const deferUpgrade = shouldDeferUpgradeForKill(enemy.behavior, finalWave);
         enemy.dead = true;
         this.runStats.recordEnemyDefeated();
+        const flowKill = this.combatFlow.recordKill(enemy.elite ? 3 : enemy.champion ? 2 : 1);
+        this.runStats.recordCombatFlow(flowKill.snapshot.bestCombo, flowKill.snapshot.peakTier);
+        if (flowKill.tierAdvanced) {
+            const tone = this.cultivationVisualTone().color;
+            this.createAbilityHint(
+                `${flowKill.snapshot.label} · ${flowKill.snapshot.combo}连斩`,
+                tone,
+            );
+            this.createScreenFlash(
+                new Color(tone.r, tone.g, tone.b, 24 + flowKill.snapshot.tier * 12),
+                0.18 + flowKill.snapshot.tier * 0.04,
+            );
+            this.platformFeedback.playComboMilestone(flowKill.snapshot.tier);
+        }
         enemy.hp = 0;
         enemy.hpBar.node.active = false;
         if (deferUpgrade) {
@@ -4917,80 +5261,243 @@ export class GameBootstrap extends Component {
         this.phase = 'upgrade';
         this.cultivationResumeAfterUpgrade = resumeAfterUpgrade;
         this.releaseTribulationHold();
-        this.createScreenFlash(new Color(79, 209, 166, 58), 0.38);
-        this.createDeathBurst(this.player.position, 58);
+        this.createScreenFlash(new Color(79, 209, 166, 38), 0.28);
+        this.createDeathBurst(this.player.position, 48);
+        if (this.upgradePreviewFx?.isValid) this.upgradePreviewFx.destroy();
+        this.upgradePreviewFx = undefined;
         this.clearOverlay();
         this.bringOverlayToFront();
-        const veil = this.makeRect(this.designWidth, this.designHeight, new Color(2, 10, 14, 58));
+        const veil = this.makeRect(this.visibleDesignWidth(), this.designHeight, new Color(2, 10, 14, 52));
         veil.name = 'UpgradeVeil';
         this.overlay.addChild(veil);
 
         const choices = fixedChoices ?? this.pickUpgrades(3);
+        if (choices.length === 0) {
+            this.clearOverlay();
+            this.phase = 'playing';
+            resumeAfterUpgrade?.();
+            return;
+        }
+        const openingDraft = choices.every((choice) => choice.offerKind === 'seed');
+        const allowDraftActions = !bossReward && !openingDraft;
 
-        const panel = this.makeRect(640, 520, new Color(3, 17, 22, 244), new Color(87, 133, 125, 110), 24, 1);
+        const panel = this.makeRect(
+            596,
+            allowDraftActions ? 580 : 530,
+            new Color(3, 17, 22, 252),
+            new Color('#9B8150'),
+            22,
+            2,
+        );
         panel.name = 'CultivationDecisionSheet';
-        // 给全面屏底部手势区留出稳定余量，避免“观星 / 炼化”贴住视口底边。
-        panel.setPosition(0, -382);
+        // 去掉二次确认后收短面板，卡片本身就是唯一操作，给上半屏战场留出更多空间。
+        panel.setPosition(0, allowDraftActions ? -376 : -401);
         this.overlay.addChild(panel);
-        const title = this.makeLabel(bossReward ? '关 前 成 诀' : '灵 台 悟 法  ·  三 择 其 一', 30, new Color('#F4DBA2'));
-        title.node.setPosition(0, 226);
+        const title = this.makeLabel(bossReward ? '选 择 真 诀' : '选 择 进 化', 36, new Color('#F4DBA2'));
+        title.node.setPosition(0, 220);
         title.node.getComponent(UITransform)?.setContentSize(540, 42);
         panel.addChild(title.node);
-        const seedPath = cultivationSeedPath((id) => this.skills.getLevel(id));
-        const future = choices[0]
-            ? choiceBuildProgress(choices[0], (id) => this.skills.getLevel(id)).future
-            : '择一道种 · 定本局修行方向';
-        const subtitle = this.makeLabel(
-            seedPath ? future : '首悟道种 · 此后牌池将向主修倾斜',
-            17,
-            new Color('#AFCBC1'),
-        );
-        subtitle.node.setPosition(0, 192);
+        const subtitle = this.makeLabel('点击任意卡片 · 立即生效', 18, new Color('#AFCBC1'));
+        subtitle.node.setPosition(0, 180);
         subtitle.node.getComponent(UITransform)?.setContentSize(570, 30);
         panel.addChild(subtitle.node);
         choices.forEach((choice, index) => {
-            const button = this.makeUpgradeButton(choice, () => {
+            const button = this.makeCasualUpgradeChoice(choice, () => {
+                // 卡片即确认动作：一次点击完成选择、结算和返回战斗，避免休闲流程重复确认。
                 const impact = previewUpgradeImpact(choice, (id) => this.skills.getLevel(id));
                 const nextLevel = this.applyUpgrade(choice.id);
+                const momentum = this.activateUpgradeMomentum(
+                    choice,
+                    impact.after,
+                    Boolean(impact.milestone),
+                );
+                this.platformFeedback.playUpgradeCommit(
+                    choice.path,
+                    momentum.tier,
+                    Boolean(impact.milestone),
+                );
                 this.showUpgradeCommit(choice, nextLevel, impact);
             });
-            button.setPosition(0, 112 - index * 126);
+            const spacing = choices.length >= 3 ? 190 : 202;
+            button.setPosition((index - (choices.length - 1) / 2) * spacing, -14);
             panel.addChild(button);
         });
-        // 道种决定整局牌池方向，首悟必须三选一；观星与炼化只在后续常规悟法开放。
-        if (!bossReward && seedPath) {
+        if (allowDraftActions) {
             const reroll = this.makeActionButton(
-                `观星 ${this.cultivationRerolls}`,
-                'quiet',
-                new Color('#799E94'),
+                `观 星 · ${this.cultivationRerolls}`,
+                'secondary',
+                new Color('#72DDE8'),
                 () => {
                     if (this.cultivationRerolls <= 0) return;
                     this.cultivationRerolls -= 1;
                     this.showUpgrade(undefined, false, resumeAfterUpgrade);
                 },
-                198,
-                54,
+                206,
+                48,
             );
-            reroll.setPosition(-112, -226);
+            reroll.setPosition(-112, -248);
             panel.addChild(reroll);
             const refine = this.makeActionButton(
-                '炼化 · 回气',
+                '炼 化 · 回 气',
                 'quiet',
-                new Color('#A48D61'),
-                () => {
-                    this.healCultivation(12);
-                    this.clearOverlay();
-                    this.phase = 'playing';
-                    const resume = this.cultivationResumeAfterUpgrade;
-                    this.cultivationResumeAfterUpgrade = undefined;
-                    resume?.();
-                },
-                198,
-                54,
+                new Color('#82D7AC'),
+                () => this.refineUpgradeDraft(resumeAfterUpgrade),
+                206,
+                48,
             );
-            refine.setPosition(112, -226);
+            refine.setPosition(112, -248);
             panel.addChild(refine);
         }
+    }
+
+    private casualUpgradePresentation(choice: UpgradeConfig): CasualUpgradePresentation {
+        const seed = CASUAL_SEED_PRESENTATIONS[choice.id];
+        if (seed) return seed;
+        const nextLevel = Math.min(choice.maxLevel, this.skills.getLevel(choice.id) + 1);
+        return {
+            title: choice.title,
+            result: choice.descriptions[nextLevel - 1] ?? choice.combatRead ?? '立即生效',
+            accent: UPGRADE_PATH_COLORS[choice.path],
+        };
+    }
+
+    private makeCasualUpgradeChoice(
+        choice: UpgradeConfig,
+        onClick: () => void,
+    ): Node {
+        const presentation = this.casualUpgradePresentation(choice);
+        const anticipation = previewUpgradeImpact(choice, (id) => this.skills.getLevel(id));
+        const rarity = upgradeRarityPresentation(
+            choice,
+            Boolean(anticipation.milestone),
+            this.cultivationRefineBonus > 0,
+        );
+        const accent = new Color(presentation.accent);
+        const node = this.makeRect(
+            172,
+            344,
+            new Color(accent.r, accent.g, accent.b, anticipation.milestone ? 40 : 24),
+            new Color(accent.r, accent.g, accent.b, anticipation.milestone ? 245 : 175),
+            20,
+            anticipation.milestone ? 4 : 2,
+        );
+        node.name = `CasualUpgrade-${choice.id}`;
+
+        const iconBacking = this.makeRect(
+            142,
+            196,
+            new Color(2, 16, 20, 224),
+            new Color(accent.r, accent.g, accent.b, 128),
+            18,
+            1,
+        );
+        iconBacking.setPosition(0, 53);
+        iconBacking.addChild(this.createResourceSprite(choice.iconResourcePath, 108));
+        node.addChild(iconBacking);
+
+        const rarityBadge = this.makeRect(
+            134,
+            28,
+            new Color(accent.r, accent.g, accent.b, rarity.stars >= 3 ? 82 : 42),
+            new Color(accent.r, accent.g, accent.b, 190),
+            10,
+            1,
+        );
+        rarityBadge.setPosition(0, 154);
+        const rarityLabel = this.makeLabel(
+            `${rarity.label} · ${'✦'.repeat(rarity.stars)}`,
+            15,
+            new Color('#FFF0BE'),
+        );
+        rarityLabel.node.getComponent(UITransform)?.setContentSize(126, 22);
+        rarityBadge.addChild(rarityLabel.node);
+        node.addChild(rarityBadge);
+
+        const name = this.makeLabel(presentation.title, 28, new Color('#FFF0C8'));
+        name.node.setPosition(0, -78);
+        name.node.getComponent(UITransform)?.setContentSize(150, 38);
+        node.addChild(name.node);
+        const result = this.makeLabel(presentation.result, 20, new Color('#B7D8CB'));
+        result.node.setPosition(0, -116);
+        result.node.getComponent(UITransform)?.setContentSize(148, 42);
+        node.addChild(result.node);
+        const forecastText = anticipation.milestone
+            ? `突破 · ${anticipation.milestone}`
+            : anticipation.detail.split(' · ')[0];
+        const forecast = this.makeLabel(forecastText, 15, new Color(accent.r, accent.g, accent.b, 245));
+        forecast.node.setPosition(0, -154);
+        forecast.node.getComponent(UITransform)?.setContentSize(154, 24);
+        node.addChild(forecast.node);
+
+        node.on(Node.EventType.TOUCH_START, (event: EventTouch) => {
+            event.propagationStopped = true;
+            node.setScale(0.97, 0.97);
+            // 按下即把路线形态投到战场，松手取消时撤回；移动端无需额外预览按钮。
+            this.createCasualUpgradePreview(choice);
+        });
+        node.on(Node.EventType.TOUCH_CANCEL, () => {
+            node.setScale(1, 1);
+            if (this.upgradePreviewFx?.isValid) this.upgradePreviewFx.destroy();
+            this.upgradePreviewFx = undefined;
+        });
+        node.on(Node.EventType.TOUCH_END, (event: EventTouch) => {
+            event.propagationStopped = true;
+            node.setScale(1, 1);
+            onClick();
+        });
+        return node;
+    }
+
+    private createCasualUpgradePreview(choice: UpgradeConfig): void {
+        if (this.upgradePreviewFx?.isValid) this.upgradePreviewFx.destroy();
+        const presentation = this.casualUpgradePresentation(choice);
+        const accent = new Color(presentation.accent);
+        const node = new Node(`UpgradePreview-${choice.id}`);
+        node.layer = Layers.Enum.UI_2D;
+        const opacity = node.addComponent(UIOpacity);
+        const graphics = node.addComponent(Graphics);
+
+        if (choice.path === 'mystic') {
+            graphics.strokeColor = new Color(accent.r, accent.g, accent.b, 238);
+            graphics.lineWidth = 9;
+            graphics.moveTo(0, -62);
+            graphics.lineTo(-18, 12);
+            graphics.lineTo(16, 84);
+            graphics.lineTo(-8, 156);
+            graphics.lineTo(22, 228);
+            graphics.lineTo(0, 312);
+            graphics.stroke();
+            graphics.strokeColor = new Color(223, 214, 255, 245);
+            graphics.lineWidth = 3;
+            graphics.moveTo(0, -62);
+            graphics.lineTo(-18, 12);
+            graphics.lineTo(16, 84);
+            graphics.lineTo(-8, 156);
+            graphics.lineTo(22, 228);
+            graphics.lineTo(0, 312);
+            graphics.stroke();
+        } else {
+            graphics.strokeColor = new Color(accent.r, accent.g, accent.b, 205);
+            graphics.lineWidth = choice.path === 'edge' ? 5 : 8;
+            const radius = choice.path === 'edge' ? 112 : 96;
+            for (let index = 0; index < (choice.path === 'edge' ? 3 : 2); index += 1) {
+                graphics.circle(0, 176, radius + index * 22);
+                graphics.stroke();
+            }
+        }
+        node.setPosition(this.player.position.x, -4);
+        this.screenFxLayer.addChild(node);
+        this.upgradePreviewFx = node;
+        this.effects.push({
+            node,
+            elapsed: 0,
+            // 选择层可以长时间停留，预览不应在玩家思考时自行消失。
+            life: 60 * 60,
+            update: (progress) => {
+                const pulse = 0.84 + Math.sin(progress * 60 * 60 * Math.PI * 2) * 0.16;
+                opacity.opacity = Math.round(220 * pulse);
+            },
+        });
     }
 
     private showUpgradeCommit(
@@ -4998,12 +5505,20 @@ export class GameBootstrap extends Component {
         level: number,
         impact: UpgradeImpactPreview,
     ): void {
+        if (this.upgradePreviewFx?.isValid) this.upgradePreviewFx.destroy();
+        this.upgradePreviewFx = undefined;
         this.clearOverlay();
         this.bringOverlayToFront();
         const pathColor = new Color(UPGRADE_PATH_COLORS[choice.path]);
         const veil = this.makeRect(this.designWidth, this.designHeight, new Color(2, 10, 14, 72));
         veil.name = 'UpgradeCommitVeil';
         this.overlay.addChild(veil);
+        if (impact.milestone) {
+            this.createBreakthroughSeal(
+                choice.path,
+                resolveUpgradeShowcase(choice, impact.after).tier,
+            );
+        }
         const panel = this.makeThemedCard(574, 228, 'reward', pathColor);
         panel.name = 'UpgradeCommit';
         panel.setPosition(0, 160);
@@ -5085,7 +5600,50 @@ export class GameBootstrap extends Component {
             const resume = this.cultivationResumeAfterUpgrade;
             this.cultivationResumeAfterUpgrade = undefined;
             resume?.();
+            // 先恢复波次，再免费释放一次进化效果；该次兑现不写入常规技能冷却。
+            this.playUpgradeShowcase(resolveUpgradeShowcase(choice, impact.after));
         }, 1.02);
+    }
+
+    private createBreakthroughSeal(path: UpgradePath, tier: number): void {
+        const color = new Color(UPGRADE_PATH_COLORS[path]);
+        const seal = new Node(`BreakthroughSeal-${path}`);
+        seal.layer = Layers.Enum.UI_2D;
+        seal.setPosition(0, 160);
+        const opacity = seal.addComponent(UIOpacity);
+        const graphics = seal.addComponent(Graphics);
+        graphics.strokeColor = new Color(color.r, color.g, color.b, 150);
+        graphics.lineWidth = 2 + tier;
+        const rings = Math.max(2, tier + 1);
+        for (let index = 0; index < rings; index += 1) {
+            graphics.circle(0, 0, 116 + index * 26);
+            graphics.stroke();
+        }
+        graphics.strokeColor = new Color(255, 240, 190, 118);
+        graphics.lineWidth = 2;
+        for (let index = 0; index < 8 + tier * 2; index += 1) {
+            const angle = index * Math.PI * 2 / (8 + tier * 2);
+            const inner = 86 + tier * 5;
+            const outer = 174 + tier * 12;
+            graphics.moveTo(Math.cos(angle) * inner, Math.sin(angle) * inner);
+            graphics.lineTo(Math.cos(angle) * outer, Math.sin(angle) * outer);
+        }
+        graphics.stroke();
+        this.overlay.addChild(seal);
+        // 初醒、共鸣、真形使用同一套符纹语法，只增加层数与展开幅度，保证阶段升级可连续辨认。
+        this.effects.push({
+            node: seal,
+            elapsed: 0,
+            life: 1.02,
+            update: (progress) => {
+                const reveal = Math.min(1, progress / 0.2);
+                const fade = progress < 0.72 ? 1 : (1 - progress) / 0.28;
+                opacity.opacity = Math.round(220 * reveal * Math.max(0, fade));
+                const scale = 0.72 + reveal * 0.28 + progress * 0.12;
+                seal.setScale(scale, scale);
+                seal.angle = (path === 'mystic' ? -1 : 1) * progress * (8 + tier * 3);
+            },
+        });
     }
 
     private showMapEvent(advanceAfterChoice: boolean, qa = false): void {
@@ -5547,6 +6105,8 @@ export class GameBootstrap extends Component {
     }
 
     private applyUpgrade(id: UpgradeId): number {
+        // 选择历史只记录玩家确认过的进化；道种自动解锁的隐藏功法仍生效，但不伪装成额外选择。
+        this.cultivationChoiceHistory.push(id);
         const nextLevel = this.skills.upgrade(id);
         if (id === 'sword') this.swordCount = nextLevel;
         if (id === 'dash') {
@@ -5563,11 +6123,14 @@ export class GameBootstrap extends Component {
             this.hp = Math.min(this.maxHp, this.hp + this.maxHp * ratio);
             if (nextLevel >= 3) this.playerInvulnerableTimer = Math.max(this.playerInvulnerableTimer, 1.2);
         }
+        // 首次进化必须立即改变战场轮廓：万剑直接增加弹道数量，而不是只写入隐藏数值。
+        if (id === 'seed-edge') this.swordCount = Math.max(this.swordCount, 3);
         if (id === 'seed-mystic' && this.skills.getLevel('formation') <= 0) this.skills.upgrade('formation');
         if (id === 'seed-vitality') {
             this.maxHp += 25;
             this.healCultivation(25);
-            this.grantCultivationShield(10);
+            this.grantCultivationShield(28);
+            if (this.skills.getLevel('shield-burst') <= 0) this.skills.upgrade('shield-burst', 1);
         }
         if (id === 'thunder-seal' && this.skills.getLevel('tribulation') <= 0) this.skills.upgrade('tribulation');
         if (id === 'piercing-sword') this.attackInterval *= 1.08;
@@ -5639,9 +6202,16 @@ export class GameBootstrap extends Component {
         if (!victory) this.actions.enter('defeat', 0, true);
         if (victory) {
             // 只在真实胜利落印；失败和中途返回不会增加通关次数或覆盖最快记录。
+            const build = resolveCultivationBuild((id) => this.skills.getLevel(id));
             this.lastStageVictory = this.stageProgress.recordVictory(
                 this.currentStage.mapId,
                 this.runStats.snapshot().elapsedSeconds,
+                {
+                    bestCombo: this.runStats.snapshot().bestCombo,
+                    buildName: build.relic ? `${build.relic.name} · ${build.evolutionName}` : undefined,
+                    path: build.path,
+                    tier: build.tier,
+                },
             );
             this.persistStageProgress();
         }
@@ -5712,12 +6282,11 @@ export class GameBootstrap extends Component {
         panel.addChild(section.node);
 
         const stats = this.runStats.snapshot();
-        const healthRatio = Math.round(this.hp / Math.max(1, this.maxHp) * 100);
         const statItems: ReadonlyArray<readonly [string, string]> = [
             ['历时', formatRunDuration(stats.elapsedSeconds)],
             ['斩妖', `${stats.enemiesDefeated}`],
             ['总伤', `${Math.round(stats.damageDealt)}`],
-            ['余命', `${healthRatio}%`],
+            ['连斩', `${stats.bestCombo}`],
         ];
         const statsStrip = this.makeThemedCard(548, 88, 'summary');
         statsStrip.setPosition(0, 153);
@@ -6255,7 +6824,7 @@ export class GameBootstrap extends Component {
             panel.addChild(chip);
         });
         const activeBuild = this.makeLabel(
-            `御剑 ${this.skills.getLevel('sword')}  ·  踏云 ${this.skills.getLevel('dash')}  ·  剑阵 ${this.skills.getLevel('formation')}  ·  天劫 ${this.skills.getLevel('tribulation')}`,
+            `御剑 ${this.skills.getLevel('sword')} · 踏云 ${this.skills.getLevel('dash')} · 剑阵 ${this.skills.getLevel('formation')} · 天劫 ${this.skills.getLevel('tribulation')} · 最高连斩 ${this.runStats.snapshot().bestCombo}`,
             13,
             new Color(130, 162, 154, 225),
         );
@@ -6297,11 +6866,9 @@ export class GameBootstrap extends Component {
 
     private updateHud(): void {
         const wave = this.currentStage.waves[this.waveIndex];
-        const alive = this.enemies.filter((enemy) => enemy.node.isValid && !enemy.dead).length;
-        const remaining = wave ? Math.max(0, wave.count - this.spawned + alive) : 0;
-        this.hpLabel.string = `气血  ${Math.ceil(this.hp)} / ${this.maxHp}`;
-        this.xpLabel.string = `境界 ${this.level} 重    修为 ${this.xp} / ${this.xpNeed}`;
-        this.waveLabel.string = `第 ${this.waveIndex + 1} 波\n余敌 ${remaining}`;
+        this.hpLabel.string = `${Math.ceil(this.hp)} / ${this.maxHp}`;
+        this.xpLabel.string = '';
+        this.waveLabel.string = `第 ${this.waveIndex + 1} 波`;
         this.drawWaveRoute();
         if (this.objectiveLabel) {
             const openingObjectiveVisible = this.waveIndex === 0
@@ -6382,7 +6949,17 @@ export class GameBootstrap extends Component {
         }
         const pathTotals = summarizeUpgradePaths((id) => this.skills.getLevel(id));
         const build = resolveCultivationBuild((id) => this.skills.getLevel(id));
-        if (this.buildPanel) this.buildPanel.active = true;
+        const flow = this.combatFlow.snapshot();
+        if (this.comboPanel && this.comboLabel) {
+            this.comboPanel.active = flow.combo >= 2;
+            this.comboLabel.string = flow.tier > 0
+                ? `${flow.combo}连斩 · ${flow.label}`
+                : `${flow.combo}连斩 · 起势`;
+            this.comboLabel.color = new Color(
+                flow.tier >= 3 ? '#FFF0A8' : flow.tier >= 2 ? '#F4D28A' : '#CDE8DE',
+            );
+        }
+        if (this.buildPanel) this.buildPanel.active = false;
         this.refreshBuildRelicIcon(build);
         this.buildLabel.string = build.relic
             ? `${build.relic.name} · ${build.evolutionName}`
@@ -6504,7 +7081,7 @@ export class GameBootstrap extends Component {
 
         const boss = this.enemies.find((enemy) => enemy.elite && enemy.node.isValid && !enemy.dead);
         this.bossHud.active = Boolean(boss);
-        this.objectiveBacking.active = !boss;
+        this.objectiveBacking.active = false;
         this.routeChoiceBacking.active = false;
         if (boss) {
             const ratio = Math.max(0, boss.hp / boss.maxHp);
@@ -6578,22 +7155,49 @@ export class GameBootstrap extends Component {
 
         const build = resolveCultivationBuild((id) => this.skills.getLevel(id));
         const totals = summarizeUpgradePaths((id) => this.skills.getLevel(id));
+        // Cocos Web Mobile 的兼容转译不能可靠展开 Set；沿用数组去重，避免历史次数正确但列表变成 0 项。
+        const selectedIds = this.cultivationChoiceHistory.filter(
+            (id, index, allIds) => allIds.indexOf(id) === index,
+        );
+        const equipped = selectedIds
+            .map((id) => UPGRADES.find((upgrade) => upgrade.id === id))
+            .filter((upgrade): upgrade is UpgradeConfig => Boolean(upgrade));
+        const layoutRowCount = Math.max(3, Math.min(5, equipped.length));
+        const sheetHeight = 620 + (layoutRowCount - 3) * 68;
+        const sheetTop = sheetHeight / 2;
+        const rowStartY = sheetTop - 292;
+        const statsY = rowStartY - (layoutRowCount - 1) * 68 - 112;
         const accent = new Color(build.path ? UPGRADE_PATH_COLORS[build.path] : '#6FCAB1');
+        const gold = new Color('#D8B86B');
         const veil = this.makeRect(this.designWidth, this.designHeight, new Color(2, 9, 12, 158));
         veil.name = 'CultivationSheetVeil';
         this.overlay.addChild(veil);
 
         const sheet = this.makeRect(
-            650,
-            960,
-            new Color(4, 22, 27, 250),
-            new Color(accent.r, accent.g, accent.b, 155),
+            596,
+            sheetHeight,
+            new Color(3, 18, 23, 252),
+            new Color(gold.r, gold.g, gold.b, 150),
             UI_THEME.radius.panel,
-            1,
+            2,
         );
         sheet.name = 'CultivationSheet';
-        sheet.setPosition(0, -40);
+        // 顶边固定在战场可视区，历史条目增加时只向下延展，避免标题与收起入口漂移。
+        sheet.setPosition(0, 330 - sheetHeight / 2);
         this.overlay.addChild(sheet);
+        // 使用无文字的实图边框承接设计稿材质；所有名称、数值与交互仍由运行时节点实时生成。
+        const sheetFrame = this.createResourceSprite('art/ui/cultivation-sheet-frame-v1/spriteFrame', sheetHeight - 8);
+        sheetFrame.addComponent(UIOpacity).opacity = 210;
+        sheet.addChild(sheetFrame);
+        const innerFrame = this.makeRect(
+            576,
+            sheetHeight - 20,
+            new Color(3, 18, 23, 0),
+            new Color(gold.r, gold.g, gold.b, 62),
+            20,
+            1,
+        );
+        sheet.addChild(innerFrame);
 
         const closeSheet = (): void => {
             if (this.phase !== 'cultivation-sheet') return;
@@ -6602,159 +7206,227 @@ export class GameBootstrap extends Component {
             this.updateHud();
         };
 
-        const title = this.makeLabel('修 行 卷', 34, new Color('#F3E7C8'));
+        const title = this.makeLabel('修 行 卷', 42, new Color('#F3E7C8'));
         title.horizontalAlign = Label.HorizontalAlign.LEFT;
-        title.node.setPosition(-190, 420);
-        title.node.getComponent(UITransform)?.setContentSize(300, 44);
+        title.node.setPosition(-144, sheetTop - 42);
+        title.node.getComponent(UITransform)?.setContentSize(250, 48);
         sheet.addChild(title.node);
-        const caption = this.makeLabel('战斗暂停 · 装备、功法与实时加成', 20, new Color('#9CB8AE'));
-        caption.horizontalAlign = Label.HorizontalAlign.LEFT;
-        caption.node.setPosition(-130, 382);
-        caption.node.getComponent(UITransform)?.setContentSize(420, 28);
-        sheet.addChild(caption.node);
-        const close = this.makeActionButton('收起', 'quiet', accent, closeSheet, 116, 52);
-        close.setPosition(246, 414);
+        const buildCaption = this.makeLabel('本局构筑', 18, new Color('#BCA772'));
+        buildCaption.node.setPosition(12, sheetTop - 42);
+        buildCaption.node.getComponent(UITransform)?.setContentSize(150, 28);
+        sheet.addChild(buildCaption.node);
+        const close = this.makeActionButton('收起', 'quiet', gold, closeSheet, 112, 48);
+        close.setPosition(222, sheetTop - 42);
         sheet.addChild(close);
 
         const relicCard = this.makeRect(
-            590,
-            146,
-            new Color(8, 38, 43, 232),
-            new Color(accent.r, accent.g, accent.b, 105),
+            548,
+            132,
+            new Color(6, 29, 34, 238),
+            new Color(gold.r, gold.g, gold.b, 88),
             UI_THEME.radius.compact,
             1,
         );
-        relicCard.setPosition(0, 292);
+        relicCard.setPosition(0, sheetTop - 135);
         sheet.addChild(relicCard);
         const relicIcon = new Node('CultivationSheetRelic');
         relicIcon.layer = Layers.Enum.UI_2D;
-        relicIcon.setPosition(-238, 2);
+        relicIcon.setPosition(-214, 0);
         const relicRing = relicIcon.addComponent(Graphics);
         relicRing.fillColor = new Color(3, 18, 22, 242);
-        relicRing.circle(0, 0, 50);
+        relicRing.circle(0, 0, 48);
         relicRing.fill();
-        relicRing.strokeColor = new Color(accent.r, accent.g, accent.b, 225);
+        relicRing.strokeColor = new Color(accent.r, accent.g, accent.b, 215);
         relicRing.lineWidth = 2;
-        relicRing.circle(0, 0, 50);
+        relicRing.circle(0, 0, 48);
         relicRing.stroke();
-        if (build.relic) relicIcon.addChild(this.createResourceSprite(build.relic.iconResourcePath, 72));
+        relicRing.strokeColor = new Color(accent.r, accent.g, accent.b, 72);
+        relicRing.circle(0, 0, 40);
+        relicRing.stroke();
+        if (build.relic) relicIcon.addChild(this.createResourceSprite(build.relic.iconResourcePath, 70));
         relicCard.addChild(relicIcon);
-        const relicEyebrow = this.makeLabel(build.relic?.title ?? '本命法宝 · 待觉醒', 19, new Color(accent.r, accent.g, accent.b, 245));
-        relicEyebrow.horizontalAlign = Label.HorizontalAlign.LEFT;
-        relicEyebrow.node.setPosition(54, 48);
-        relicEyebrow.node.getComponent(UITransform)?.setContentSize(410, 26);
-        relicCard.addChild(relicEyebrow.node);
         const relicName = this.makeLabel(
             build.relic ? `${build.relic.name} · ${build.evolutionName}` : '尚未装备本命法宝',
-            28,
+            30,
             new Color('#FFF0C8'),
         );
         relicName.horizontalAlign = Label.HorizontalAlign.LEFT;
-        relicName.node.setPosition(54, 12);
-        relicName.node.getComponent(UITransform)?.setContentSize(410, 38);
+        relicName.node.setPosition(-20, 24);
+        relicName.node.getComponent(UITransform)?.setContentSize(292, 38);
         relicCard.addChild(relicName.node);
         const relicNext = this.makeLabel(
-            build.relic ? `${build.resonanceText} · ${build.nextText}` : '首次破境选择道种后立即装备',
-            21,
+            build.relic ? `${build.tierName} · ${build.nextText}` : '首次破境选择道种后立即装备',
+            19,
             new Color('#B7D8CB'),
         );
         relicNext.horizontalAlign = Label.HorizontalAlign.LEFT;
-        relicNext.node.setPosition(54, -34);
-        relicNext.node.getComponent(UITransform)?.setContentSize(410, 32);
+        relicNext.node.setPosition(-20, -22);
+        relicNext.node.getComponent(UITransform)?.setContentSize(292, 30);
         relicCard.addChild(relicNext.node);
 
-        UPGRADE_PATH_ORDER.forEach((path, index) => {
-            const pathLabel = this.makeLabel(
-                `${UPGRADE_PATH_LABELS[path]} ${totals[path]}重`,
-                22,
-                new Color(totals[path] > 0 ? UPGRADE_PATH_COLORS[path] : '#58746D'),
-            );
-            pathLabel.node.setPosition(-194 + index * 194, 190);
-            pathLabel.node.getComponent(UITransform)?.setContentSize(176, 30);
-            sheet.addChild(pathLabel.node);
-        });
+        const pathSeal = this.makeRect(
+            96,
+            110,
+            new Color(4, 26, 31, 248),
+            new Color(accent.r, accent.g, accent.b, 180),
+            38,
+            2,
+        );
+        pathSeal.setPosition(216, 0);
+        relicCard.addChild(pathSeal);
+        const pathSealText = build.path
+            ? `${UPGRADE_PATH_LABELS[build.path]}\n${totals[build.path]}重`
+            : '待悟\n0重';
+        const pathLabel = this.makeLabel(pathSealText, 23, accent);
+        pathLabel.lineHeight = 31;
+        pathLabel.node.getComponent(UITransform)?.setContentSize(82, 78);
+        pathSeal.addChild(pathLabel.node);
 
-        const coreSkills = new Set<UpgradeId>(['sword', 'dash', 'formation', 'tribulation']);
-        const equipped = UPGRADES.filter((upgrade) => {
-            const level = this.skills.getLevel(upgrade.id);
-            if (level <= 0 || upgrade.offerKind === 'seed') return false;
-            return upgrade.offerKind !== 'hidden' || coreSkills.has(upgrade.id);
-        });
-        const sectionTitle = this.makeLabel(`已装备功法与法印 · ${equipped.length}`, 23, new Color('#F1E5C6'));
+        const sectionTitle = this.makeLabel(
+            `已悟道法  ${this.cultivationChoiceHistory.length}项`,
+            25,
+            new Color('#F1E5C6'),
+        );
         sectionTitle.horizontalAlign = Label.HorizontalAlign.LEFT;
-        sectionTitle.node.setPosition(-126, 148);
-        sectionTitle.node.getComponent(UITransform)?.setContentSize(430, 32);
+        sectionTitle.node.setPosition(-86, sheetTop - 231);
+        sectionTitle.node.getComponent(UITransform)?.setContentSize(400, 34);
         sheet.addChild(sectionTitle.node);
 
+        const listHeight = layoutRowCount * 68;
+        const listPanel = this.makeRect(
+            528,
+            listHeight,
+            new Color(5, 25, 30, 216),
+            new Color(gold.r, gold.g, gold.b, 90),
+            16,
+            1,
+        );
+        listPanel.setPosition(8, rowStartY - (layoutRowCount - 1) * 34);
+        sheet.addChild(listPanel);
+
+        // 修行脉络与真实历史顺序一致；节点跟随条目扩展，不使用写死的装饰图避免数据变化后错位。
+        const lineage = new Node('CultivationLineage');
+        lineage.layer = Layers.Enum.UI_2D;
+        lineage.setPosition(-258, rowStartY);
+        const lineageGraphics = lineage.addComponent(Graphics);
+        lineageGraphics.strokeColor = new Color(accent.r, accent.g, accent.b, 190);
+        lineageGraphics.lineWidth = 2;
+        lineageGraphics.moveTo(0, 0);
+        lineageGraphics.lineTo(0, -(layoutRowCount - 1) * 68);
+        lineageGraphics.stroke();
+        for (let index = 0; index < layoutRowCount; index += 1) {
+            lineageGraphics.fillColor = new Color(4, 23, 28, 255);
+            lineageGraphics.circle(0, -index * 68, 6);
+            lineageGraphics.fill();
+            lineageGraphics.strokeColor = new Color(accent.r, accent.g, accent.b, 220);
+            lineageGraphics.circle(0, -index * 68, 6);
+            lineageGraphics.stroke();
+        }
+        sheet.addChild(lineage);
+
         if (equipped.length === 0) {
-            const empty = this.makeLabel('尚无额外功法 · 下一次破境将提供构筑选择', 21, new Color('#8FAFA5'));
-            empty.node.setPosition(0, 78);
-            empty.node.getComponent(UITransform)?.setContentSize(560, 34);
+            const empty = this.makeLabel('尚未选择进化', 21, new Color('#8FAFA5'));
+            empty.node.setPosition(8, rowStartY);
+            empty.node.getComponent(UITransform)?.setContentSize(500, 40);
             sheet.addChild(empty.node);
         }
         equipped.slice(0, 5).forEach((upgrade, index) => {
             const level = this.skills.getLevel(upgrade.id);
-            const tone = new Color(UPGRADE_PATH_COLORS[upgrade.path]);
-            const row = this.makeRect(
-                590,
-                70,
-                new Color(8, 33, 38, index % 2 === 0 ? 210 : 170),
-                undefined,
-                12,
-            );
-            row.setPosition(0, 100 - index * 78);
-            row.addChild(this.createResourceSprite(upgrade.iconResourcePath, 42));
-            row.children[row.children.length - 1]?.setPosition(-252, 0);
-            const rowTitle = this.makeLabel(`${upgrade.title} · ${level}阶`, 22, new Color('#F3E7C8'));
+            const row = new Node('CultivationLineageRow');
+            row.layer = Layers.Enum.UI_2D;
+            row.setPosition(8, rowStartY - index * 68);
+            row.addChild(this.createResourceSprite(upgrade.iconResourcePath, 46));
+            row.children[row.children.length - 1]?.setPosition(-218, 0);
+            const levelText = upgrade.maxLevel > 1 || level > 1 ? ` · ${level}阶` : '';
+            const rowTitle = this.makeLabel(`${upgrade.title}${levelText}`, 24, new Color('#F3E7C8'));
             rowTitle.horizontalAlign = Label.HorizontalAlign.LEFT;
-            rowTitle.node.setPosition(-64, 17);
-            rowTitle.node.getComponent(UITransform)?.setContentSize(350, 28);
+            rowTitle.node.setPosition(-48, 14);
+            rowTitle.node.getComponent(UITransform)?.setContentSize(292, 28);
             row.addChild(rowTitle.node);
+            const rawDetail = upgrade.descriptions[Math.max(0, level - 1)] ?? upgrade.combatRead ?? '';
+            const compactDetail = upgrade.id.indexOf('seed-') === 0
+                ? `${UPGRADE_PATH_LABELS[upgrade.path]}道基由 ${upgrade.routeContribution ?? 1}重起步`
+                : upgrade.id === 'cycle-breath'
+                    ? '功法冷却缩短 0.35秒'
+                    : upgrade.id === 'spell-sword'
+                        ? '下一轮飞剑伤害 +50%'
+                        : rawDetail;
             const rowDetail = this.makeLabel(
-                upgrade.descriptions[Math.max(0, level - 1)] ?? upgrade.combatRead ?? '',
+                compactDetail,
                 20,
                 new Color('#AFCBC1'),
             );
             rowDetail.horizontalAlign = Label.HorizontalAlign.LEFT;
-            rowDetail.node.setPosition(-64, -15);
-            rowDetail.node.getComponent(UITransform)?.setContentSize(350, 26);
+            rowDetail.node.setPosition(-48, -15);
+            rowDetail.node.getComponent(UITransform)?.setContentSize(292, 24);
             row.addChild(rowDetail.node);
-            const route = this.makeLabel(UPGRADE_PATH_LABELS[upgrade.path], 20, tone);
-            route.node.setPosition(242, 0);
-            route.node.getComponent(UITransform)?.setContentSize(82, 28);
-            row.addChild(route.node);
+            const effectTag = upgrade.id.indexOf('seed-') === 0
+                ? '根基'
+                : upgrade.id === 'cycle-breath' || upgrade.id === 'thunder-seal' || upgrade.id === 'relay-seal'
+                    ? '联动'
+                    : upgrade.id === 'spell-sword' || upgrade.offerKind === 'ultimate'
+                        ? '爆发'
+                        : upgrade.role.split(' · ')[0];
+            const tag = this.makeLabel(effectTag, 20, accent);
+            tag.horizontalAlign = Label.HorizontalAlign.RIGHT;
+            tag.node.setPosition(210, 0);
+            tag.node.getComponent(UITransform)?.setContentSize(72, 28);
+            row.addChild(tag.node);
+            if (index < layoutRowCount - 1) {
+                const divider = this.makeRect(436, 1, new Color(gold.r, gold.g, gold.b, 58));
+                divider.setPosition(20, -34);
+                row.addChild(divider);
+            }
             sheet.addChild(row);
         });
         if (equipped.length > 5) {
             const more = this.makeLabel(`另有 ${equipped.length - 5} 项已生效`, 19, new Color('#8FAFA5'));
             more.horizontalAlign = Label.HorizontalAlign.RIGHT;
-            more.node.setPosition(194, -286);
+            more.node.setPosition(166, statsY + 58);
             more.node.getComponent(UITransform)?.setContentSize(190, 26);
             sheet.addChild(more.node);
         }
 
         const swordDamage = this.currentSwordDamage();
-        const swordDamageBonus = Math.max(0, Math.round((swordDamage / Math.max(1, this.stageBaseSwordDamage) - 1) * 100));
         const attackInterval = this.currentAttackInterval();
-        const attackSpeedBonus = Math.max(0, Math.round((this.stageBaseAttackInterval / Math.max(0.01, attackInterval) - 1) * 100));
-        const stats = this.makeRect(590, 90, new Color(3, 17, 22, 235), undefined, 12);
-        stats.setPosition(0, -352);
+        const stats = this.makeRect(
+            548,
+            84,
+            new Color(2, 15, 19, 246),
+            new Color(gold.r, gold.g, gold.b, 125),
+            14,
+            1,
+        );
+        stats.setPosition(0, statsY);
         sheet.addChild(stats);
+        [-40, 136].forEach((x) => {
+            const divider = this.makeRect(1, 52, new Color(gold.r, gold.g, gold.b, 82));
+            divider.setPosition(x, 0);
+            stats.addChild(divider);
+        });
+        const swordUpgrade = UPGRADES.find((upgrade) => upgrade.id === 'sword');
+        if (swordUpgrade) {
+            const swordIcon = this.createResourceSprite(swordUpgrade.iconResourcePath, 48);
+            swordIcon.setPosition(-238, 0);
+            stats.addChild(swordIcon);
+        }
+        const primaryStat = this.makeLabel(`飞剑\n${this.swordCount}柄 · ${Math.round(swordDamage)}伤`, 25, new Color('#F3D18A'));
+        primaryStat.lineHeight = 29;
+        primaryStat.node.setPosition(-132, 0);
+        primaryStat.node.getComponent(UITransform)?.setContentSize(184, 64);
+        stats.addChild(primaryStat.node);
         [
-            `飞剑 ${this.swordCount}柄\n${Math.round(swordDamage)}伤 · +${swordDamageBonus}%`,
-            `出手间隔\n${attackInterval.toFixed(2)}秒 · +${attackSpeedBonus}%`,
-            `护体 / 气血\n${Math.ceil(this.cultivationShield)} · ${Math.ceil(this.hp)}/${Math.ceil(this.maxHp)}`,
+            `间隔\n${attackInterval.toFixed(2)}秒`,
+            this.cultivationShield > 0
+                ? `护体 ${Math.ceil(this.cultivationShield)}\n气血 ${Math.ceil(this.hp)}/${Math.ceil(this.maxHp)}`
+                : `气血\n${Math.ceil(this.hp)}/${Math.ceil(this.maxHp)}`,
         ].forEach((text, index) => {
-            const stat = this.makeLabel(text, 21, index === 0 ? new Color('#F3E7C8') : new Color('#B7D8CB'));
-            stat.lineHeight = 27;
-            stat.node.setPosition(-194 + index * 194, 0);
-            stat.node.getComponent(UITransform)?.setContentSize(180, 62);
+            const stat = this.makeLabel(text, 20, new Color('#B7D8CB'));
+            stat.lineHeight = 26;
+            stat.node.setPosition(54 + index * 176, 0);
+            stat.node.getComponent(UITransform)?.setContentSize(164, 60);
             stats.addChild(stat.node);
         });
-        const footer = this.makeLabel('所有数值实时更新 · 收起后战斗继续', 20, new Color('#799E94'));
-        footer.node.setPosition(0, -425);
-        footer.node.getComponent(UITransform)?.setContentSize(560, 28);
-        sheet.addChild(footer.node);
     }
 
     private showRecentUpgrade(impact: UpgradeImpactPreview): void {
@@ -6773,12 +7445,47 @@ export class GameBootstrap extends Component {
             graphics.roundRect(-180, -26, 360, 52, UI_THEME.radius.compact);
             graphics.stroke();
         }
-        this.recentUpgradeLabel.string = impact.milestone
+        this.recentUpgradeText = impact.milestone
             ? `${impact.milestone} · ${impact.headline}`
             : `${impact.headline} · 已生效`;
+        const momentum = this.cultivationMomentum;
+        this.recentUpgradeLabel.string = momentum && this.cultivationMomentumTimer > 0
+            ? `${this.recentUpgradeText} · ${momentum.label} ${this.cultivationMomentumTimer.toFixed(1)}秒`
+            : this.recentUpgradeText;
         this.recentUpgradeLabel.color = new Color(accent.r, accent.g, accent.b, 255);
         this.recentUpgradePanel.active = true;
-        this.recentUpgradeTimer = 6;
+        // 面板至少覆盖整段余势，让玩家始终知道此刻为何变强；结束后再退化为构筑历史入口。
+        this.recentUpgradeTimer = Math.max(6, (momentum?.duration ?? 0) + 1.1);
+    }
+
+    private showUpgradeHistorySummary(): void {
+        if (!this.recentUpgradePanel?.isValid || !this.recentUpgradeLabel) return;
+        const choiceCount = this.cultivationChoiceHistory.length;
+        if (choiceCount <= 0) {
+            this.recentUpgradePanel.active = false;
+            return;
+        }
+        const uniqueCount = this.cultivationChoiceHistory.filter(
+            (id, index, allIds) => allIds.indexOf(id) === index,
+        ).length;
+        const build = resolveCultivationBuild((id) => this.skills.getLevel(id));
+        const graphics = this.recentUpgradePanel.getComponent(Graphics);
+        if (graphics) {
+            graphics.clear();
+            graphics.fillColor = new Color(3, 18, 22, 218);
+            graphics.roundRect(-180, -26, 360, 52, UI_THEME.radius.compact);
+            graphics.fill();
+            graphics.strokeColor = new Color(111, 202, 177, 145);
+            graphics.lineWidth = 1;
+            graphics.roundRect(-180, -26, 360, 52, UI_THEME.radius.compact);
+            graphics.stroke();
+        }
+        this.recentUpgradeLabel.string = build.relic
+            ? `${build.relic.name} · ${build.evolutionName} · ${build.nextText}`
+            : `本局进化 ${choiceCount}次 · ${uniqueCount}项生效 · 点击查看`;
+        this.recentUpgradeText = this.recentUpgradeLabel.string;
+        this.recentUpgradeLabel.color = new Color('#BFE3D8');
+        this.recentUpgradePanel.active = true;
     }
 
     private drawWaveRoute(): void {
@@ -6911,11 +7618,13 @@ export class GameBootstrap extends Component {
         const back = this.playerAuraNode;
         const front = this.playerAuraFrontNode;
         if (!back || !front || this.playerAuraSwords.length === 0) return;
-        const motion = this.prefersReducedMotion ? 0 : this.elapsed * 0.58;
+        const momentum = this.cultivationMomentumTimer > 0 ? this.cultivationMomentum : undefined;
+        const motionSpeed = momentum ? 0.78 + momentum.tier * 0.08 : 0.58;
+        const motion = this.prefersReducedMotion ? 0 : this.elapsed * motionSpeed;
         const build = resolveCultivationBuild((id) => this.skills.getLevel(id));
         // 剑身可以小，但轨道不能贴进角色轮廓，否则会重新读成手持武器而不是护体剑气。
-        const radiusX = 66 + build.tier * 3;
-        const radiusY = 48 + build.tier * 2;
+        const radiusX = 66 + build.tier * 3 + (momentum ? 7 + momentum.tier * 2 : 0);
+        const radiusY = 48 + build.tier * 2 + (momentum ? 4 + momentum.tier : 0);
 
         const place = (node: Node, angle: number, scale: number, target: Node): void => {
             if (node.parent !== target) target.addChild(node);
@@ -6931,9 +7640,19 @@ export class GameBootstrap extends Component {
             const angle = motion + visual.phase;
             const depth = (1 - Math.sin(angle)) / 2;
             const target = Math.sin(angle) < -0.06 ? front : back;
-            const scale = (0.9 + depth * 0.18) * (visual.active ? 1 + build.tier * 0.03 : 0.86);
+            const routeSurging = momentum?.path === visual.path;
+            const surgePulse = routeSurging && !this.prefersReducedMotion
+                ? 1 + Math.sin(this.elapsed * 8) * 0.07
+                : 1;
+            const scale = (0.9 + depth * 0.18)
+                * (visual.active ? 1 + build.tier * 0.03 : 0.86)
+                * (routeSurging ? (1.12 + momentum.tier * 0.035) * surgePulse : 1);
             // 素材自身已经包含半透明剑气；潜伏路线仍需保留约六成亮度，避免二次透明后完全消失。
-            visual.opacity.opacity = Math.min(255, Math.round((visual.active ? 210 : 166) + depth * (visual.active ? 40 : 24)));
+            visual.opacity.opacity = Math.min(255, Math.round(
+                (visual.active ? 210 : 166)
+                + depth * (visual.active ? 40 : 24)
+                + (routeSurging ? 35 : 0),
+            ));
             place(visual.node, angle, scale, target);
             visual.ghosts.forEach((ghost, index) => {
                 const ghostAngle = angle - ghost.phaseOffset;
@@ -7509,6 +8228,8 @@ export class GameBootstrap extends Component {
     }
 
     private clearBattle(): void {
+        if (this.upgradePreviewFx?.isValid) this.upgradePreviewFx.destroy();
+        this.upgradePreviewFx = undefined;
         this.clearMoveTarget();
         this.onTouchCancel();
         this.enemies = [];
@@ -7546,6 +8267,11 @@ export class GameBootstrap extends Component {
         this.recentUpgradePanel = undefined;
         this.recentUpgradeLabel = undefined;
         this.recentUpgradeTimer = 0;
+        this.recentUpgradeText = '';
+        this.comboPanel = undefined;
+        this.comboLabel = undefined;
+        this.cultivationMomentum = undefined;
+        this.cultivationMomentumTimer = 0;
         this.buildPathLabels.clear();
         this.battleLayer.children.slice().forEach((child) => child.destroy());
         this.effectsLayer.children.slice().forEach((child) => child.destroy());

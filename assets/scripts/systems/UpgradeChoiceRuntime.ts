@@ -27,6 +27,34 @@ export const CULTIVATION_SEED_IDS: Readonly<Record<UpgradePath, UpgradeId>> = {
 
 export type UpgradeLevelReader = (id: UpgradeId) => number;
 
+export type UpgradeRarity = 'mortal' | 'spirit' | 'earth' | 'heaven';
+
+export interface UpgradeRarityPresentation {
+    rarity: UpgradeRarity;
+    label: string;
+    stars: number;
+}
+
+/** 稀有度表达的是构筑质变强度，不直接复制一套独立掉落数值。 */
+export function upgradeRarityPresentation(
+    choice: UpgradeConfig,
+    willReachMilestone: boolean,
+    refinedBonus = false,
+): UpgradeRarityPresentation {
+    let stars = choice.offerKind === 'ultimate' || choice.offerKind === 'synergy'
+        ? 4
+        : willReachMilestone
+            ? 3
+            : choice.offerKind === 'seed' || choice.offerKind === 'regular'
+                ? 2
+                : 1;
+    if (refinedBonus) stars = Math.min(4, stars + 1);
+    if (stars >= 4) return { rarity: 'heaven', label: '天品成诀', stars };
+    if (stars >= 3) return { rarity: 'earth', label: '地品突破', stars };
+    if (stars >= 2) return { rarity: 'spirit', label: '灵品功法', stars };
+    return { rarity: 'mortal', label: '凡品命格', stars };
+}
+
 function takeRandom<T>(values: readonly T[], random: () => number): T | undefined {
     if (values.length === 0) return undefined;
     const index = Math.min(values.length - 1, Math.floor(Math.max(0, random()) * values.length));

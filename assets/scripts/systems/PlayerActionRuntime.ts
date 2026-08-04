@@ -37,6 +37,18 @@ export function shouldConfirmTapMove(holdSeconds: number, dragDistance: number):
     return holdSeconds <= 0.65 && dragDistance <= 26;
 }
 
+export function resolveTapMovePoint(
+    ui: Readonly<{ x: number; y: number }>,
+    visibleWidth: number,
+    designHeight: number,
+    worldOffset: Readonly<{ x: number; y: number }> = { x: 0, y: 0 },
+): { x: number; y: number } {
+    return {
+        x: ui.x - visibleWidth / 2 - worldOffset.x,
+        y: ui.y - designHeight / 2 - worldOffset.y,
+    };
+}
+
 export interface TapMoveStep {
     arrived: boolean;
     distance: number;

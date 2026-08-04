@@ -26,6 +26,8 @@ export interface RunStatsSnapshot {
     spiritVeinsClaimed: number;
     obstaclesBroken: number;
     tideEnemyHits: number;
+    bestCombo: number;
+    peakFlowTier: number;
     mapEvent?: RunMapEventRecord;
 }
 
@@ -38,6 +40,8 @@ function emptyStats(): RunStatsSnapshot {
         spiritVeinsClaimed: 0,
         obstaclesBroken: 0,
         tideEnemyHits: 0,
+        bestCombo: 0,
+        peakFlowTier: 0,
     };
 }
 
@@ -78,6 +82,11 @@ export class RunStatsRuntime {
 
     public recordTideEnemyHit(): void {
         this.state.tideEnemyHits += 1;
+    }
+
+    public recordCombatFlow(bestCombo: number, peakFlowTier: number): void {
+        this.state.bestCombo = Math.max(this.state.bestCombo, Math.max(0, Math.floor(bestCombo)));
+        this.state.peakFlowTier = Math.max(this.state.peakFlowTier, Math.max(0, Math.floor(peakFlowTier)));
     }
 
     public recordMapEvent(record: RunMapEventRecord): void {

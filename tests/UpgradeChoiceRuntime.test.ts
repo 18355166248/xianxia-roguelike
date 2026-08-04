@@ -5,6 +5,7 @@ import {
     pickUpgradeChoices,
     summarizeUpgradePaths,
     unlockedFormationChoices,
+    upgradeRarityPresentation,
 } from '../assets/scripts/systems/UpgradeChoiceRuntime';
 import type { UpgradeId } from '../assets/scripts/config/GameConfig';
 
@@ -48,6 +49,14 @@ if (returning) {
     const progress = choiceBuildProgress(returning, (id) => edgeSeed[id] ?? 0);
     assert(progress.current === 2 && progress.next === 3, 'card should show route progress');
     assert(progress.milestone?.includes('剑痕') ?? false, '3 edge should announce sword-mark resonance');
+    assert(
+        upgradeRarityPresentation(returning, true).rarity === 'earth',
+        'a choice that crosses resonance should be presented as a breakthrough rarity',
+    );
+    assert(
+        upgradeRarityPresentation(returning, false, true).stars === 3,
+        'refining should raise the next choice presentation by one rarity step',
+    );
 }
 
 console.log('UpgradeChoiceRuntime tests passed');

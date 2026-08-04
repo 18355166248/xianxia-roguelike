@@ -53,7 +53,9 @@ export function loadSpriteFrame(resourcePath: string): Promise<SpriteFrame> {
 
     const remoteUrl = REMOTE_SPRITE_URLS[resourcePath];
     const request = (remoteUrl
+        // CDN 是首选来源；压缩后的本地副本用于弱网和离线兜底，不能让资源网络故障阻断开局。
         ? loadRemoteSpriteFrame(resourcePath, remoteUrl)
+            .catch(() => loadLocalSpriteFrame(resourcePath))
         : loadLocalSpriteFrame(resourcePath))
         .catch((error: unknown) => {
             pendingLoads.delete(resourcePath);

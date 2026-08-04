@@ -3,7 +3,8 @@
   "version": "0.1.0",
   "description": "仙侠闯关制动作 Roguelike，基于 Cocos Creator 3.8.8",
   "scripts": {
-    "test:skills": "node scripts/run-skill-tests.cjs"
+    "check:images": "node scripts/check-image-budget.cjs",
+    "test:skills": "node scripts/check-image-budget.cjs && node scripts/run-skill-tests.cjs"
   },
   "creator": {
     "version": "3.8.8"
