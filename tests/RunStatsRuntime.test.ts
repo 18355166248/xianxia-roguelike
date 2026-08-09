@@ -14,7 +14,7 @@ const stats = new RunStatsRuntime();
 stats.tick(61.9);
 stats.recordEnemyDefeated();
 stats.recordDamageDealt(28);
-stats.recordDamageTaken(7);
+stats.recordDamageTaken(7, 'frost-tide');
 stats.recordSpiritVeinClaimed();
 stats.recordObstacleBroken();
 stats.recordTideEnemyHit();
@@ -36,6 +36,7 @@ assertEqual(formatRunDuration(snapshot.elapsedSeconds), '01:01', 'duration shoul
 assertEqual(snapshot.enemiesDefeated, 1, 'enemy count');
 assertEqual(snapshot.damageDealt, 28, 'damage dealt');
 assertEqual(snapshot.damageTaken, 7, 'damage taken');
+assertEqual(snapshot.lastDamageCause, 'frost-tide', 'last damage cause should support defeat guidance');
 assertEqual(snapshot.bestCombo, 12, 'best combo');
 assertEqual(snapshot.peakFlowTier, 2, 'peak combat flow tier');
 assertEqual(

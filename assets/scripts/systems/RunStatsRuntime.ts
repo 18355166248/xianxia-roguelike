@@ -18,6 +18,13 @@ export interface RouteReplayStep {
     value: string;
 }
 
+export type RunDamageCause =
+    | 'enemy-contact'
+    | 'frost-tide'
+    | 'boss-ground-slam'
+    | 'boss-frost-slam'
+    | 'boss-bamboo-pincer';
+
 export interface RunStatsSnapshot {
     elapsedSeconds: number;
     enemiesDefeated: number;
@@ -28,6 +35,7 @@ export interface RunStatsSnapshot {
     tideEnemyHits: number;
     bestCombo: number;
     peakFlowTier: number;
+    lastDamageCause?: RunDamageCause;
     mapEvent?: RunMapEventRecord;
 }
 
@@ -68,8 +76,10 @@ export class RunStatsRuntime {
         this.state.damageDealt += Math.max(0, amount);
     }
 
-    public recordDamageTaken(amount: number): void {
+    public recordDamageTaken(amount: number, cause?: RunDamageCause): void {
         this.state.damageTaken += Math.max(0, amount);
+        // 战报只记录最近一次真实伤害来源；玩家死亡时它就是最接近结果的可解释证据。
+        if (cause) this.state.lastDamageCause = cause;
     }
 
     public recordSpiritVeinClaimed(): void {

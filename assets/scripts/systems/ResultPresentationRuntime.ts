@@ -1,4 +1,5 @@
 import type { StageMapId } from '../config/GameConfig';
+import type { RunDamageCause } from './RunStatsRuntime';
 import type {
     StageFirstClearReward,
     StageProgressRecord,
@@ -34,6 +35,69 @@ export interface ResultRevealFrame {
     rewardOpacity: number;
     rewardScale: number;
     auraFrame: number;
+}
+
+export interface ResultActionGuidance {
+    eyebrow: string;
+    title: string;
+    detail: string;
+}
+
+export interface ResultActionGuidanceInput {
+    victory: boolean;
+    firstClear: boolean;
+    nextStageName?: string;
+    failureCause?: RunDamageCause;
+}
+
+/**
+ * 战报的最后一块信息必须回答“下一步做什么”，避免胜负页只复述统计而中断游戏动机。
+ * 失败建议只使用已经记录的伤害来源，不根据面板数值臆测玩家操作。
+ */
+export function resultActionGuidanceFor(
+    input: Readonly<ResultActionGuidanceInput>,
+): ResultActionGuidance {
+    if (input.victory) {
+        if (input.firstClear && input.nextStageName) {
+            return {
+                eyebrow: '下 一 目 标',
+                title: `前往${input.nextStageName}`,
+                detail: '新道印已生效 · 用本局构筑继续试炼',
+            };
+        }
+        return {
+            eyebrow: '下 一 目 标',
+            title: '刷新最速与连斩',
+            detail: '重走本章，尝试让主修道基抵达真形',
+        };
+    }
+
+    if (input.failureCause === 'frost-tide') {
+        return {
+            eyebrow: '败 因 · 寒 潮',
+            title: '提前进入封脉圈',
+            detail: '潮线发亮后停止追击，先横移到安全区',
+        };
+    }
+    if (input.failureCause === 'boss-bamboo-pincer') {
+        return {
+            eyebrow: '败 因 · 夹 击',
+            title: '预留中线退路',
+            detail: '竹墙闭合前进入缺口，不要贴近两侧边缘',
+        };
+    }
+    if (input.failureCause === 'boss-ground-slam' || input.failureCause === 'boss-frost-slam') {
+        return {
+            eyebrow: '败 因 · 首 领 重 击',
+            title: '看见落印立即离圈',
+            detail: '保留踏云应对预警，首领收招后再反击',
+        };
+    }
+    return {
+        eyebrow: '败 因 · 近 身 围 困',
+        title: '保持移动并拆开敌群',
+        detail: '先绕开正面包围，再用剑阵或踏云脱身',
+    };
 }
 
 export function resultStagePresentationFor(mapId: StageMapId): ResultStagePresentation {

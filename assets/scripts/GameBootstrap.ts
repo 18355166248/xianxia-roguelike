@@ -196,6 +196,7 @@ import {
     describeMapEventDecision,
     describeRouteReplaySteps,
     formatRunDuration,
+    type RunDamageCause,
     RunStatsSnapshot,
     RunStatsRuntime,
 } from './systems/RunStatsRuntime';
@@ -208,6 +209,7 @@ import {
 } from './systems/StageProgressRuntime';
 import {
     resultMilestonePresentation,
+    resultActionGuidanceFor,
     resultRevealFrameFor,
     resultStagePresentationFor,
 } from './systems/ResultPresentationRuntime';
@@ -2564,6 +2566,7 @@ export class GameBootstrap extends Component {
         const hud = new Node('HUD');
         hud.layer = Layers.Enum.UI_2D;
         this.canvas.addChild(hud);
+        const visibleWidth = this.visibleDesignWidth();
 
         const backing = this.makeRect(this.visibleDesignWidth(), 116, new Color(3, 16, 20, 72), new Color(91, 151, 137, 48), 0, 1);
         backing.name = 'HudBacking';
@@ -2613,8 +2616,9 @@ export class GameBootstrap extends Component {
         this.waveLabel.node.getComponent(UITransform)?.setContentSize(188, 82);
         hud.addChild(this.waveLabel.node);
 
+        const objectiveWidth = Math.min(620, visibleWidth - 24);
         this.objectiveBacking = this.makeRect(
-            620,
+            objectiveWidth,
             52,
             new Color(3, 18, 22, 150),
             new Color(105, 205, 177, 112),
@@ -2626,7 +2630,7 @@ export class GameBootstrap extends Component {
         this.objectiveBacking.active = false;
         hud.addChild(this.objectiveBacking);
         this.objectiveLabel = this.makeLabel('', 20, new Color('#D8F3E9'));
-        this.objectiveLabel.node.getComponent(UITransform)?.setContentSize(598, 44);
+        this.objectiveLabel.node.getComponent(UITransform)?.setContentSize(objectiveWidth - 22, 44);
         this.objectiveBacking.addChild(this.objectiveLabel.node);
 
         const waveRouteNode = new Node('WaveRoute');
@@ -2664,7 +2668,8 @@ export class GameBootstrap extends Component {
             1,
         );
         this.buildPanel.name = 'CultivationBuild';
-        this.buildPanel.setPosition(-185, -504);
+        const leftHudCenter = -Math.min(185, Math.max(0, visibleWidth / 2 - 180));
+        this.buildPanel.setPosition(leftHudCenter, -504);
         this.buildPanel.active = false;
         this.buildRelicPath = undefined;
         this.buildRelicTier = -1;
@@ -2712,7 +2717,7 @@ export class GameBootstrap extends Component {
             1,
         );
         this.recentUpgradePanel.name = 'RecentUpgrade';
-        this.recentUpgradePanel.setPosition(-185, -360);
+        this.recentUpgradePanel.setPosition(leftHudCenter, -360);
         this.recentUpgradePanel.active = false;
         this.recentUpgradeTimer = 0;
         this.recentUpgradeLabel = this.makeLabel('', 18, new Color('#F3E7C8'));
@@ -2734,7 +2739,8 @@ export class GameBootstrap extends Component {
             1.5,
         );
         this.comboPanel.name = 'CombatFlow';
-        this.comboPanel.setPosition(244, 470);
+        // 连斩条右边缘不能超过 FIXED_HEIGHT 的真实可视宽度，否则窄长屏会只显示半句。
+        this.comboPanel.setPosition(Math.min(244, visibleWidth / 2 - 89), 470);
         this.comboPanel.active = false;
         this.comboLabel = this.makeLabel('', 18, new Color('#FFF0BE'));
         this.comboLabel.node.getComponent(UITransform)?.setContentSize(164, 38);
@@ -3103,7 +3109,7 @@ export class GameBootstrap extends Component {
             && this.playerInvulnerableTimer <= 0
         ) {
             this.frostTidePlayerHitCycle = state.cycle;
-            this.damagePlayer(12);
+            this.damagePlayer(12, undefined, 'frost-tide');
             this.frostVelocity.y = state.direction * 260;
             this.player.setPosition(this.constrainToRoad(
                 new Vec3(this.player.position.x, this.player.position.y + state.direction * 58),
@@ -4262,7 +4268,11 @@ export class GameBootstrap extends Component {
             }
 
             if (distance < enemy.radius + 27) {
-                this.damagePlayer(enemy.damage * 0.5, enemy.node.position);
+                this.damagePlayer(
+                    enemy.damage * 0.5,
+                    enemy.node.position,
+                    'enemy-contact',
+                );
                 if (this.phase !== 'playing') return;
             }
 
@@ -4432,7 +4442,11 @@ export class GameBootstrap extends Component {
         if (progress >= 1 && enemy.node.isValid) enemy.node.destroy();
     }
 
-    private damagePlayer(amount: number, source?: Readonly<Vec3>): void {
+    private damagePlayer(
+        amount: number,
+        source?: Readonly<Vec3>,
+        cause: RunDamageCause = 'enemy-contact',
+    ): void {
         // 接触伤害改为带无敌帧的离散命中，避免贴身时每帧扣血，并统一触发震屏、闪红与击退。
         if (this.playerInvulnerableTimer > 0 || this.phase !== 'playing') return;
         const shieldBefore = this.cultivationShield;
@@ -4441,7 +4455,7 @@ export class GameBootstrap extends Component {
         const remainingDamage = Math.max(0, amount - absorbed);
         const appliedDamage = Math.min(this.hp, remainingDamage);
         this.hp = Math.max(0, this.hp - remainingDamage);
-        this.runStats.recordDamageTaken(appliedDamage);
+        this.runStats.recordDamageTaken(appliedDamage, cause);
         if (this.combatFlow.breakFlow()) {
             this.createAbilityHint('剑势中断 · 重新起势', new Color('#D9A08F'));
         }
@@ -4744,7 +4758,11 @@ export class GameBootstrap extends Component {
                 this.createGroundBurst(pulse.node.position, pulse.radius);
                 if (Vec3.distance(this.player.position, pulse.node.position) <= pulse.radius + 27) {
                     if (!this.shouldStartBossPreview()) this.playerInvulnerableTimer = 0;
-                    this.damagePlayer(pulse.damage, pulse.node.position);
+                    this.damagePlayer(
+                        pulse.damage,
+                        pulse.node.position,
+                        pulse.kind === 'frost-tide-slam' ? 'boss-frost-slam' : 'boss-ground-slam',
+                    );
                 }
             }
         }
@@ -4809,6 +4827,7 @@ export class GameBootstrap extends Component {
                     this.damagePlayer(
                         pincer.damage,
                         new Vec3(pincer.gapCenterX, this.player.position.y),
+                        'boss-bamboo-pincer',
                     );
                 }
             }
@@ -6153,6 +6172,7 @@ export class GameBootstrap extends Component {
         if (!this.waveFinished) {
             this.waveFinished = true;
             this.waveRestTimer = 1.5;
+            this.showWaveClearedAnnouncement();
             if (this.waveIndex === 0) this.clearOpeningObjective();
         }
         this.waveRestTimer -= dt;
@@ -6277,7 +6297,8 @@ export class GameBootstrap extends Component {
 
         const section = this.makeLabel('本 局 关 键', 15, new Color(141, 177, 166, 230));
         section.horizontalAlign = Label.HorizontalAlign.LEFT;
-        section.node.setPosition(-244, 216);
+        // 左对齐标签的锚点必须留在卡片安全区内，窄屏缩放后不能从画布左侧裁掉。
+        section.node.setPosition(-178, 216);
         section.node.getComponent(UITransform)?.setContentSize(220, 26);
         panel.addChild(section.node);
 
@@ -6304,13 +6325,49 @@ export class GameBootstrap extends Component {
         const rewardPanel = this.makeResultRewardSummary(victory, accent);
         panel.addChild(rewardPanel);
 
+        const nextStageIndex = this.nextUnclearedStageIndex();
+        const guidance = resultActionGuidanceFor({
+            victory,
+            firstClear: Boolean(this.lastStageVictory?.firstClear),
+            nextStageName: nextStageIndex === undefined ? undefined : STAGES[nextStageIndex]?.stageName,
+            failureCause: stats.lastDamageCause,
+        });
+        const guidanceCard = this.makeRect(
+            548,
+            62,
+            new Color(victory ? 73 : 96, victory ? 64 : 43, victory ? 30 : 38, 64),
+            new Color(victory ? '#BFA45B' : '#C87865'),
+            14,
+            1,
+        );
+        guidanceCard.setPosition(0, -321);
+        const guidanceTitle = this.makeLabel(
+            `${guidance.eyebrow}  ·  ${guidance.title}`,
+            15,
+            new Color(victory ? '#E8D58B' : '#F0B09A'),
+        );
+        guidanceTitle.node.setPosition(0, 13);
+        guidanceTitle.node.getComponent(UITransform)?.setContentSize(516, 26);
+        guidanceCard.addChild(guidanceTitle.node);
+        const guidanceDetail = this.makeLabel(guidance.detail, 13, new Color('#BBD3CA'));
+        guidanceDetail.node.setPosition(0, -15);
+        guidanceDetail.node.getComponent(UITransform)?.setContentSize(516, 24);
+        guidanceCard.addChild(guidanceDetail.node);
+        panel.addChild(guidanceCard);
+
         const actionBar = this.makeRect(560, 88, new Color(3, 17, 21, 128), undefined, UI_THEME.radius.compact);
-        actionBar.setPosition(0, -386);
+        actionBar.setPosition(0, -405);
+        const continueToNextStage = victory && this.lastStageVictory?.firstClear && nextStageIndex !== undefined;
         const button = this.makeActionButton(
-            victory ? '再 战 本 章' : '重 整 道 心',
+            continueToNextStage ? '前 往 下 一 章' : victory ? '再 战 本 章' : '重 整 道 心',
             'primary',
             accent,
-            () => this.startStage(this.selectedStageIndex),
+            () => {
+                if (continueToNextStage && nextStageIndex !== undefined) {
+                    this.selectedStageIndex = nextStageIndex;
+                }
+                this.startStage(this.selectedStageIndex);
+            },
             300,
             68,
         );
@@ -6329,6 +6386,15 @@ export class GameBootstrap extends Component {
         panel.addChild(actionBar);
         this.animateResultReveal(panel, rewardPanel);
         return panel;
+    }
+
+    private nextUnclearedStageIndex(): number | undefined {
+        const afterCurrent = STAGES.findIndex((stage, index) => (
+            index > this.selectedStageIndex && this.stageProgress.recordFor(stage.mapId).clears <= 0
+        ));
+        if (afterCurrent >= 0) return afterCurrent;
+        const anyUncleared = STAGES.findIndex((stage) => this.stageProgress.recordFor(stage.mapId).clears <= 0);
+        return anyUncleared >= 0 && anyUncleared !== this.selectedStageIndex ? anyUncleared : undefined;
     }
 
     private addResultStageWatermark(panel: Node, victory: boolean): void {
@@ -6806,7 +6872,8 @@ export class GameBootstrap extends Component {
             new Color('#D8E9E2'),
         );
         title.horizontalAlign = Label.HorizontalAlign.LEFT;
-        title.node.setPosition(-150, 41);
+        // FIXED_HEIGHT 在窄长屏会裁掉设计画布两侧，左对齐文本需控制在 ±300 的安全区。
+        title.node.setPosition(-116, 41);
         title.node.getComponent(UITransform)?.setContentSize(360, 30);
         panel.addChild(title.node);
         UPGRADE_PATH_ORDER.forEach((path, index) => {
@@ -6871,6 +6938,7 @@ export class GameBootstrap extends Component {
         this.waveLabel.string = `第 ${this.waveIndex + 1} 波`;
         this.drawWaveRoute();
         if (this.objectiveLabel) {
+            const firstClearPending = this.stageProgress.recordFor(this.currentStage.mapId).clears <= 0;
             const openingObjectiveVisible = this.waveIndex === 0
                 && this.openingObjectiveState?.visible
                 && !this.mapEvent.choice();
@@ -6880,8 +6948,14 @@ export class GameBootstrap extends Component {
                 && !this.mapEvent.choice();
             if (openingObjectiveVisible) {
                 const presentation = openingObjectivePresentationFor(this.currentStage.mapId);
-                this.objectiveLabel.string = `${presentation.eyebrow}  ·  ${this.openingObjectiveState?.text ?? presentation.instruction}`;
+                this.objectiveLabel.string = firstClearPending
+                    ? `初入指引 1/2  ·  ${this.openingObjectiveState?.text ?? presentation.instruction}`
+                    : `${presentation.eyebrow}  ·  ${this.openingObjectiveState?.text ?? presentation.instruction}`;
                 this.objectiveLabel.color = new Color(presentation.accent);
+            } else if (firstClearPending && this.waveIndex === 0 && !this.mapEvent.choice()) {
+                // 首境动作完成后继续交代基础战斗目标，首次玩家不会从地图教学突然掉进无提示战斗。
+                this.objectiveLabel.string = '初入指引 2/2  ·  保持移动  ·  御剑自动索敌  ·  清除余敌';
+                this.objectiveLabel.color = new Color(this.currentStage.accent);
             } else if (eliteEncounterState.active) {
                 const presentation = eliteEncounterPresentationFor(this.currentStage.mapId);
                 this.objectiveLabel.string = `${presentation.eyebrow}  ·  ${eliteEncounterState.text}`;
@@ -8223,6 +8297,49 @@ export class GameBootstrap extends Component {
                 node.setPosition(0, 365 + Math.min(progress / 0.2, 1) * 15);
                 const scale = 0.92 + Math.min(progress / 0.18, 1) * 0.08;
                 node.setScale(scale, scale);
+            },
+        });
+    }
+
+    private showWaveClearedAnnouncement(): void {
+        const nextWave = this.currentStage.waves[this.waveIndex + 1];
+        const routeIncoming = this.mapEvent.shouldTriggerAfterWave(this.waveIndex);
+        const banner = this.makeRect(
+            456,
+            76,
+            new Color(3, 18, 22, 205),
+            new Color('#7DD4B6'),
+            15,
+            2,
+        );
+        banner.name = 'WaveClearedAnnouncement';
+        banner.setPosition(0, 350);
+        const title = this.makeLabel(`第 ${this.waveIndex + 1} 境 已 清`, 25, new Color('#D1FAE5'));
+        title.node.setPosition(0, 14);
+        title.node.getComponent(UITransform)?.setContentSize(420, 34);
+        banner.addChild(title.node);
+        const next = this.makeLabel(
+            routeIncoming
+                ? '分岔将现 · 准备选择道途'
+                : nextWave
+                    ? `下一境 · ${nextWave.title}`
+                    : '关底已破 · 战报凝成',
+            15,
+            new Color('#A8D5C7'),
+        );
+        next.node.setPosition(0, -18);
+        next.node.getComponent(UITransform)?.setContentSize(410, 26);
+        banner.addChild(next.node);
+        const opacity = banner.addComponent(UIOpacity);
+        this.screenFxLayer.addChild(banner);
+        this.effects.push({
+            node: banner,
+            elapsed: 0,
+            life: 1.35,
+            update: (progress) => {
+                const fade = progress < 0.14 ? progress / 0.14 : progress > 0.72 ? (1 - progress) / 0.28 : 1;
+                opacity.opacity = Math.round(255 * Math.max(0, fade));
+                banner.setPosition(0, 340 + Math.min(progress / 0.2, 1) * 10);
             },
         });
     }

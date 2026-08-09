@@ -1,5 +1,6 @@
 import {
     resultMilestonePresentation,
+    resultActionGuidanceFor,
     resultRevealFrameFor,
     resultStagePresentationFor,
 } from '../assets/scripts/systems/ResultPresentationRuntime';
@@ -58,6 +59,21 @@ const echo = resultMilestonePresentation(
     (seconds) => `${seconds}s`,
 );
 assert(echo.kind === 'echo' && echo.title.includes('6 次'), '普通重复胜利要显示累计通关次数');
+
+const nextChapter = resultActionGuidanceFor({
+    victory: true,
+    firstClear: true,
+    nextStageName: '竹林伏击',
+});
+assert(nextChapter.title.includes('竹林伏击'), '首次胜利要把下一章变成明确行动目标');
+
+const frostFailure = resultActionGuidanceFor({
+    victory: false,
+    firstClear: false,
+    failureCause: 'frost-tide',
+});
+assert(frostFailure.eyebrow.includes('寒 潮'), '失败战报要显示真实伤害来源');
+assert(frostFailure.detail.includes('安全区'), '失败战报要给出可执行的重试建议');
 
 const start = resultRevealFrameFor(0);
 const middle = resultRevealFrameFor(0.36);
