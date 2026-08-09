@@ -1,6 +1,7 @@
 import type { UpgradeId } from '../assets/scripts/config/GameConfig';
 import { UPGRADES } from '../assets/scripts/config/GameConfig';
 import {
+    describeUpgradeDelta,
     previewUpgradeImpact,
     resolveRelicPulse,
     resolveCultivationBuild,
@@ -23,6 +24,10 @@ if (edgeSeed) {
     assert(preview.after.relic?.name === '太初剑匣', 'edge seed should equip sword relic');
     assert(preview.after.tier === 1, 'seed contribution should awaken tier one');
     assert(preview.milestone?.includes('初醒') ?? false, 'seed should announce awakening');
+    assert(
+        describeUpgradeDelta(preview).includes('未觉醒 → 太初剑匣'),
+        'upgrade confirmation should expose a readable before-and-after delta',
+    );
     const showcase = resolveUpgradeShowcase(edgeSeed, preview.after);
     assert(
         showcase.kind === 'sword-volley' && showcase.amount === 3,
@@ -50,6 +55,10 @@ if (returnSword) {
     assert(preview.before.pathTotal === 2 && preview.after.pathTotal === 3, 'route progress should be explicit');
     assert(preview.after.tier === 2, 'third route point should trigger resonance');
     assert(preview.milestone?.includes('共鸣') ?? false, 'tier change should be surfaced');
+    assert(
+        describeUpgradeDelta(preview).includes('2重 → 3重·共鸣'),
+        'route milestones should name both the numeric change and the new tier',
+    );
     assert(
         resolveUpgradeShowcase(returnSword, preview.after).amount === 5,
         'edge resonance should expand the free volley to five swords',

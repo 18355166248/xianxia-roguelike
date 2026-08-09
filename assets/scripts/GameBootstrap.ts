@@ -164,8 +164,13 @@ import {
     UPGRADE_PATH_LABELS,
     UPGRADE_PATH_ORDER,
 } from './systems/UpgradeChoiceRuntime';
-import { CombatFlowRuntime } from './systems/CombatFlowRuntime';
 import {
+    CombatFlowRuntime,
+    combatImpactPresentationFor,
+    type CombatImpactTier,
+} from './systems/CombatFlowRuntime';
+import {
+    describeUpgradeDelta,
     previewUpgradeImpact,
     resolveRelicPulse,
     resolveCultivationBuild,
@@ -2231,7 +2236,7 @@ export class GameBootstrap extends Component {
         if (!result.hit) return;
         this.drawMapObstacle(obstacle);
         this.createHitBurst(new Vec3(obstacle.x, obstacle.y), new Color('#B7E4C7'), 42, true);
-        this.createDamageNumber(new Vec3(obstacle.x, obstacle.y + 20), Math.round(damage), false);
+        this.createDamageNumber(new Vec3(obstacle.x, obstacle.y + 20), Math.round(damage), 'normal');
         if (!result.destroyed) return;
 
         // 绕开竹障更安全，主动击破则返还修为与劫力，让地图机关形成明确的风险—收益选择。
@@ -3465,14 +3470,31 @@ export class GameBootstrap extends Component {
             enemy.node.position,
             eliteVeinPosition,
         );
-        this.runStats.recordDamageDealt(Math.min(enemy.hp, resolvedDamage));
+        const hpBeforeHit = enemy.hp;
+        const lethal = resolvedDamage >= hpBeforeHit;
+        const impact = combatImpactPresentationFor(
+            source,
+            enemy.elite || enemy.champion,
+            lethal,
+            resolvedDamage / Math.max(enemy.maxHp, 1),
+        );
+        this.runStats.recordDamageDealt(Math.min(hpBeforeHit, resolvedDamage));
         enemy.hp -= resolvedDamage;
         if (source === 'skill' && this.hasCultivation('thunder-seal')) {
             enemy.thunderMarkTimer = 5;
         }
         enemy.hitTimer = 0.18;
-        this.createHitBurst(enemy.node.position, color, burstRadius, true);
-        this.createDamageNumber(enemy.node.position, Math.round(resolvedDamage), enemy.elite || enemy.champion);
+        this.createHitBurst(enemy.node.position, color, burstRadius * impact.burstScale, true);
+        this.createDamageNumber(enemy.node.position, Math.round(resolvedDamage), impact.tier, impact.numberScale);
+        // 命中反馈在伤害结算点统一分级，确保飞剑、功法和环境联动使用同一套视觉语义。
+        this.cameraShakeTimer = Math.max(this.cameraShakeTimer, impact.shakeDuration);
+        this.cameraShakeStrength = Math.max(this.cameraShakeStrength, impact.shakeStrength);
+        if (impact.flashAlpha > 0) {
+            this.createScreenFlash(
+                new Color(color.r, color.g, color.b, impact.flashAlpha),
+                impact.tier === 'finisher' ? 0.16 : 0.1,
+            );
+        }
         this.skills.addTribulationCharge(enemy.elite ? 0.07 : enemy.champion ? 0.05 : 0.035);
         if (enemy.hp <= 0) {
             if (insideEliteVein && this.waveIndex === 1) {
@@ -4639,37 +4661,71 @@ export class GameBootstrap extends Component {
     private showBossPhaseTransition(enemy: EnemyState): void {
         const presentation = bossPhasePresentationFor(this.currentStage.mapId, enemy.bossPhase);
         const holdForQa = this.hasLocalQaFlag('qaBossPhaseReveal=1');
-        const node = this.makeRect(
+        const reveal = new Node('BossPhaseTransition');
+        reveal.layer = Layers.Enum.UI_2D;
+        const veil = this.makeRect(
+            this.visibleDesignWidth(),
+            this.designHeight,
+            new Color(2, 7, 10, 118),
+        );
+        const veilOpacity = veil.addComponent(UIOpacity);
+        reveal.addChild(veil);
+
+        const aura = new Node('BossPhaseAura');
+        aura.layer = Layers.Enum.UI_2D;
+        aura.setPosition(enemy.node.position);
+        const auraOpacity = aura.addComponent(UIOpacity);
+        const auraGraphics = aura.addComponent(Graphics);
+        auraGraphics.strokeColor = new Color(presentation.tone);
+        auraGraphics.lineWidth = 7;
+        auraGraphics.circle(0, 0, 78);
+        auraGraphics.stroke();
+        auraGraphics.lineWidth = 2;
+        auraGraphics.circle(0, 0, 108);
+        auraGraphics.stroke();
+        for (let index = 0; index < 8; index += 1) {
+            const angle = index * Math.PI / 4;
+            auraGraphics.moveTo(Math.cos(angle) * 64, Math.sin(angle) * 64);
+            auraGraphics.lineTo(Math.cos(angle) * 134, Math.sin(angle) * 134);
+            auraGraphics.stroke();
+        }
+        reveal.addChild(aura);
+
+        const card = this.makeRect(
             540,
-            112,
+            124,
             new Color(12, 7, 10, 232),
             new Color(presentation.tone),
             18,
             3,
         );
-        node.name = 'BossPhaseTransition';
-        node.setPosition(0, 205);
-        const opacity = node.addComponent(UIOpacity);
+        card.name = 'BossPhaseCard';
+        card.setPosition(0, 205);
+        const opacity = card.addComponent(UIOpacity);
         const title = this.makeLabel(presentation.transitionTitle, 28, new Color('#FFF1C8'));
         title.node.setPosition(0, 18);
         title.node.getComponent(UITransform)?.setContentSize(500, 42);
-        node.addChild(title.node);
+        card.addChild(title.node);
         const detail = this.makeLabel(presentation.transitionDetail, 17, new Color(presentation.tone));
         detail.node.setPosition(0, -24);
         detail.node.getComponent(UITransform)?.setContentSize(480, 30);
-        node.addChild(detail.node);
-        this.screenFxLayer.addChild(node);
-        // 转相揭示与首领自身的一秒锁招同拍，不暂停玩家，也不会延长实际无敌或改变伤害结算。
+        card.addChild(detail.node);
+        reveal.addChild(card);
+        this.screenFxLayer.addChild(reveal);
+        // 转相用暗场、首领冲击环和信息卡收束为完整节拍；首领锁招仍是既有 1.05 秒，不新增无敌帧。
         this.effects.push({
-            node,
+            node: reveal,
             elapsed: 0,
             // 本地视觉回归可固定峰值帧；正式流程仍严格维持 1.05 秒的非阻塞转场。
             life: holdForQa ? 30 : 1.05,
             update: (progress) => {
                 if (holdForQa) {
                     opacity.opacity = 255;
-                    node.setPosition(0, 205);
-                    node.setScale(1, 1);
+                    veilOpacity.opacity = 210;
+                    auraOpacity.opacity = 255;
+                    aura.setScale(1.2, 1.2);
+                    card.setPosition(0, 205);
+                    card.setScale(1, 1);
                     return;
                 }
                 const fade = progress < 0.14
@@ -4678,9 +4734,15 @@ export class GameBootstrap extends Component {
                         ? (1 - progress) / 0.24
                         : 1;
                 opacity.opacity = Math.round(255 * Math.max(0, fade));
-                node.setPosition(0, 188 + Math.min(progress / 0.22, 1) * 17);
+                veilOpacity.opacity = Math.round(190 * Math.max(0, fade));
+                const auraFade = progress > 0.7 ? (1 - progress) / 0.3 : 1;
+                auraOpacity.opacity = Math.round(255 * Math.max(0, auraFade));
+                const auraScale = 0.5 + Math.min(progress / 0.3, 1) * 0.9;
+                aura.setScale(auraScale, auraScale);
+                aura.angle = progress * 24;
+                card.setPosition(0, 188 + Math.min(progress / 0.22, 1) * 17);
                 const scale = 0.92 + Math.min(progress / 0.2, 1) * 0.08;
-                node.setScale(scale, scale);
+                card.setScale(scale, scale);
             },
         });
     }
@@ -4994,7 +5056,6 @@ export class GameBootstrap extends Component {
                 if (projectile.hit.has(enemy.node)) continue;
                 if (Vec3.distance(projectile.node.position, enemy.node.position) > projectile.radius + enemy.radius) continue;
                 projectile.hit.add(enemy.node);
-                const importantTarget = enemy.elite || enemy.champion;
                 const marked = (enemy.swordMarkStacks ?? 0) > 0;
                 const swordMarkMultiplier = marked && this.hasCultivation('sword-mark') ? 1.25 : 1;
                 const hadThunderMark = (enemy.thunderMarkTimer ?? 0) > 0;
@@ -5015,8 +5076,6 @@ export class GameBootstrap extends Component {
                     }
                 }
                 if (enemy.dead) this.onCultivationSwordKill(enemy);
-                this.cameraShakeTimer = Math.max(this.cameraShakeTimer, importantTarget ? 0.12 : 0.07);
-                this.cameraShakeStrength = Math.max(this.cameraShakeStrength, importantTarget ? 5 : 2.5);
                 const returnTarget = projectile.canReturn
                     ? this.findNearestEnemyFrom(projectile.node.position, projectile.hit)
                     : undefined;
@@ -5538,7 +5597,7 @@ export class GameBootstrap extends Component {
                 resolveUpgradeShowcase(choice, impact.after).tier,
             );
         }
-        const panel = this.makeThemedCard(574, 228, 'reward', pathColor);
+        const panel = this.makeThemedCard(574, 248, 'reward', pathColor);
         panel.name = 'UpgradeCommit';
         panel.setPosition(0, 160);
         const opacity = panel.addComponent(UIOpacity);
@@ -5576,13 +5635,17 @@ export class GameBootstrap extends Component {
         benefit.node.setPosition(48, 4);
         benefit.node.getComponent(UITransform)?.setContentSize(380, 38);
         panel.addChild(benefit.node);
-        const progression = this.makeLabel(impact.detail, 18, new Color(pathColor.r, pathColor.g, pathColor.b, 245));
+        const progression = this.makeLabel(
+            `前后对比  ·  ${describeUpgradeDelta(impact)}`,
+            18,
+            new Color(pathColor.r, pathColor.g, pathColor.b, 245),
+        );
         progression.horizontalAlign = Label.HorizontalAlign.LEFT;
         progression.node.setPosition(48, -34);
         progression.node.getComponent(UITransform)?.setContentSize(380, 34);
         panel.addChild(progression.node);
         const milestone = this.makeLabel(
-            impact.milestone ? `法宝进化  ·  ${impact.milestone}` : `战斗变化  ·  ${choice.combatRead ?? '强化已生效'}`,
+            `战斗验证  ·  ${choice.combatRead ?? impact.milestone ?? '强化已生效'}`,
             17,
             new Color(impact.milestone ? '#F4D78B' : '#9CB8AE'),
         );
@@ -7519,9 +7582,10 @@ export class GameBootstrap extends Component {
             graphics.roundRect(-180, -26, 360, 52, UI_THEME.radius.compact);
             graphics.stroke();
         }
+        const shortDelta = describeUpgradeDelta(impact);
         this.recentUpgradeText = impact.milestone
-            ? `${impact.milestone} · ${impact.headline}`
-            : `${impact.headline} · 已生效`;
+            ? `${impact.milestone} · ${shortDelta}`
+            : `${shortDelta} · 已生效`;
         const momentum = this.cultivationMomentum;
         this.recentUpgradeLabel.string = momentum && this.cultivationMomentumTimer > 0
             ? `${this.recentUpgradeText} · ${momentum.label} ${this.cultivationMomentumTimer.toFixed(1)}秒`
@@ -8041,8 +8105,19 @@ export class GameBootstrap extends Component {
         });
     }
 
-    private createDamageNumber(position: Readonly<Vec3>, damage: number, elite: boolean): void {
-        const label = this.makeLabel(`${damage}`, elite ? 30 : 24, new Color(elite ? '#FDE68A' : '#E0F2FE'));
+    private createDamageNumber(
+        position: Readonly<Vec3>,
+        damage: number,
+        tier: CombatImpactTier,
+        scale = 1,
+    ): void {
+        const finisher = tier === 'finisher';
+        const heavy = tier === 'heavy';
+        const label = this.makeLabel(
+            finisher ? `斩 ${damage}` : `${damage}`,
+            finisher ? 34 : heavy ? 29 : 24,
+            new Color(finisher ? '#FFF0A8' : heavy ? '#BDF4FF' : '#E0F2FE'),
+        );
         const node = label.node;
         node.name = 'DamageNumber';
         node.setPosition(position.x + this.random(-9, 9), position.y + 26);
@@ -8053,11 +8128,14 @@ export class GameBootstrap extends Component {
         this.effects.push({
             node,
             elapsed: 0,
-            life: 0.55,
+            life: finisher ? 0.72 : heavy ? 0.62 : 0.55,
             update: (progress) => {
-                node.setPosition(startX + Math.sin(progress * Math.PI) * 7, startY + progress * 54);
+                node.setPosition(
+                    startX + Math.sin(progress * Math.PI) * (finisher ? 4 : 7),
+                    startY + progress * (finisher ? 68 : 54),
+                );
                 const pop = progress < 0.2 ? 0.7 + progress * 2 : 1.1 - (progress - 0.2) * 0.12;
-                node.setScale(pop, pop);
+                node.setScale(pop * scale, pop * scale);
                 opacity.opacity = Math.round(255 * (1 - progress));
             },
         });

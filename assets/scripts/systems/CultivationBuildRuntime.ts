@@ -173,6 +173,24 @@ export function previewUpgradeImpact(
     return { before, after, headline, detail, milestone };
 }
 
+/** 选择确认页只展示一条稳定的前后对比，让玩家能立刻验证本次进化到底改变了什么。 */
+export function describeUpgradeDelta(impact: UpgradeImpactPreview): string {
+    const { before, after } = impact;
+    if (!before.relic && after.relic) {
+        return `未觉醒 → ${after.relic.name}·${after.tierName}`;
+    }
+    if (before.path === after.path && before.pathTotal !== after.pathTotal && after.path) {
+        const tierChanged = before.tier !== after.tier;
+        return tierChanged
+            ? `${UPGRADE_PATH_LABELS[after.path]} ${before.pathTotal}重 → ${after.pathTotal}重·${after.tierName}`
+            : `${UPGRADE_PATH_LABELS[after.path]} ${before.pathTotal}重 → ${after.pathTotal}重`;
+    }
+    if (after.relic) {
+        return `${before.evolutionName} → ${after.relic.name}·${after.tierName}`;
+    }
+    return impact.detail.split(' · ')[0] || impact.headline;
+}
+
 /** 共鸣后的本命法宝会周期性介入普攻，让路线成长改变战斗节奏而不增加新按钮。 */
 export function resolveRelicPulse(build: CultivationBuildSnapshot): RelicPulseSpec | undefined {
     if (!build.path || build.tier < 1) return undefined;

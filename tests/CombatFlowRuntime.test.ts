@@ -1,4 +1,7 @@
-import { CombatFlowRuntime } from '../assets/scripts/systems/CombatFlowRuntime';
+import {
+    CombatFlowRuntime,
+    combatImpactPresentationFor,
+} from '../assets/scripts/systems/CombatFlowRuntime';
 
 function assert(condition: boolean, message: string): void {
     if (!condition) throw new Error(message);
@@ -20,5 +23,16 @@ assert(flow.snapshot().bestCombo === 20, 'expiry must not erase the run record')
 for (let index = 0; index < 5; index += 1) flow.recordKill();
 assert(flow.breakFlow(), 'taking a hit should report a broken active flow');
 assert(flow.snapshot().peakTier === 3, 'breaking flow must preserve the peak tier');
+
+const normalImpact = combatImpactPresentationFor('sword', false, false, 0.08);
+const skillImpact = combatImpactPresentationFor('skill', false, false, 0.12);
+const finisherImpact = combatImpactPresentationFor('sword', true, true, 0.4);
+assert(normalImpact.tier === 'normal', 'regular sword hits should keep the quiet feedback tier');
+assert(skillImpact.tier === 'heavy', 'skill hits should visibly outrank regular sword hits');
+assert(
+    finisherImpact.tier === 'finisher'
+    && finisherImpact.shakeStrength > skillImpact.shakeStrength,
+    'important kills should receive the strongest feedback tier',
+);
 
 console.log('CombatFlowRuntime tests passed');

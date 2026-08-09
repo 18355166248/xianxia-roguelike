@@ -15,6 +15,57 @@ export interface CombatFlowKillResult {
     tierAdvanced: boolean;
 }
 
+export type CombatImpactTier = 'normal' | 'heavy' | 'finisher';
+
+export interface CombatImpactPresentation {
+    tier: CombatImpactTier;
+    burstScale: number;
+    numberScale: number;
+    shakeDuration: number;
+    shakeStrength: number;
+    flashAlpha: number;
+}
+
+/**
+ * 把命中来源、目标重要度和斩杀结果收束成统一反馈档位，避免各攻击分支自行堆震动与闪白。
+ * 斩杀始终优先，其次是功法、环境联动和高价值目标；普通飞剑保留轻反馈以控制屏幕噪声。
+ */
+export function combatImpactPresentationFor(
+    source: 'skill' | 'sword' | 'environment',
+    importantTarget: boolean,
+    lethal: boolean,
+    damageRatio: number,
+): CombatImpactPresentation {
+    if (lethal) {
+        return {
+            tier: 'finisher',
+            burstScale: importantTarget ? 1.55 : 1.34,
+            numberScale: importantTarget ? 1.28 : 1.16,
+            shakeDuration: importantTarget ? 0.24 : 0.14,
+            shakeStrength: importantTarget ? 10 : 5.5,
+            flashAlpha: importantTarget ? 40 : 22,
+        };
+    }
+    if (source !== 'sword' || importantTarget || damageRatio >= 0.22) {
+        return {
+            tier: 'heavy',
+            burstScale: importantTarget ? 1.24 : 1.12,
+            numberScale: importantTarget ? 1.12 : 1.04,
+            shakeDuration: importantTarget ? 0.13 : 0.09,
+            shakeStrength: importantTarget ? 5.5 : 3.5,
+            flashAlpha: importantTarget ? 18 : 10,
+        };
+    }
+    return {
+        tier: 'normal',
+        burstScale: 1,
+        numberScale: 1,
+        shakeDuration: 0.06,
+        shakeStrength: 2.2,
+        flashAlpha: 0,
+    };
+}
+
 const COMBO_WINDOW = 2.6;
 
 function tierFor(combo: number): CombatFlowTier {
