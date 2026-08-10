@@ -37,6 +37,11 @@ assert(
     early.routeHudText(1, 4) === '剑碑阵列  ·  第 2/4 境  ·  代价：损血',
     'resolved route HUD should combine the selected geometry, run progress, and route cost',
 );
+assert(
+    early.routeHudText(3, 4, true) === '剑碑阵列  ·  第 4/4 境  ·  关底 敌血 +12%',
+    'selected route should expose its persistent boss consequence at the final wave',
+);
+assert(early.modifiersForWave(false, true).hp === 1.12, 'qingshi route should still affect the boss trial');
 assert(!early.shouldTriggerAfterWave(0), 'resolved event should not reopen');
 const preBranchSegment = resolveRouteHudSegmentState(0, 0, 0, false);
 assert(!preBranchSegment.completed, 'current wave segment should remain pending');
@@ -71,6 +76,12 @@ assert(
     'route HUD should expose the selected branch and its next-wave pressure without verbose title copy',
 );
 assert(late.modifiersForWave(false).hp === 1, 'modifiers should only apply to the marked wave');
+const bambooBossModifiers = late.modifiersForWave(false, true);
+assert(
+    bambooBossModifiers.hp === 0.92 && bambooBossModifiers.speed === 1.1,
+    'bamboo route should turn into a distinct boss stat trial',
+);
+assert(late.bossTrialText().includes('敌血 -8%'), 'boss trial copy should remain readable before entry');
 
 const bamboo = new MapEventRuntime();
 bamboo.begin('bamboo-ambush', () => 0);

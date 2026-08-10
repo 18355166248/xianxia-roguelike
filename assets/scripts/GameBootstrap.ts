@@ -176,6 +176,7 @@ import {
     resolveCultivationBuild,
     resolveUpgradeMomentum,
     resolveUpgradeShowcase,
+    resolveBossReadiness,
     type CultivationBuildSnapshot,
     type UpgradeImpactPreview,
     type UpgradeMomentumSpec,
@@ -1100,7 +1101,7 @@ export class GameBootstrap extends Component {
         );
         archivePill.setPosition(0, 438);
         const archiveLabel = this.makeLabel(
-            `道藏 · 真形 ${archive.masteredPaths.length}/3 · 最高连斩 ${archive.bestCombo} · 渡劫 ${archive.totalClears}`,
+            `道藏 · 道途 ${archive.discoveredRoutes}/6 · 真形 ${archive.masteredPaths.length}/3 · 渡劫 ${archive.totalClears}`,
             16,
             new Color('#EBD9A7'),
         );
@@ -1362,7 +1363,15 @@ export class GameBootstrap extends Component {
             const reward = STAGE_FIRST_CLEAR_REWARDS[stage.mapId];
             const rewardCard = this.makeThemedCard(278, 62, 'summary');
             rewardCard.setPosition(149, -220);
-            const rewardTitle = this.makeLabel('首 通 奖 励', 18, new Color(139, 172, 162, 235));
+            const routeChoices = stageRecord.routeChoices ?? [];
+            const alternateRoute = mapEventScenarioFor(stage.mapId).choices.find(
+                (choice) => !routeChoices.includes(choice.id),
+            );
+            const rewardTitle = this.makeLabel(
+                stageRecord.clears > 0 ? '道 途 印 证' : '首 通 奖 励',
+                18,
+                new Color(139, 172, 162, 235),
+            );
             rewardTitle.node.setPosition(0, 17);
             rewardCard.addChild(rewardTitle.node);
             const rewardIconBacking = this.makeRect(
@@ -1377,7 +1386,9 @@ export class GameBootstrap extends Component {
             rewardIconBacking.addChild(this.createResourceSprite(reward.iconResourcePath, 23));
             rewardCard.addChild(rewardIconBacking);
             const rewardLabel = this.makeLabel(
-                formatFirstClearReward(stage.mapId, stageRecord.clears > 0),
+                stageRecord.clears > 0
+                    ? `${routeChoices.length}/2  ·  ${alternateRoute ? `待证 ${alternateRoute.geometryPreview ?? alternateRoute.title}` : '双途已证'}`
+                    : formatFirstClearReward(stage.mapId, false),
                 18,
                 new Color(
                     stageRecord.clears > 0 ? accent.r : 157,
@@ -1840,6 +1851,19 @@ export class GameBootstrap extends Component {
             this.currentStage.mapId,
             this.hasLocalQaFlag('qaRouteHud=1') ? () => 0 : Math.random,
         );
+        if (this.shouldStartBossPreview() && this.hasLocalQaFlag('qaBossReadiness=1')) {
+            // 关底构筑验收直接建立一条已确认路线与真形道基，不经过事件弹层，避免截图时序被前置流程干扰。
+            this.mapEvent.openForQa();
+            this.mapEvent.resolve(
+                mapEventScenarioFor(this.currentStage.mapId).choices[
+                    this.hasLocalQaFlag('qaStableRoute=1') ? 1 : 0
+                ].id,
+            );
+            ['seed-edge', 'returning-sword', 'sword-mark', 'split-sword'].forEach((id) => {
+                this.skills.upgrade(id as UpgradeId);
+            });
+            this.swordCount = 5;
+        }
         this.openingObjective.begin(this.currentStage.mapId);
         if (this.shouldStartElitePreview()) {
             // 第二波视觉验收只跳过首境，不复用或伪造开场目标；正式域名仍从第一波开始。
@@ -2000,6 +2024,13 @@ export class GameBootstrap extends Component {
                         iconResourcePath: qaEventChoice.iconResourcePath,
                     },
             });
+            if (qaVictory && this.hasLocalQaFlag('qaReplayGoal=1')) {
+                // 先写入同一路线的一次旧胜利，使本次 QA 战报稳定进入“改走另一途”的重复通关分支。
+                this.stageProgress.recordVictory(this.currentStage.mapId, 172, {
+                    bestCombo: 14,
+                    routeChoiceId: qaEventChoice.id,
+                });
+            }
             this.finish(qaVictory);
             if (this.hasLocalQaFlag('qaRouteReplay=1')) {
                 this.showResultRouteReplay(this.runStats.snapshot());
@@ -3958,9 +3989,10 @@ export class GameBootstrap extends Component {
         const champion = wave.danger === 'elite';
         // 本地首领验收压缩血量以覆盖施法与转阶段帧；正式域名始终使用关卡原始数值。
         const qaBoss = wave.behavior === 'boss' && this.shouldStartBossPreview();
-        // 奇遇的风险与收益只作用于紧接着的一波，避免一次选择永久改写后续所有敌人数值。
+        // 紧邻波次修正只结算一次；关底因果单独读取，确保路线选择能延续到本局最终检验。
         const eventModifiers = this.mapEvent.modifiersForWave(
             this.mapEventModifierWaveIndex === this.waveIndex,
+            wave.danger === 'boss',
         );
         const runtimeHp = qaBoss
             ? this.hasLocalQaFlag('qaBossFinish=1')
@@ -4099,7 +4131,8 @@ export class GameBootstrap extends Component {
             strafeSign: Math.random() > 0.5 ? 1 : -1,
             abilityTimer: wave.abilityInterval ?? Number.POSITIVE_INFINITY,
             abilityInterval: wave.abilityInterval ?? Number.POSITIVE_INFINITY,
-            abilityDamage: wave.abilityDamage ?? 0,
+            // 敌伤路线同时作用于接触和首领招式，不能让面板写着 +18% 而落印伤害仍保持原值。
+            abilityDamage: (wave.abilityDamage ?? 0) * eventModifiers.damage,
             hpBar,
             baseScale: unit.baseScale,
             baseVisualY: 0,
@@ -5910,7 +5943,13 @@ export class GameBootstrap extends Component {
         outcome.node.setPosition(-38, -38);
         outcome.node.getComponent(UITransform)?.setContentSize(250, 30);
         node.addChild(outcome.node);
-        const risk = this.makeLabel(`下境 · ${choice.riskLabel}`, 18, new Color(202, 224, 216, 225));
+        const bossConsequence = describeNextWaveModifiers(choice.effect.bossWave);
+        const risk = this.makeLabel(
+            `${choice.riskLabel}\n关底 · ${bossConsequence}`,
+            15,
+            new Color(202, 224, 216, 225),
+        );
+        risk.lineHeight = 19;
         risk.horizontalAlign = Label.HorizontalAlign.RIGHT;
         risk.node.setPosition(172, -31);
         risk.node.getComponent(UITransform)?.setContentSize(160, 44);
@@ -6125,7 +6164,11 @@ export class GameBootstrap extends Component {
         outcome.addChild(outcomeLabel.node);
         panel.addChild(outcome);
 
-        const prompt = this.makeLabel('战场已重构', 14, new Color(145, 177, 168, 220));
+        const prompt = this.makeLabel(
+            `战场已重构 · 关底 ${describeNextWaveModifiers(choice.effect.bossWave)}`,
+            14,
+            new Color(145, 177, 168, 220),
+        );
         prompt.node.setPosition(0, -112);
         prompt.node.getComponent(UITransform)?.setContentSize(220, 24);
         panel.addChild(prompt.node);
@@ -6294,6 +6337,7 @@ export class GameBootstrap extends Component {
                     buildName: build.relic ? `${build.relic.name} · ${build.evolutionName}` : undefined,
                     path: build.path,
                     tier: build.tier,
+                    routeChoiceId: this.runStats.snapshot().mapEvent?.choiceId,
                 },
             );
             this.persistStageProgress();
@@ -6389,10 +6433,12 @@ export class GameBootstrap extends Component {
         panel.addChild(rewardPanel);
 
         const nextStageIndex = this.nextUnclearedStageIndex();
+        const alternateRoute = this.nextUnprovenRoute();
         const guidance = resultActionGuidanceFor({
             victory,
             firstClear: Boolean(this.lastStageVictory?.firstClear),
             nextStageName: nextStageIndex === undefined ? undefined : STAGES[nextStageIndex]?.stageName,
+            alternateRouteName: alternateRoute?.geometryPreview ?? alternateRoute?.title,
             failureCause: stats.lastDamageCause,
         });
         const guidanceCard = this.makeRect(
@@ -6422,7 +6468,13 @@ export class GameBootstrap extends Component {
         actionBar.setPosition(0, -405);
         const continueToNextStage = victory && this.lastStageVictory?.firstClear && nextStageIndex !== undefined;
         const button = this.makeActionButton(
-            continueToNextStage ? '前 往 下 一 章' : victory ? '再 战 本 章' : '重 整 道 心',
+            continueToNextStage
+                ? '前 往 下 一 章'
+                : victory && alternateRoute
+                    ? '换 路 再 战'
+                    : victory
+                        ? '再 战 本 章'
+                        : '重 整 道 心',
             'primary',
             accent,
             () => {
@@ -6458,6 +6510,13 @@ export class GameBootstrap extends Component {
         if (afterCurrent >= 0) return afterCurrent;
         const anyUncleared = STAGES.findIndex((stage) => this.stageProgress.recordFor(stage.mapId).clears <= 0);
         return anyUncleared >= 0 && anyUncleared !== this.selectedStageIndex ? anyUncleared : undefined;
+    }
+
+    private nextUnprovenRoute(): MapEventChoice | undefined {
+        const proven = this.stageProgress.recordFor(this.currentStage.mapId).routeChoices ?? [];
+        return mapEventScenarioFor(this.currentStage.mapId).choices.find(
+            (choice) => !proven.includes(choice.id),
+        );
     }
 
     private addResultStageWatermark(panel: Node, victory: boolean): void {
@@ -7075,6 +7134,7 @@ export class GameBootstrap extends Component {
             this.routeChoiceLabel.string = this.mapEvent.routeHudText(
                 this.waveIndex,
                 this.currentStage.waves.length,
+                wave?.danger === 'boss',
             );
             const choice = this.mapEvent.choice();
             this.routeChoiceLabel.color = choice
@@ -8306,8 +8366,8 @@ export class GameBootstrap extends Component {
         const dangerous = eliteTrial || wave.danger === 'elite' || wave.danger === 'boss';
         const bossWave = wave.danger === 'boss';
         const banner = this.makeRect(
-            bossWave ? 584 : dangerous ? 548 : 500,
-            bossWave ? 136 : dangerous ? 122 : 94,
+            bossWave ? 620 : dangerous ? 548 : 500,
+            bossWave ? 202 : dangerous ? 122 : 94,
             new Color(3, 18, 22, dangerous ? 232 : 185),
             new Color(dangerous ? '#E9B55E' : '#7DD4B6'),
             16,
@@ -8323,7 +8383,7 @@ export class GameBootstrap extends Component {
                 16,
                 new Color('#F5C873'),
             );
-            warning.node.setPosition(0, bossWave ? 50 : 44);
+            warning.node.setPosition(0, bossWave ? 78 : 44);
             warning.node.getComponent(UITransform)?.setContentSize(380, 26);
             banner.addChild(warning.node);
         }
@@ -8332,7 +8392,7 @@ export class GameBootstrap extends Component {
             dangerous ? 32 : 29,
             new Color(dangerous ? '#FDE68A' : '#D1FAE5'),
         );
-        title.node.setPosition(0, dangerous ? 8 : 17);
+        title.node.setPosition(0, bossWave ? 40 : dangerous ? 8 : 17);
         banner.addChild(title.node);
         const qingshiRoute = this.currentStage.mapId === 'qingshi-road'
             ? this.mapEvent.choice()?.effect.qingshiRoute
@@ -8356,9 +8416,25 @@ export class GameBootstrap extends Component {
             bossWave ? 16 : 18,
             new Color(168, 213, 199, 235),
         );
-        objective.node.setPosition(0, bossWave ? -43 : dangerous ? -37 : -25);
+        objective.node.setPosition(0, bossWave ? 4 : dangerous ? -37 : -25);
         objective.node.getComponent(UITransform)?.setContentSize(bossWave ? 520 : 430, 30);
         banner.addChild(objective.node);
+        if (bossWave) {
+            const build = resolveCultivationBuild((id) => this.skills.getLevel(id));
+            const readiness = resolveBossReadiness(build, this.hp / Math.max(this.maxHp, 1));
+            const readinessLabel = this.makeLabel(
+                `构筑检验 · ${readiness.title} · ${readiness.detail}`,
+                15,
+                new Color(build.tier >= 3 ? '#F5D98D' : build.tier >= 2 ? '#A7F3D0' : '#C7D8D1'),
+            );
+            readinessLabel.node.setPosition(0, -35);
+            readinessLabel.node.getComponent(UITransform)?.setContentSize(580, 28);
+            banner.addChild(readinessLabel.node);
+            const routeTrial = this.makeLabel(this.mapEvent.bossTrialText(), 14, new Color('#B6D7CB'));
+            routeTrial.node.setPosition(0, -69);
+            routeTrial.node.getComponent(UITransform)?.setContentSize(560, 26);
+            banner.addChild(routeTrial.node);
+        }
         const node = banner;
         node.name = 'WaveAnnouncement';
         // 路线状态条占据 HUD 下沿，波次横幅下移到战场留白，避免两层动态信息重叠。

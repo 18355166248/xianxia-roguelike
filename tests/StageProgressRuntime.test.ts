@@ -54,11 +54,18 @@ progress.recordVictory('qingshi-road', 120, {
     buildName: '太初剑匣 · 万剑归宗',
     path: 'edge',
     tier: 3,
+    routeChoiceId: 'read-the-scar',
 });
 const archive = progress.cultivationArchive();
 assertEqual(archive.bestCombo, 24, 'archive should preserve the best combo');
 assertEqual(archive.masteredPaths.includes('edge'), true, 'true-form path should enter the archive');
 assertEqual(archive.lastBuild, '太初剑匣 · 万剑归宗', 'archive should preserve the latest build identity');
+assertEqual(archive.discoveredRoutes, 1, 'archive should preserve the number of proven route choices');
+assertEqual(
+    progress.recordFor('qingshi-road').routeChoices?.includes('read-the-scar'),
+    true,
+    'victory should record the route that actually reached the boss and cleared it',
+);
 
 const serialized = progress.serialize();
 const restored = new StageProgressRuntime();

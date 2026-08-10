@@ -5,6 +5,7 @@ import {
     previewUpgradeImpact,
     resolveRelicPulse,
     resolveCultivationBuild,
+    resolveBossReadiness,
     resolveUpgradeMomentum,
     resolveUpgradeShowcase,
 } from '../assets/scripts/systems/CultivationBuildRuntime';
@@ -16,6 +17,10 @@ function assert(condition: boolean, message: string): void {
 const levels: Partial<Record<UpgradeId, number>> = {};
 const read = (id: UpgradeId): number => levels[id] ?? 0;
 assert(resolveCultivationBuild(read).tier === 0, 'empty build should have no relic');
+assert(
+    resolveBossReadiness(resolveCultivationBuild(read), 0.4).detail.includes('先避首轮'),
+    'boss readiness should turn low health into an actionable opening instruction',
+);
 
 const edgeSeed = UPGRADES.find((choice) => choice.id === 'seed-edge');
 assert(Boolean(edgeSeed), 'edge seed config should exist');
@@ -71,6 +76,10 @@ levels['split-sword'] = 1;
 const completed = resolveCultivationBuild(read);
 assert(completed.tier === 3, 'five route points should reveal true form');
 assert(completed.evolutionName === '万剑归宗', 'edge true form should have a readable identity');
+assert(
+    resolveBossReadiness(completed, 0.8).grade === 'true-form',
+    'a completed route should enter the boss as a named true-form build',
+);
 const pulse = resolveRelicPulse(completed);
 assert(pulse?.kind === 'sword-echo' && pulse.cadence === 3, 'true-form sword relic should pulse every third volley');
 if (returnSword) {

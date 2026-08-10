@@ -67,6 +67,14 @@ const nextChapter = resultActionGuidanceFor({
 });
 assert(nextChapter.title.includes('竹林伏击'), '首次胜利要把下一章变成明确行动目标');
 
+const alternateRoute = resultActionGuidanceFor({
+    victory: true,
+    firstClear: false,
+    alternateRouteName: '灵泉侧路',
+});
+assert(alternateRoute.title.includes('灵泉侧路'), 'repeat victory should point to an unproven route before generic score chasing');
+assert(alternateRoute.detail.includes('关底因果'), 'alternate route guidance should explain why another run differs');
+
 const frostFailure = resultActionGuidanceFor({
     victory: false,
     firstClear: false,

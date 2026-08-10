@@ -72,6 +72,12 @@ export interface UpgradeMomentumSpec {
     shieldPerSecond: number;
 }
 
+export interface BossReadinessPresentation {
+    grade: 'forming' | 'awakened' | 'resonant' | 'true-form';
+    title: string;
+    detail: string;
+}
+
 export const CULTIVATION_RELICS: Readonly<Record<UpgradePath, CultivationRelicDefinition>> = {
     edge: {
         path: 'edge',
@@ -189,6 +195,43 @@ export function describeUpgradeDelta(impact: UpgradeImpactPreview): string {
         return `${before.evolutionName} → ${after.relic.name}·${after.tierName}`;
     }
     return impact.detail.split(' · ')[0] || impact.headline;
+}
+
+/**
+ * 关底前只评价玩家已经形成的构筑，不以隐藏战力给出“强/弱”结论；
+ * 阶段文案同时指出下一步战斗策略，让构筑检验成为可执行提示而非单纯评分。
+ */
+export function resolveBossReadiness(
+    build: CultivationBuildSnapshot,
+    hpRatio: number,
+): BossReadinessPresentation {
+    const survival = hpRatio < 0.45 ? '气血偏低 · 先避首轮' : '气血稳固';
+    if (build.tier >= 3) {
+        return {
+            grade: 'true-form',
+            title: `${build.evolutionName} · 真形应劫`,
+            detail: `构筑完成 · ${survival}`,
+        };
+    }
+    if (build.tier >= 2) {
+        return {
+            grade: 'resonant',
+            title: `${build.evolutionName} · 共鸣应劫`,
+            detail: `以联动破相 · ${survival}`,
+        };
+    }
+    if (build.tier >= 1) {
+        return {
+            grade: 'awakened',
+            title: `${build.relic?.name ?? '本命法宝'} · 初醒`,
+            detail: `尚未共鸣 · 保留踏云 · ${survival}`,
+        };
+    }
+    return {
+        grade: 'forming',
+        title: '道基未成 · 以身法应劫',
+        detail: `依赖基础御剑 · ${survival}`,
+    };
 }
 
 /** 共鸣后的本命法宝会周期性介入普攻，让路线成长改变战斗节奏而不增加新按钮。 */

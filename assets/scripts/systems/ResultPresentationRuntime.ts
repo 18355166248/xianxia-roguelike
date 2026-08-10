@@ -47,6 +47,7 @@ export interface ResultActionGuidanceInput {
     victory: boolean;
     firstClear: boolean;
     nextStageName?: string;
+    alternateRouteName?: string;
     failureCause?: RunDamageCause;
 }
 
@@ -63,6 +64,13 @@ export function resultActionGuidanceFor(
                 eyebrow: '下 一 目 标',
                 title: `前往${input.nextStageName}`,
                 detail: '新道印已生效 · 用本局构筑继续试炼',
+            };
+        }
+        if (input.alternateRouteName) {
+            return {
+                eyebrow: '下 一 目 标',
+                title: `改走${input.alternateRouteName}`,
+                detail: '尚未印证的道途 · 将带来不同关底因果',
             };
         }
         return {

@@ -42,6 +42,7 @@ export interface MapEventEffect {
     attackIntervalMultiplier?: number;
     tribulationCharge?: number;
     nextWave?: Partial<NextWaveModifiers>;
+    bossWave?: Partial<NextWaveModifiers>;
     clearObstacles?: boolean;
     qingshiRoute?: QingshiRouteGeometry;
     bambooRoute?: BambooRouteGeometry;
@@ -127,6 +128,7 @@ const MAP_EVENTS: Readonly<Record<StageMapId, MapEventScenario>> = {
                     hpDelta: -12,
                     swordDamageMultiplier: 1.22,
                     qingshiRoute: 'sword-stele-array',
+                    bossWave: { hp: 1.12 },
                 },
             },
             {
@@ -145,6 +147,7 @@ const MAP_EVENTS: Readonly<Record<StageMapId, MapEventScenario>> = {
                     maxHpDelta: 18,
                     hpDelta: 36,
                     qingshiRoute: 'spring-detour',
+                    bossWave: { speed: 1.08 },
                 },
             },
         ],
@@ -173,6 +176,7 @@ const MAP_EVENTS: Readonly<Record<StageMapId, MapEventScenario>> = {
                     clearObstacles: true,
                     bambooRoute: 'open-lane',
                     nextWave: { damage: 1.12 },
+                    bossWave: { damage: 1.12 },
                 },
             },
             {
@@ -191,6 +195,7 @@ const MAP_EVENTS: Readonly<Record<StageMapId, MapEventScenario>> = {
                     moveSpeedMultiplier: 1.12,
                     bambooRoute: 'shadow-corridor',
                     nextWave: { hp: 0.88, speed: 1.1 },
+                    bossWave: { hp: 0.92, speed: 1.1 },
                 },
             },
         ],
@@ -218,6 +223,7 @@ const MAP_EVENTS: Readonly<Record<StageMapId, MapEventScenario>> = {
                     tribulationCharge: 0.35,
                     frostRoute: 'tide-convergence',
                     nextWave: { hp: 0.82, damage: 1.18 },
+                    bossWave: { hp: 0.9, damage: 1.18 },
                 },
             },
             {
@@ -237,6 +243,7 @@ const MAP_EVENTS: Readonly<Record<StageMapId, MapEventScenario>> = {
                     attackIntervalMultiplier: 0.92,
                     frostRoute: 'sealed-sanctuary',
                     nextWave: { hp: 1.1 },
+                    bossWave: { hp: 1.1, speed: 0.92 },
                 },
             },
         ],
@@ -346,7 +353,7 @@ export function revealRouteTrace(
 
 /**
  * 每局只安排一次地图奇遇，并只在普通波次结束后打开。
- * 触发波次在第一、二波之间随机，避免紧贴首领战弹窗，也让重复闯关拥有不同节奏。
+ * 触发波次在第一、二波之间随机；即时修正结算一波，bossWave 因果则延续到关底检验。
  */
 export class MapEventRuntime {
     private mapId: StageMapId = 'qingshi-road';
@@ -371,12 +378,14 @@ export class MapEventRuntime {
         return this.triggerAfterWave;
     }
 
-    public routeHudText(currentWaveIndex: number, totalWaves = 4): string {
+    public routeHudText(currentWaveIndex: number, totalWaves = 4, bossWave = false): string {
         if (this.resolvedChoice) {
             const safeTotal = Math.max(1, totalWaves);
             const safeWave = Math.min(safeTotal - 1, Math.max(0, currentWaveIndex));
             const route = this.resolvedChoice.geometryPreview ?? this.resolvedChoice.title;
-            const nextWaveRisk = this.resolvedChoice.effect.nextWave
+            const nextWaveRisk = bossWave && this.resolvedChoice.effect.bossWave
+                ? `关底 ${describeNextWaveModifiers(this.resolvedChoice.effect.bossWave)}`
+                : this.resolvedChoice.effect.nextWave
                 ? describeNextWaveModifiers(this.resolvedChoice.effect.nextWave)
                 : this.resolvedChoice.riskLabel;
             return `${route}  ·  第 ${safeWave + 1}/${safeTotal} 境  ·  ${nextWaveRisk}`;
@@ -418,7 +427,19 @@ export class MapEventRuntime {
         return this.resolvedChoice;
     }
 
-    public modifiersForWave(active: boolean): NextWaveModifiers {
-        return active ? { ...this.nextWaveModifiers } : { ...DEFAULT_NEXT_WAVE };
+    public modifiersForWave(active: boolean, bossWave = false): NextWaveModifiers {
+        const bossModifiers = bossWave ? this.resolvedChoice?.effect.bossWave : undefined;
+        const waveModifiers = active ? this.nextWaveModifiers : DEFAULT_NEXT_WAVE;
+        return {
+            // 关底因果与紧邻波次修正可叠加；当前配置不会重叠，但合并规则必须稳定，避免未来事件时序变化后丢效果。
+            hp: waveModifiers.hp * (bossModifiers?.hp ?? 1),
+            speed: waveModifiers.speed * (bossModifiers?.speed ?? 1),
+            damage: waveModifiers.damage * (bossModifiers?.damage ?? 1),
+        };
+    }
+
+    public bossTrialText(): string {
+        const modifiers = this.resolvedChoice?.effect.bossWave;
+        return modifiers ? `路线因果 · ${describeNextWaveModifiers(modifiers)}` : '路线因果 · 首领常态';
     }
 }

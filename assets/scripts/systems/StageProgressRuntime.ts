@@ -6,6 +6,7 @@ export interface StageProgressRecord {
     bestCombo?: number;
     lastBuild?: string;
     masteredPaths?: UpgradePath[];
+    routeChoices?: string[];
 }
 
 export interface StageVictoryProfile {
@@ -13,6 +14,7 @@ export interface StageVictoryProfile {
     buildName?: string;
     path?: UpgradePath;
     tier?: number;
+    routeChoiceId?: string;
 }
 
 export interface CultivationArchiveSummary {
@@ -20,6 +22,7 @@ export interface CultivationArchiveSummary {
     bestCombo: number;
     masteredPaths: UpgradePath[];
     lastBuild?: string;
+    discoveredRoutes: number;
 }
 
 export type StageProgressSnapshot = Partial<Record<StageMapId, StageProgressRecord>>;
@@ -90,12 +93,17 @@ export class StageProgressRuntime {
         if (profile?.path && (profile.tier ?? 0) >= 3 && !masteredPaths.includes(profile.path)) {
             masteredPaths.push(profile.path);
         }
+        const routeChoices = [...(previous.routeChoices ?? [])];
+        if (profile?.routeChoiceId && !routeChoices.includes(profile.routeChoiceId)) {
+            routeChoices.push(profile.routeChoiceId);
+        }
         const record: StageProgressRecord = {
             clears: previous.clears + 1,
             bestSeconds: newBest ? duration : previous.bestSeconds,
             bestCombo: Math.max(previous.bestCombo ?? 0, profile?.bestCombo ?? 0),
             lastBuild: profile?.buildName ?? previous.lastBuild,
             masteredPaths,
+            routeChoices,
         };
         this.state[mapId] = record;
         return { firstClear, newBest, record: { ...record } };
@@ -126,11 +134,18 @@ export class StageProgressRuntime {
             return paths;
         }, []);
         const latest = [...records].reverse().find((record) => record.lastBuild);
+        const discoveredRoutes = records.reduce<string[]>((routes, record) => {
+            for (const route of record.routeChoices ?? []) {
+                if (!routes.includes(route)) routes.push(route);
+            }
+            return routes;
+        }, []).length;
         return {
             totalClears: records.reduce((sum, record) => sum + record.clears, 0),
             bestCombo: records.reduce((best, record) => Math.max(best, record.bestCombo ?? 0), 0),
             masteredPaths,
             lastBuild: latest?.lastBuild,
+            discoveredRoutes,
         };
     }
 
@@ -149,6 +164,7 @@ export class StageProgressRuntime {
                 const bestCombo = (candidate as Record<string, unknown>).bestCombo;
                 const lastBuild = (candidate as Record<string, unknown>).lastBuild;
                 const masteredPaths = (candidate as Record<string, unknown>).masteredPaths;
+                const routeChoices = (candidate as Record<string, unknown>).routeChoices;
                 if (typeof clears !== 'number' || !Number.isFinite(clears) || clears < 0) return;
                 if (
                     bestSeconds !== undefined
@@ -164,12 +180,17 @@ export class StageProgressRuntime {
                     masteredPaths !== undefined
                     && (!Array.isArray(masteredPaths) || masteredPaths.some((path) => !validPaths.includes(path as UpgradePath)))
                 ) return;
+                if (
+                    routeChoices !== undefined
+                    && (!Array.isArray(routeChoices) || routeChoices.some((choice) => typeof choice !== 'string'))
+                ) return;
                 restored[mapId] = {
                     clears: Math.floor(clears),
                     bestSeconds,
                     bestCombo: bestCombo === undefined ? undefined : Math.floor(bestCombo),
                     lastBuild,
                     masteredPaths: Array.isArray(masteredPaths) ? [...masteredPaths] as UpgradePath[] : [],
+                    routeChoices: Array.isArray(routeChoices) ? [...routeChoices] as string[] : [],
                 };
             });
             this.state = restored;
@@ -187,7 +208,13 @@ export class StageProgressRuntime {
         return Object.fromEntries(
             Object.entries(this.state).map(([mapId, record]) => [
                 mapId,
-                record ? { ...record, masteredPaths: [...(record.masteredPaths ?? [])] } : record,
+                record
+                    ? {
+                        ...record,
+                        masteredPaths: [...(record.masteredPaths ?? [])],
+                        routeChoices: [...(record.routeChoices ?? [])],
+                    }
+                    : record,
             ]),
         ) as StageProgressSnapshot;
     }
