@@ -80,6 +80,10 @@ import { loadSpriteFrame } from './runtime/SpriteAssetLoader';
 import { PlatformFeedbackService } from './runtime/PlatformFeedbackService';
 import { GameSettingsRuntime, type GamePreferences } from './systems/GameSettingsRuntime';
 import {
+    BalanceTelemetryRuntime,
+    formatBalanceReport,
+} from './systems/BalanceTelemetryRuntime';
+import {
     getDashCooldown,
     getDashDistance,
     getFormationSpec,
@@ -286,6 +290,7 @@ const CASUAL_SEED_PRESENTATIONS: Readonly<Partial<Record<UpgradeId, CasualUpgrad
 
 const STAGE_PROGRESS_STORAGE_KEY = 'xianxia-roguelike.stage-progress.v1';
 const GAME_SETTINGS_STORAGE_KEY = 'xianxia-roguelike.settings.v1';
+const BALANCE_TELEMETRY_STORAGE_KEY = 'xianxia-roguelike.balance-runs.v1';
 
 interface SpiritVeinVisual {
     node: Node;
@@ -486,6 +491,7 @@ export class GameBootstrap extends Component {
     private readonly mapEvent = new MapEventRuntime();
     private readonly runStats = new RunStatsRuntime();
     private readonly stageProgress = new StageProgressRuntime();
+    private readonly balanceTelemetry = new BalanceTelemetryRuntime();
     private readonly settings = new GameSettingsRuntime(
         globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false,
     );
@@ -538,6 +544,7 @@ export class GameBootstrap extends Component {
         this.bindInput();
         this.restoreSettings();
         this.restoreStageProgress();
+        this.restoreBalanceTelemetry();
         globalThis.document?.addEventListener('visibilitychange', this.onVisibilityChange);
         // 远程大图不再进入首包；启动页等待必要美术收敛，避免玩家先看到空背景再突然补图。
         void this.initializeGame();
@@ -943,6 +950,7 @@ export class GameBootstrap extends Component {
             else if (this.phase === 'paused') {
                 this.clearOverlay();
                 this.phase = 'playing';
+                this.platformFeedback.setAmbiencePaused(false);
             }
             return;
         }
@@ -1137,6 +1145,7 @@ export class GameBootstrap extends Component {
     private showPauseMenu(reason = '试炼已暂停'): void {
         if (this.phase !== 'playing' && this.phase !== 'paused') return;
         this.phase = 'paused';
+        this.platformFeedback.setAmbiencePaused(true);
         this.releaseTribulationHold();
         this.onTouchCancel();
         this.clearOverlay();
@@ -1158,6 +1167,7 @@ export class GameBootstrap extends Component {
         const resume = this.makeActionButton('继 续 试 炼', 'primary', new Color(this.currentStage.accent), () => {
             this.clearOverlay();
             this.phase = 'playing';
+            this.platformFeedback.setAmbiencePaused(false);
         }, 430, 64);
         resume.name = 'PauseResume';
         resume.setPosition(0, 54);
@@ -1263,6 +1273,7 @@ export class GameBootstrap extends Component {
         const journey = this.stageProgress.journeyCompletion();
         if (!journey.allStagesCleared) return;
         this.phase = 'victory';
+        this.platformFeedback.playCue('journey-complete');
         this.clearOverlay();
         this.bringOverlayToFront();
         this.overlay.addChild(this.makeRect(this.visibleDesignWidth(), this.designHeight, new Color(1, 9, 13, 242)));
@@ -1322,6 +1333,55 @@ export class GameBootstrap extends Component {
         this.overlay.addChild(panel);
     }
 
+    private showBalanceReportPanel(): void {
+        this.clearOverlay();
+        this.bringOverlayToFront();
+        this.overlay.addChild(this.makeRect(this.visibleDesignWidth(), this.designHeight, new Color(2, 10, 14, 236)));
+        const panel = this.makeThemedCard(590, 720, 'chapter', new Color('#72DDE8'));
+        panel.name = 'BalanceReportPanel';
+        const eyebrow = this.makeLabel('P3 · 数 值 验 收', 17, new Color('#72DDE8'));
+        eyebrow.node.setPosition(0, 288);
+        panel.addChild(eyebrow.node);
+        const title = this.makeLabel('三境实战样本', 40, new Color('#FFF0BE'));
+        title.node.setPosition(0, 236);
+        panel.addChild(title.node);
+        const rule = this.makeLabel('每章至少 10 局 · 胜率 30–80% · 中位局长 2:30–5:00', 16, new Color('#BBD4CB'));
+        rule.node.setPosition(0, 198);
+        rule.node.getComponent(UITransform)?.setContentSize(540, 28);
+        panel.addChild(rule.node);
+
+        STAGES.forEach((stage, index) => {
+            const report = this.balanceTelemetry.reportFor(stage.mapId);
+            const row = this.makeThemedCard(520, 118, 'summary', new Color(stage.accent));
+            row.setPosition(0, 100 - index * 136);
+            const stageName = this.makeLabel(`${stage.chapter} · ${stage.stageName}`, 20, new Color(stage.accent));
+            stageName.horizontalAlign = Label.HorizontalAlign.LEFT;
+            stageName.node.setPosition(-118, 28);
+            stageName.node.getComponent(UITransform)?.setContentSize(280, 30);
+            row.addChild(stageName.node);
+            const reportText = this.makeLabel(formatBalanceReport(report), 15, new Color('#D9E8E2'));
+            reportText.horizontalAlign = Label.HorizontalAlign.LEFT;
+            reportText.node.setPosition(0, -10);
+            reportText.node.getComponent(UITransform)?.setContentSize(472, 26);
+            row.addChild(reportText.node);
+            const coverage = this.makeLabel(
+                `路线 ${Object.keys(report.routeCounts).length}/2 · 构筑 ${Object.keys(report.buildCounts).length}/3`,
+                14,
+                new Color('#8FAFA5'),
+            );
+            coverage.horizontalAlign = Label.HorizontalAlign.LEFT;
+            coverage.node.setPosition(-94, -38);
+            coverage.node.getComponent(UITransform)?.setContentSize(320, 24);
+            row.addChild(coverage.node);
+            panel.addChild(row);
+        });
+
+        const close = this.makeActionButton('返 回 试 炼 图', 'primary', new Color('#72DDE8'), () => this.showMenu(), 430, 62);
+        close.setPosition(0, -294);
+        panel.addChild(close);
+        this.overlay.addChild(panel);
+    }
+
     private showMenu(): void {
         this.chapterBriefOpen = false;
         this.chapterBriefPreviewChoiceId = undefined;
@@ -1330,6 +1390,8 @@ export class GameBootstrap extends Component {
 
     private renderMenu(): void {
         this.phase = 'menu';
+        this.platformFeedback.setAmbience('menu');
+        this.platformFeedback.setAmbiencePaused(false);
         // 结算页返回路线图时必须清掉上一局 HUD 与战斗节点，否则菜单会叠在旧战场状态上。
         this.clearBattle();
         this.clearOverlay();
@@ -1393,6 +1455,12 @@ export class GameBootstrap extends Component {
         settingsButton.name = 'MenuSettings';
         settingsButton.setPosition(this.visibleDesignWidth() / 2 - 62, 558);
         this.overlay.addChild(settingsButton);
+        if (this.hasLocalQaFlag('qaBalance=1')) {
+            const balanceButton = this.makeCompactButton('平 衡', () => this.showBalanceReportPanel(), 94, 40, true);
+            balanceButton.name = 'BalanceReportAction';
+            balanceButton.setPosition(-this.visibleDesignWidth() / 2 + 62, 558);
+            this.overlay.addChild(balanceButton);
+        }
 
         const heroGlow = new Node('HeroGlow');
         heroGlow.layer = Layers.Enum.UI_2D;
@@ -2094,6 +2162,7 @@ export class GameBootstrap extends Component {
 
     private persistSettings(): void {
         this.platformFeedback.configure(this.settings.snapshot());
+        this.platformFeedback.setAmbiencePaused(this.phase === 'paused');
         if (this.hasLocalQaFlag('qa')) return;
         try {
             globalThis.localStorage?.setItem(GAME_SETTINGS_STORAGE_KEY, this.settings.serialize());
@@ -2111,8 +2180,33 @@ export class GameBootstrap extends Component {
         }
     }
 
+    private restoreBalanceTelemetry(): void {
+        try {
+            this.balanceTelemetry.restore(
+                globalThis.localStorage?.getItem(BALANCE_TELEMETRY_STORAGE_KEY) ?? undefined,
+            );
+        } catch {
+            // 平衡样本只服务调参；存储能力缺失时不能影响正式战斗或章节记录。
+        }
+    }
+
+    private persistBalanceTelemetry(): void {
+        if (this.hasLocalQaFlag('qa')) return;
+        try {
+            globalThis.localStorage?.setItem(
+                BALANCE_TELEMETRY_STORAGE_KEY,
+                this.balanceTelemetry.serialize(),
+            );
+        } catch {
+            // 样本写入失败时保留当前会话统计，不向玩家展示存储错误。
+        }
+    }
+
     private startStage(stageIndex = this.selectedStageIndex): void {
         this.selectedStageIndex = Math.max(0, Math.min(STAGES.length - 1, stageIndex));
+        this.platformFeedback.playCue('ui-confirm', this.selectedStageIndex);
+        this.platformFeedback.setAmbience(this.currentStage.mapId);
+        this.platformFeedback.setAmbiencePaused(false);
         this.applyStageVisual(false);
         const directBattlePreview = this.shouldStartBossPreview() || this.shouldStartElitePreview();
         this.phase = directBattlePreview ? 'playing' : 'stage-entry';
@@ -3841,6 +3935,10 @@ export class GameBootstrap extends Component {
             lethal,
             resolvedDamage / Math.max(enemy.maxHp, 1),
         );
+        this.platformFeedback.playCue(
+            lethal ? 'enemy-defeat' : 'enemy-hit',
+            source === 'sword' ? 0 : source === 'skill' ? 1 : 2,
+        );
         this.runStats.recordDamageDealt(Math.min(hpBeforeHit, resolvedDamage));
         enemy.hp -= resolvedDamage;
         if (source === 'skill' && this.hasCultivation('thunder-seal')) {
@@ -4853,6 +4951,7 @@ export class GameBootstrap extends Component {
         this.cameraShakeStrength = Math.max(this.cameraShakeStrength, 8);
         this.createScreenFlash(new Color(190, 49, 45, 92), 0.18);
         this.createHitBurst(this.player.position, new Color('#FCA5A5'), 30, false);
+        this.platformFeedback.playCue('player-hit');
         if (shieldBefore > 0 && this.cultivationShield <= 0) this.triggerCultivationShieldBurst();
 
         if (source) {
@@ -4881,6 +4980,7 @@ export class GameBootstrap extends Component {
 
     private createBossAbility(enemy: EnemyState): void {
         if (!enemy.node.isValid) return;
+        this.platformFeedback.playCue('boss-cast', enemy.bossPhase);
         const pattern = bossAbilityPatternFor(this.currentStage.mapId, enemy.bossPhase);
         const castIndex = this.bossCastIndex;
         this.bossCastIndex += 1;
@@ -4999,6 +5099,7 @@ export class GameBootstrap extends Component {
         // 二阶段只在血线首次越过 55% 时触发：锁住动作、召援并缩短震地间隔，避免每帧重复转阶段。
         const frozenBoss = this.currentStage.mapId === 'frozen-ruins';
         enemy.bossPhase = 2;
+        this.platformFeedback.playCue('boss-phase', this.selectedStageIndex);
         enemy.enrageTimer = 1.05;
         enemy.abilityInterval = Math.max(2.15, enemy.abilityInterval * 0.7);
         enemy.abilityTimer = this.hasLocalQaFlag('qaBossAbility=1') ? 0.42 : 1.15;
@@ -5353,6 +5454,7 @@ export class GameBootstrap extends Component {
 
     private fireSword(target: EnemyState, spread: number, damageScale = 1): void {
         this.actions.enter('autoAttack', 0.22);
+        this.platformFeedback.playCue('sword-cast', this.swordCount);
         const visualTone = this.cultivationVisualTone();
         const node = new Node('FlyingSword');
         node.layer = Layers.Enum.UI_2D;
@@ -6655,21 +6757,38 @@ export class GameBootstrap extends Component {
 
     private finish(victory: boolean): void {
         this.phase = victory ? 'victory' : 'defeat';
+        this.platformFeedback.setAmbiencePaused(true);
+        this.platformFeedback.playCue(victory ? 'victory' : 'defeat', this.selectedStageIndex);
         this.bossFinishEnemy = undefined;
         this.bossFinishStarted = false;
         if (!victory) this.actions.enter('defeat', 0, true);
+        const stats = this.runStats.snapshot();
+        const build = resolveCultivationBuild((id) => this.skills.getLevel(id));
+        this.balanceTelemetry.record({
+            stage: this.currentStage.mapId,
+            victory,
+            durationSeconds: stats.elapsedSeconds,
+            damageTaken: stats.damageTaken,
+            maxHp: this.maxHp,
+            routeChoiceId: stats.mapEvent?.choiceId,
+            buildPath: build.path,
+            buildTier: build.tier,
+        });
+        this.persistBalanceTelemetry();
+        if (this.hasLocalQaFlag('qaBalance=1')) {
+            console.info(`[balance] ${this.currentStage.stageName} · ${formatBalanceReport(this.balanceTelemetry.reportFor(this.currentStage.mapId, 1))}`);
+        }
         if (victory) {
             // 只在真实胜利落印；失败和中途返回不会增加通关次数或覆盖最快记录。
-            const build = resolveCultivationBuild((id) => this.skills.getLevel(id));
             this.lastStageVictory = this.stageProgress.recordVictory(
                 this.currentStage.mapId,
-                this.runStats.snapshot().elapsedSeconds,
+                stats.elapsedSeconds,
                 {
-                    bestCombo: this.runStats.snapshot().bestCombo,
+                    bestCombo: stats.bestCombo,
                     buildName: build.relic ? `${build.relic.name} · ${build.evolutionName}` : undefined,
                     path: build.path,
                     tier: build.tier,
-                    routeChoiceId: this.runStats.snapshot().mapEvent?.choiceId,
+                    routeChoiceId: stats.mapEvent?.choiceId,
                 },
             );
             this.persistStageProgress();
@@ -6796,7 +6915,13 @@ export class GameBootstrap extends Component {
         guidanceTitle.node.setPosition(0, 13);
         guidanceTitle.node.getComponent(UITransform)?.setContentSize(516, 26);
         guidanceCard.addChild(guidanceTitle.node);
-        const guidanceDetail = this.makeLabel(guidance.detail, 13, new Color('#BBD3CA'));
+        const guidanceDetail = this.makeLabel(
+            this.hasLocalQaFlag('qaBalance=1')
+                ? formatBalanceReport(this.balanceTelemetry.reportFor(this.currentStage.mapId, 1))
+                : guidance.detail,
+            13,
+            new Color('#BBD3CA'),
+        );
         guidanceDetail.node.setPosition(0, -15);
         guidanceDetail.node.getComponent(UITransform)?.setContentSize(516, 24);
         guidanceCard.addChild(guidanceDetail.node);
@@ -8589,6 +8714,7 @@ export class GameBootstrap extends Component {
 
     private showStageEntry(): void {
         const presentation = stageEntryPresentationFor(this.currentStage.mapId);
+        this.platformFeedback.playCue('stage-entry', this.selectedStageIndex);
         const root = new Node('StageEntryReveal');
         root.layer = Layers.Enum.UI_2D;
         root.addComponent(UITransform).setContentSize(this.designWidth, this.designHeight);

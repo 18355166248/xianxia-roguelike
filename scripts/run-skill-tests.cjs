@@ -33,6 +33,8 @@ const testFiles = [
   'temp/skill-tests/tests/EliteEncounterRuntime.test.js',
   'temp/skill-tests/tests/ResultPresentationRuntime.test.js',
   'temp/skill-tests/tests/GameSettingsRuntime.test.js',
+  'temp/skill-tests/tests/AudioCueRuntime.test.js',
+  'temp/skill-tests/tests/BalanceTelemetryRuntime.test.js',
   'temp/skill-tests/tests/SkillRuntime.test.js',
 ];
 
