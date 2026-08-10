@@ -1423,7 +1423,7 @@ export class GameBootstrap extends Component {
             reportText.node.getComponent(UITransform)?.setContentSize(472, 26);
             row.addChild(reportText.node);
             const coverage = this.makeLabel(
-                `路线 ${Object.keys(report.routeCounts).length}/2 · 构筑 ${Object.keys(report.buildCounts).length}/3`,
+                `路线 ${Object.keys(report.routeCounts).length}/2 · 通关构筑 ${Object.keys(report.buildCounts).length}/3`,
                 14,
                 new Color('#8FAFA5'),
             );

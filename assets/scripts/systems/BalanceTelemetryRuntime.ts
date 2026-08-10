@@ -19,7 +19,7 @@ export interface StageBalanceReport {
     averageDamageRatio: number;
     routeCounts: Readonly<Record<string, number>>;
     buildCounts: Readonly<Partial<Record<UpgradePath, number>>>;
-    readiness: 'collecting' | 'healthy' | 'too-easy' | 'too-hard' | 'pace-outlier';
+    readiness: 'collecting' | 'healthy' | 'too-easy' | 'too-hard' | 'pace-outlier' | 'coverage-gap';
 }
 
 const MAX_SAMPLES = 60;
@@ -61,7 +61,8 @@ export class BalanceTelemetryRuntime {
             if (sample.routeChoiceId) counts[sample.routeChoiceId] = (counts[sample.routeChoiceId] ?? 0) + 1;
             return counts;
         }, {});
-        const buildCounts = samples.reduce<Partial<Record<UpgradePath, number>>>((counts, sample) => {
+        // 构筑覆盖只认可通关样本，避免“尝试过但从未打通”的流派被误判为已通过数值验收。
+        const buildCounts = victories.reduce<Partial<Record<UpgradePath, number>>>((counts, sample) => {
             if (sample.buildPath) counts[sample.buildPath] = (counts[sample.buildPath] ?? 0) + 1;
             return counts;
         }, {});
@@ -71,6 +72,9 @@ export class BalanceTelemetryRuntime {
         else if (winRate < 0.3) readiness = 'too-hard';
         else if (medianVictorySeconds !== undefined && (medianVictorySeconds < 150 || medianVictorySeconds > 300)) {
             readiness = 'pace-outlier';
+        }
+        else if (Object.keys(routeCounts).length < 2 || Object.keys(buildCounts).length < VALID_PATHS.length) {
+            readiness = 'coverage-gap';
         }
         return {
             sampleCount: samples.length,
@@ -135,8 +139,16 @@ export class BalanceTelemetryRuntime {
 }
 
 export function formatBalanceReport(report: Readonly<StageBalanceReport>): string {
+    const readinessLabels: Readonly<Record<StageBalanceReport['readiness'], string>> = {
+        collecting: '收集中',
+        healthy: '健康',
+        'too-easy': '偏易',
+        'too-hard': '偏难',
+        'pace-outlier': '节奏异常',
+        'coverage-gap': '覆盖不足',
+    };
     const pace = report.medianVictorySeconds === undefined
         ? '--:--'
         : `${Math.floor(report.medianVictorySeconds / 60)}:${String(Math.round(report.medianVictorySeconds % 60)).padStart(2, '0')}`;
-    return `样本 ${report.sampleCount} · 胜率 ${Math.round(report.winRate * 100)}% · 中位 ${pace} · 承伤 ${Math.round(report.averageDamageRatio * 100)}% · ${report.readiness}`;
+    return `样本 ${report.sampleCount} · 胜率 ${Math.round(report.winRate * 100)}% · 中位 ${pace} · 承伤 ${Math.round(report.averageDamageRatio * 100)}% · ${readinessLabels[report.readiness]}`;
 }

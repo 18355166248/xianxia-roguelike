@@ -74,3 +74,5 @@ runCommand(process.execPath, [tscCommand, '-p', 'tsconfig.skill-tests.json']);
 for (const testFile of testFiles) {
   runCommand(process.execPath, [testFile]);
 }
+
+runCommand(process.execPath, ['scripts/analyze-balance-samples.test.cjs']);

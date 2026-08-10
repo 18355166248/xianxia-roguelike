@@ -38,4 +38,22 @@ for (let index = 0; index < 10; index += 1) {
 }
 assert(hard.reportFor('frozen-ruins').readiness === 'too-hard', 'sub-30% win rate should be flagged');
 
+const uncovered = new BalanceTelemetryRuntime();
+for (let index = 0; index < 10; index += 1) {
+    uncovered.record({
+        stage: 'bamboo-ambush',
+        victory: index < 6,
+        durationSeconds: 210,
+        damageTaken: 45,
+        maxHp: 100,
+        routeChoiceId: index % 2 === 0 ? 'risk' : 'stable',
+        buildPath: index < 3 ? 'edge' : index < 6 ? 'mystic' : 'vitality',
+        buildTier: 2,
+    });
+}
+const coverageGap = uncovered.reportFor('bamboo-ambush');
+assert(coverageGap.buildCounts.vitality === undefined, 'failed runs should not satisfy victorious build coverage');
+assert(coverageGap.readiness === 'coverage-gap', 'missing a victorious build path should block readiness');
+assert(formatBalanceReport(coverageGap).includes('覆盖不足'), 'player-facing QA status should use a polished Chinese label');
+
 console.log('BalanceTelemetryRuntime tests passed');
