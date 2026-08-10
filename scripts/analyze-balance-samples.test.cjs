@@ -1,6 +1,11 @@
+const { mkdtempSync, rmSync, writeFileSync } = require('fs');
+const { tmpdir } = require('os');
+const { join } = require('path');
 const {
   analyzeSamples,
+  deduplicateSamples,
   formatMarkdown,
+  main,
   samplesFromPayload,
 } = require('./analyze-balance-samples.cjs');
 
@@ -10,6 +15,7 @@ function assert(condition, message) {
 
 function sample(stage, index) {
   return {
+    sampleId: `${stage}-${index}`,
     stage,
     victory: index < 6,
     durationSeconds: 180 + index * 5,
@@ -33,7 +39,9 @@ const coverageSamples = Array.from({ length: 10 }, (_, index) => ({
   buildPath: index < 6 ? 'edge' : 'vitality',
 }));
 assert(analyzeSamples(coverageSamples)[0].verdict === 'coverage-gap', 'missing victorious builds should fail coverage');
-assert(samplesFromPayload({ samples: samples.slice(0, 1) }, 'bundle.json').length === 1, 'bundle payload should be supported');
+assert(samplesFromPayload({ schemaVersion: 1, samples: samples.slice(0, 1) }, 'bundle.json').length === 1, 'versioned bundle payload should be supported');
+const deduplicated = deduplicateSamples([...samples, samples[0], samples[1]]);
+assert(deduplicated.samples.length === 30 && deduplicated.duplicateCount === 2, 'repeated exports should not inflate run counts');
 
 let invalidRejected = false;
 try {
@@ -42,5 +50,19 @@ try {
   invalidRejected = true;
 }
 assert(invalidRejected, 'invalid stage should be rejected');
+
+const fixtureDir = mkdtempSync(join(tmpdir(), 'xianxia-balance-'));
+const fixturePath = join(fixtureDir, 'healthy.json');
+writeFileSync(fixturePath, JSON.stringify({ schemaVersion: 1, samples }));
+const originalLog = console.log;
+let cliOutput = '';
+try {
+  console.log = (value) => { cliOutput += String(value); };
+  assert(main(['--strict', fixturePath]) === 0, 'strict CLI should accept a complete healthy bundle');
+} finally {
+  console.log = originalLog;
+  rmSync(fixtureDir, { recursive: true, force: true });
+}
+assert(cliOutput.includes('按唯一标识去重：0'), 'CLI report should expose its deduplication result');
 
 console.log('Balance sample analyzer tests passed');

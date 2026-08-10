@@ -1444,9 +1444,9 @@ export class GameBootstrap extends Component {
                 exportStatus.string = '当前宿主不支持剪贴板 · 请在本地浏览器打开报告';
                 return;
             }
-            void clipboard.writeText(this.balanceTelemetry.serialize())
+            void clipboard.writeText(this.balanceTelemetry.exportBundle(globalThis.navigator?.userAgent))
                 .then(() => {
-                    if (exportStatus.node.isValid) exportStatus.string = '已复制最近 60 局 JSON 样本';
+                    if (exportStatus.node.isValid) exportStatus.string = '已复制最近 60 局 JSON 样本包';
                 })
                 .catch(() => {
                     if (exportStatus.node.isValid) exportStatus.string = '复制失败 · 请允许浏览器剪贴板权限后重试';

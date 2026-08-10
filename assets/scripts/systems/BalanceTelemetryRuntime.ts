@@ -1,6 +1,7 @@
 import type { StageMapId, UpgradePath } from '../config/GameConfig';
 
 export interface BalanceRunSample {
+    sampleId?: string;
     stage: StageMapId;
     victory: boolean;
     durationSeconds: number;
@@ -25,6 +26,12 @@ export interface StageBalanceReport {
 const MAX_SAMPLES = 60;
 const VALID_STAGES: readonly StageMapId[] = ['qingshi-road', 'bamboo-ambush', 'frozen-ruins'];
 const VALID_PATHS: readonly UpgradePath[] = ['edge', 'mystic', 'vitality'];
+let sampleSequence = 0;
+
+function createSampleId(): string {
+    sampleSequence += 1;
+    return `${Date.now().toString(36)}-${sampleSequence.toString(36)}-${Math.floor(Math.random() * 0xFFFFFF).toString(36)}`;
+}
 
 function median(values: readonly number[]): number | undefined {
     if (values.length === 0) return undefined;
@@ -41,6 +48,8 @@ export class BalanceTelemetryRuntime {
     public record(sample: Readonly<BalanceRunSample>): void {
         this.samples.push({
             ...sample,
+            // 唯一标识随本地存档保留，跨设备汇总时可安全去除重复导出的同一局。
+            sampleId: sample.sampleId?.trim() || createSampleId(),
             durationSeconds: Math.max(0, sample.durationSeconds),
             damageTaken: Math.max(0, sample.damageTaken),
             maxHp: Math.max(1, sample.maxHp),
@@ -92,12 +101,22 @@ export class BalanceTelemetryRuntime {
         return JSON.stringify(this.samples);
     }
 
+    public exportBundle(environment?: string): string {
+        return JSON.stringify({
+            schemaVersion: 1,
+            exportedAt: new Date().toISOString(),
+            environment: environment?.trim() || undefined,
+            samples: this.samples,
+        });
+    }
+
     public restore(serialized: string | undefined): boolean {
         if (!serialized) return false;
         try {
             const parsed = JSON.parse(serialized) as unknown;
             if (!Array.isArray(parsed)) return false;
             const restored: BalanceRunSample[] = [];
+            const restoredIds = new Set<string>();
             for (const item of parsed.slice(-MAX_SAMPLES)) {
                 if (!item || typeof item !== 'object' || Array.isArray(item)) return false;
                 const candidate = item as Record<string, unknown>;
@@ -119,7 +138,13 @@ export class BalanceTelemetryRuntime {
                 ) return false;
                 if (candidate.routeChoiceId !== undefined && typeof candidate.routeChoiceId !== 'string') return false;
                 if (candidate.buildPath !== undefined && !VALID_PATHS.includes(candidate.buildPath as UpgradePath)) return false;
+                if (candidate.sampleId !== undefined && (typeof candidate.sampleId !== 'string' || candidate.sampleId.trim() === '')) return false;
+                // 兼容旧存档：首次恢复时补发 ID；已有 ID 重复则视为存档损坏，避免静默放大样本。
+                const sampleId = typeof candidate.sampleId === 'string' ? candidate.sampleId : createSampleId();
+                if (restoredIds.has(sampleId)) return false;
+                restoredIds.add(sampleId);
                 restored.push({
+                    sampleId,
                     stage: candidate.stage as StageMapId,
                     victory: candidate.victory,
                     durationSeconds: candidate.durationSeconds,

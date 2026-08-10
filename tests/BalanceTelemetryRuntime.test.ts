@@ -29,6 +29,11 @@ assert(formatBalanceReport(healthy).includes('胜率 60%'), 'formatted report sh
 const restored = new BalanceTelemetryRuntime();
 assert(restored.restore(telemetry.serialize()), 'valid telemetry should restore');
 assert(restored.reportFor('qingshi-road').sampleCount === 10, 'restored telemetry should preserve samples');
+const exported = JSON.parse(restored.exportBundle('test-device')) as Record<string, unknown>;
+assert(exported.schemaVersion === 1 && exported.environment === 'test-device', 'analysis export should include schema and environment');
+assert(Array.isArray(exported.samples) && (exported.samples[0] as Record<string, unknown>).sampleId !== undefined, 'exported runs should carry stable ids');
+const duplicateSample = (exported.samples as unknown[])[0];
+assert(!restored.restore(JSON.stringify([duplicateSample, duplicateSample])), 'duplicate sample ids should be rejected during restore');
 assert(!restored.restore('[{"stage":"unknown"}]'), 'invalid telemetry should be rejected');
 assert(restored.reportFor('qingshi-road').sampleCount === 10, 'invalid restore should preserve existing samples');
 

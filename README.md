@@ -83,7 +83,8 @@ npm run build:web
 
 本地地址追加 `?qaBalance=1` 可在主菜单打开“三境实战样本”，查看每章样本量、胜率、通关
 中位时长、平均承伤、路线与构筑覆盖；正式对局会保留最近 60 局用于 P3 数值验收，并可从
-报告页复制 JSON 样本。完整真机流程见 [`docs/P3_DEVICE_QA.md`](docs/P3_DEVICE_QA.md)。
+报告页复制带设备环境和逐局唯一标识的 JSON 样本包。完整真机流程见
+[`docs/P3_DEVICE_QA.md`](docs/P3_DEVICE_QA.md)。
 
 多位测试者的样本可直接合并汇总；追加 `--strict` 后，任一章节未达到首轮健康区间都会返回
 非零状态：
