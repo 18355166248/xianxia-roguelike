@@ -36,6 +36,7 @@
     "assets/scripts/systems/GameSettingsRuntime.ts",
     "assets/scripts/systems/AudioCueRuntime.ts",
     "assets/scripts/systems/BalanceTelemetryRuntime.ts",
+    "assets/scripts/systems/DevicePresentationRuntime.ts",
     "assets/scripts/systems/SkillRuntime.ts",
     "assets/scripts/ui/SkillHudRenderer.ts",
     "assets/scripts/GameBootstrap.ts"

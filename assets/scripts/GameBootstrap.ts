@@ -83,6 +83,7 @@ import {
     BalanceTelemetryRuntime,
     formatBalanceReport,
 } from './systems/BalanceTelemetryRuntime';
+import { shouldShowPortraitGuard } from './systems/DevicePresentationRuntime';
 import {
     getDashCooldown,
     getDashDistance,
@@ -515,6 +516,8 @@ export class GameBootstrap extends Component {
     private cameraShakeStrength = 0;
     private stageEntryCameraOffsetY = 0;
     private qaResultConsumed = false;
+    private orientationGuard?: Node;
+    private orientationPausedByGuard = false;
 
     private get prefersReducedMotion(): boolean {
         return this.settings.snapshot().reducedMotion;
@@ -523,6 +526,11 @@ export class GameBootstrap extends Component {
     private readonly onVisibilityChange = (): void => {
         // 移动端切后台时必须冻结战斗，避免玩家回来后已经被敌人击败。
         if (globalThis.document?.hidden && this.phase === 'playing') this.showPauseMenu('暂离修行');
+    };
+
+    private readonly onViewportResize = (): void => {
+        // 浏览器旋转完成后再读取 screen.windowSize，避免使用 resize 事件触发前的旧尺寸。
+        this.scheduleOnce(() => this.updateOrientationGuard(), 0);
     };
 
     private get currentStage(): StageConfig {
@@ -541,11 +549,13 @@ export class GameBootstrap extends Component {
         // 调试构建也交付干净游戏画面；性能数据保留给开发工具，不在玩家视口叠加引擎统计面板。
         profiler.hideStats();
         this.buildRuntimeScene();
+        this.updateOrientationGuard();
         this.bindInput();
         this.restoreSettings();
         this.restoreStageProgress();
         this.restoreBalanceTelemetry();
         globalThis.document?.addEventListener('visibilitychange', this.onVisibilityChange);
+        globalThis.addEventListener?.('resize', this.onViewportResize);
         // 远程大图不再进入首包；启动页等待必要美术收敛，避免玩家先看到空背景再突然补图。
         void this.initializeGame();
     }
@@ -554,10 +564,17 @@ export class GameBootstrap extends Component {
         input.off(Input.EventType.KEY_DOWN, this.onKeyDown, this);
         input.off(Input.EventType.KEY_UP, this.onKeyUp, this);
         globalThis.document?.removeEventListener('visibilitychange', this.onVisibilityChange);
+        globalThis.removeEventListener?.('resize', this.onViewportResize);
         this.platformFeedback.dispose();
     }
 
     protected override update(dt: number): void {
+        if (this.orientationGuard?.isValid && this.phase === 'playing' && !this.orientationPausedByGuard) {
+            // 入境演出可能在横屏期间交权；下一帧立即冻结，不能让遮罩下的敌人继续行动。
+            this.phase = 'paused';
+            this.orientationPausedByGuard = true;
+            this.platformFeedback.setAmbiencePaused(true);
+        }
         this.elapsed += dt;
         this.updateAmbience(dt);
         this.updateEffects(dt);
@@ -851,6 +868,47 @@ export class GameBootstrap extends Component {
         if (frame.width <= 0 || frame.height <= 0) return this.designWidth;
         // FIXED_HEIGHT 下可视宽度随设备纵横比变化；全屏遮罩和底图必须使用真实宽度，不能沿用 750。
         return this.designHeight * frame.width / frame.height;
+    }
+
+    private updateOrientationGuard(): void {
+        const frame = screen.windowSize;
+        const landscape = shouldShowPortraitGuard(frame.width, frame.height);
+        if (!landscape) {
+            if (this.orientationGuard?.isValid) this.orientationGuard.destroy();
+            this.orientationGuard = undefined;
+            if (this.orientationPausedByGuard && this.phase === 'paused') {
+                this.phase = 'playing';
+                this.platformFeedback.setAmbiencePaused(false);
+            }
+            this.orientationPausedByGuard = false;
+            return;
+        }
+        if (this.orientationGuard?.isValid) return;
+        if (this.phase === 'playing') {
+            this.phase = 'paused';
+            this.orientationPausedByGuard = true;
+            this.platformFeedback.setAmbiencePaused(true);
+        }
+        const guard = this.makeRect(
+            this.visibleDesignWidth(),
+            this.designHeight,
+            new Color(2, 10, 14, 252),
+        );
+        guard.name = 'PortraitOrientationGuard';
+        // 横屏时 FIXED_HEIGHT 会整体缩放画布，因此提示字号需要按横屏比例放大，确保真机仍可读。
+        const title = this.makeLabel('请 旋 转 设 备', 92, new Color('#FFF0BE'));
+        title.node.setPosition(0, 58);
+        guard.addChild(title.node);
+        const detail = this.makeLabel('仙途劫为竖屏试炼 · 旋回后将继续当前进度', 36, new Color('#B9D8CE'));
+        detail.node.setPosition(0, -52);
+        detail.node.getComponent(UITransform)?.setContentSize(980, 58);
+        guard.addChild(detail.node);
+        const mark = this.makeLabel('↻', 104, new Color('#72DDE8'));
+        mark.node.setPosition(0, -166);
+        guard.addChild(mark.node);
+        this.canvas.addChild(guard);
+        guard.setSiblingIndex(this.canvas.children.length - 1);
+        this.orientationGuard = guard;
     }
 
     private applyStageVisual(coverMenuViewport = false): void {
@@ -9031,6 +9089,10 @@ export class GameBootstrap extends Component {
     private bringOverlayToFront(): void {
         // HUD 会在开局后动态创建；弹窗出现时需重新提到最上层，避免摇杆与状态条穿透遮罩。
         this.overlay.setSiblingIndex(this.canvas.children.length - 1);
+        // 横屏守卫必须始终高于菜单与战斗弹层，阻止不可读的横屏画面继续接收输入。
+        if (this.orientationGuard?.isValid) {
+            this.orientationGuard.setSiblingIndex(this.canvas.children.length - 1);
+        }
     }
 
     private makePanel(titleText: string, bodyText: string, width: number, height: number): Node {

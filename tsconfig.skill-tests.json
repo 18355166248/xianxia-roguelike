@@ -34,6 +34,7 @@
     "assets/scripts/systems/GameSettingsRuntime.ts",
     "assets/scripts/systems/AudioCueRuntime.ts",
     "assets/scripts/systems/BalanceTelemetryRuntime.ts",
+    "assets/scripts/systems/DevicePresentationRuntime.ts",
     "assets/scripts/systems/SkillRuntime.ts",
     "tests/PlayerActionRuntime.test.ts",
     "tests/SpiritVeinRuntime.test.ts",
@@ -59,6 +60,7 @@
     "tests/GameSettingsRuntime.test.ts",
     "tests/AudioCueRuntime.test.ts",
     "tests/BalanceTelemetryRuntime.test.ts",
+    "tests/DevicePresentationRuntime.test.ts",
     "tests/SkillRuntime.test.ts"
   ]
 }
