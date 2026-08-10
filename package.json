@@ -4,7 +4,9 @@
   "description": "仙侠闯关制动作 Roguelike，基于 Cocos Creator 3.8.8",
   "scripts": {
     "check:images": "node scripts/check-image-budget.cjs",
-    "test:skills": "node scripts/check-image-budget.cjs && node scripts/run-skill-tests.cjs"
+    "test:skills": "node scripts/check-image-budget.cjs && node scripts/run-skill-tests.cjs",
+    "verify": "npx tsc -p tsconfig.check.json --noEmit && npm run test:skills",
+    "build:web": "node scripts/build-web-mobile.cjs"
   },
   "creator": {
     "version": "3.8.8"

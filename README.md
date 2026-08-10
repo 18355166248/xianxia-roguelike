@@ -70,6 +70,16 @@ node /Applications/Cocos/Creator/3.8.8/CocosCreator.app/Contents/Resources/resou
 npm run test:skills
 ```
 
+提交试玩版本前执行完整规则校验与一键正式构建：
+
+```bash
+npm run verify
+npm run build:web
+```
+
+`build:web` 会校验本次新生成的 Creator 日志；当前 macOS Creator 3.8.8 即使构建成功也可能
+返回退出码 36，脚本只有在日志同时出现 `build Task (web-mobile) Finished` 时才判定通过。
+
 本地地址追加 `?qaBalance=1` 可在主菜单打开“三境实战样本”，查看每章样本量、胜率、通关
 中位时长、平均承伤、路线与构筑覆盖；正式对局会保留最近 60 局用于 P3 数值验收。
 
