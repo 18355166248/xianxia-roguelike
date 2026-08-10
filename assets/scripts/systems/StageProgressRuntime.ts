@@ -25,6 +25,16 @@ export interface CultivationArchiveSummary {
     discoveredRoutes: number;
 }
 
+export interface JourneyCompletionSummary {
+    clearedStages: number;
+    totalStages: number;
+    allStagesCleared: boolean;
+    totalClears: number;
+    discoveredRoutes: number;
+    masteredPaths: number;
+    bestCombo: number;
+}
+
 export type StageProgressSnapshot = Partial<Record<StageMapId, StageProgressRecord>>;
 
 export interface StageVictoryResult {
@@ -146,6 +156,21 @@ export class StageProgressRuntime {
             masteredPaths,
             lastBuild: latest?.lastBuild,
             discoveredRoutes,
+        };
+    }
+
+    public journeyCompletion(): JourneyCompletionSummary {
+        const mapIds = Object.keys(STAGE_FIRST_CLEAR_REWARDS) as StageMapId[];
+        const archive = this.cultivationArchive();
+        const clearedStages = mapIds.filter((mapId) => this.recordFor(mapId).clears > 0).length;
+        return {
+            clearedStages,
+            totalStages: mapIds.length,
+            allStagesCleared: clearedStages === mapIds.length,
+            totalClears: archive.totalClears,
+            discoveredRoutes: archive.discoveredRoutes,
+            masteredPaths: archive.masteredPaths.length,
+            bestCombo: archive.bestCombo,
         };
     }
 

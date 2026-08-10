@@ -78,6 +78,7 @@ import {
 } from './runtime/GameRuntimeTypes';
 import { loadSpriteFrame } from './runtime/SpriteAssetLoader';
 import { PlatformFeedbackService } from './runtime/PlatformFeedbackService';
+import { GameSettingsRuntime, type GamePreferences } from './systems/GameSettingsRuntime';
 import {
     getDashCooldown,
     getDashDistance,
@@ -284,6 +285,7 @@ const CASUAL_SEED_PRESENTATIONS: Readonly<Partial<Record<UpgradeId, CasualUpgrad
 };
 
 const STAGE_PROGRESS_STORAGE_KEY = 'xianxia-roguelike.stage-progress.v1';
+const GAME_SETTINGS_STORAGE_KEY = 'xianxia-roguelike.settings.v1';
 
 interface SpiritVeinVisual {
     node: Node;
@@ -484,6 +486,9 @@ export class GameBootstrap extends Component {
     private readonly mapEvent = new MapEventRuntime();
     private readonly runStats = new RunStatsRuntime();
     private readonly stageProgress = new StageProgressRuntime();
+    private readonly settings = new GameSettingsRuntime(
+        globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false,
+    );
     private readonly combatFlow = new CombatFlowRuntime();
     private readonly platformFeedback = new PlatformFeedbackService();
     private lastStageVictory?: StageVictoryResult;
@@ -503,8 +508,16 @@ export class GameBootstrap extends Component {
     private cameraShakeTimer = 0;
     private cameraShakeStrength = 0;
     private stageEntryCameraOffsetY = 0;
-    private readonly prefersReducedMotion = globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
     private qaResultConsumed = false;
+
+    private get prefersReducedMotion(): boolean {
+        return this.settings.snapshot().reducedMotion;
+    }
+
+    private readonly onVisibilityChange = (): void => {
+        // 移动端切后台时必须冻结战斗，避免玩家回来后已经被敌人击败。
+        if (globalThis.document?.hidden && this.phase === 'playing') this.showPauseMenu('暂离修行');
+    };
 
     private get currentStage(): StageConfig {
         return STAGES[this.selectedStageIndex] ?? STAGES[0];
@@ -523,7 +536,9 @@ export class GameBootstrap extends Component {
         profiler.hideStats();
         this.buildRuntimeScene();
         this.bindInput();
+        this.restoreSettings();
         this.restoreStageProgress();
+        globalThis.document?.addEventListener('visibilitychange', this.onVisibilityChange);
         // 远程大图不再进入首包；启动页等待必要美术收敛，避免玩家先看到空背景再突然补图。
         void this.initializeGame();
     }
@@ -531,6 +546,7 @@ export class GameBootstrap extends Component {
     protected override onDestroy(): void {
         input.off(Input.EventType.KEY_DOWN, this.onKeyDown, this);
         input.off(Input.EventType.KEY_UP, this.onKeyUp, this);
+        globalThis.document?.removeEventListener('visibilitychange', this.onVisibilityChange);
         this.platformFeedback.dispose();
     }
 
@@ -921,7 +937,16 @@ export class GameBootstrap extends Component {
     private onKeyDown(event: EventKeyboard): void {
         const firstPress = !this.pressed.has(event.keyCode);
         this.pressed.add(event.keyCode);
-        if (!firstPress || this.phase !== 'playing') return;
+        if (!firstPress) return;
+        if (event.keyCode === KeyCode.ESCAPE) {
+            if (this.phase === 'playing') this.showPauseMenu();
+            else if (this.phase === 'paused') {
+                this.clearOverlay();
+                this.phase = 'playing';
+            }
+            return;
+        }
+        if (this.phase !== 'playing') return;
         if (
             event.keyCode === KeyCode.KEY_A
             || event.keyCode === KeyCode.KEY_D
@@ -1051,6 +1076,252 @@ export class GameBootstrap extends Component {
         this.moveTargetMarker = undefined;
     }
 
+    private showFirstRunTutorial(): void {
+        this.phase = 'tutorial';
+        this.clearOverlay();
+        this.bringOverlayToFront();
+        this.overlay.addChild(this.makeRect(this.visibleDesignWidth(), this.designHeight, new Color(2, 10, 14, 238)));
+        const panel = this.makeThemedCard(620, 930, 'chapter', new Color('#7DD3B8'));
+        panel.name = 'FirstRunTutorial';
+
+        const eyebrow = this.makeLabel('初 入 仙 途', 18, new Color('#7DD3B8'));
+        eyebrow.node.setPosition(0, 388);
+        panel.addChild(eyebrow.node);
+        const title = this.makeLabel('三步即可开战', 42, new Color('#FFF0BE'));
+        title.node.setPosition(0, 338);
+        panel.addChild(title.node);
+        const intro = this.makeLabel('战斗会自动御剑，你只需走位、破境与应对机关', 18, new Color('#C9E2D9'));
+        intro.node.setPosition(0, 294);
+        intro.node.getComponent(UITransform)?.setContentSize(550, 34);
+        panel.addChild(intro.node);
+
+        const steps: ReadonlyArray<readonly [string, string, string]> = [
+            ['壹 · 走 位', '滑动左侧摇杆，或点击战场移动', '避开红色预警 · 靠近阵眼获取增益'],
+            ['贰 · 御 剑', '飞剑会自动寻找最近的敌人', '解锁功法后，右侧按钮释放踏云与天劫'],
+            ['叁 · 破 境', '修为满时战斗暂停，三选一构筑道基', '奇遇会改变下一境和关底，请先看清代价'],
+        ];
+        steps.forEach(([number, action, detail], index) => {
+            const card = this.makeThemedCard(548, 142, 'summary', new Color(index === 0 ? '#72DDE8' : index === 1 ? '#F0C879' : '#82D7AC'));
+            card.setPosition(0, 178 - index * 158);
+            const stepTitle = this.makeLabel(number, 21, new Color(index === 0 ? '#72DDE8' : index === 1 ? '#F0C879' : '#82D7AC'));
+            stepTitle.horizontalAlign = Label.HorizontalAlign.LEFT;
+            stepTitle.node.setPosition(-150, 38);
+            stepTitle.node.getComponent(UITransform)?.setContentSize(220, 30);
+            card.addChild(stepTitle.node);
+            const actionLabel = this.makeLabel(action, 19, new Color('#F3E8CB'));
+            actionLabel.horizontalAlign = Label.HorizontalAlign.LEFT;
+            actionLabel.node.setPosition(0, 2);
+            actionLabel.node.getComponent(UITransform)?.setContentSize(490, 30);
+            card.addChild(actionLabel.node);
+            const detailLabel = this.makeLabel(detail, 16, new Color('#AFCBC1'));
+            detailLabel.horizontalAlign = Label.HorizontalAlign.LEFT;
+            detailLabel.node.setPosition(0, -34);
+            detailLabel.node.getComponent(UITransform)?.setContentSize(490, 28);
+            card.addChild(detailLabel.node);
+            panel.addChild(card);
+        });
+
+        const start = this.makeActionButton('明 白 · 开 始 试 炼', 'primary', new Color('#F0C879'), () => {
+            this.settings.completeTutorial();
+            this.persistSettings();
+            this.phase = 'stage-entry';
+            this.clearOverlay();
+            this.showStageEntry();
+        }, 500, 66);
+        start.name = 'TutorialStart';
+        start.setPosition(0, -380);
+        panel.addChild(start);
+        this.overlay.addChild(panel);
+    }
+
+    private showPauseMenu(reason = '试炼已暂停'): void {
+        if (this.phase !== 'playing' && this.phase !== 'paused') return;
+        this.phase = 'paused';
+        this.releaseTribulationHold();
+        this.onTouchCancel();
+        this.clearOverlay();
+        this.bringOverlayToFront();
+        this.overlay.addChild(this.makeRect(this.visibleDesignWidth(), this.designHeight, new Color(2, 10, 14, 214)));
+        const panel = this.makeThemedCard(560, 620, 'chapter', new Color(this.currentStage.accent));
+        panel.name = 'PausePanel';
+        const eyebrow = this.makeLabel('暂 止 行 功', 18, new Color(this.currentStage.accent));
+        eyebrow.node.setPosition(0, 236);
+        panel.addChild(eyebrow.node);
+        const title = this.makeLabel(reason, 42, new Color('#FFF0BE'));
+        title.node.setPosition(0, 180);
+        panel.addChild(title.node);
+        const detail = this.makeLabel('计时、敌人、寒潮与功法冷却均已冻结', 18, new Color('#BDD7CD'));
+        detail.node.setPosition(0, 132);
+        detail.node.getComponent(UITransform)?.setContentSize(500, 32);
+        panel.addChild(detail.node);
+
+        const resume = this.makeActionButton('继 续 试 炼', 'primary', new Color(this.currentStage.accent), () => {
+            this.clearOverlay();
+            this.phase = 'playing';
+        }, 430, 64);
+        resume.name = 'PauseResume';
+        resume.setPosition(0, 54);
+        panel.addChild(resume);
+        const settings = this.makeActionButton('声 音 与 画 面', 'secondary', new Color('#8AB9A7'), () => {
+            this.showSettingsPanel('pause');
+        }, 430, 60);
+        settings.setPosition(0, -30);
+        panel.addChild(settings);
+        const restart = this.makeActionButton('重 新 开 始', 'quiet', new Color('#B9A269'), () => {
+            this.startStage(this.selectedStageIndex);
+        }, 206, 58);
+        restart.setPosition(-112, -116);
+        panel.addChild(restart);
+        const exit = this.makeActionButton('返 回 试 炼 图', 'quiet', new Color('#A6786F'), () => this.showMenu(), 206, 58);
+        exit.setPosition(112, -116);
+        panel.addChild(exit);
+        const note = this.makeLabel('返回试炼图不会记录本局战绩', 15, new Color('#8FAFA5'));
+        note.node.setPosition(0, -198);
+        panel.addChild(note.node);
+        this.overlay.addChild(panel);
+    }
+
+    private showSettingsPanel(origin: 'menu' | 'pause'): void {
+        const preferences = this.settings.snapshot();
+        this.clearOverlay();
+        this.bringOverlayToFront();
+        this.overlay.addChild(this.makeRect(this.visibleDesignWidth(), this.designHeight, new Color(2, 10, 14, 232)));
+        const panel = this.makeThemedCard(580, 760, 'chapter', new Color('#7DD3B8'));
+        panel.name = 'SettingsPanel';
+        const title = this.makeLabel('设 置', 44, new Color('#FFF0BE'));
+        title.node.setPosition(0, 302);
+        panel.addChild(title.node);
+        const subtitle = this.makeLabel('声音、震动与动态偏好会自动保存', 17, new Color('#BBD6CC'));
+        subtitle.node.setPosition(0, 258);
+        panel.addChild(subtitle.node);
+
+        const rows: ReadonlyArray<readonly [keyof GamePreferences, string, string]> = [
+            ['audioEnabled', '音效', '攻击、破境与战斗反馈'],
+            ['vibrationEnabled', '震动', '移动设备上的命中与里程碑反馈'],
+            ['reducedMotion', '减少动态', '缩短入境演出并移除循环漂移'],
+        ];
+        rows.forEach(([key, label, detail], index) => {
+            const row = this.makeThemedCard(510, 112, 'summary');
+            row.setPosition(0, 166 - index * 128);
+            const rowTitle = this.makeLabel(label, 22, new Color('#E9DDC1'));
+            rowTitle.horizontalAlign = Label.HorizontalAlign.LEFT;
+            rowTitle.node.setPosition(-142, 18);
+            rowTitle.node.getComponent(UITransform)?.setContentSize(190, 30);
+            row.addChild(rowTitle.node);
+            const rowDetail = this.makeLabel(detail, 15, new Color('#91B2A7'));
+            rowDetail.horizontalAlign = Label.HorizontalAlign.LEFT;
+            rowDetail.node.setPosition(-66, -20);
+            rowDetail.node.getComponent(UITransform)?.setContentSize(340, 26);
+            row.addChild(rowDetail.node);
+            const toggle = this.makeCompactButton(preferences[key] ? '已 开' : '已 关', () => {
+                this.settings.update({ [key]: !this.settings.snapshot()[key] });
+                this.persistSettings();
+                this.showSettingsPanel(origin);
+            }, 106, 48, preferences[key]);
+            toggle.setPosition(178, 8);
+            row.addChild(toggle);
+            panel.addChild(row);
+        });
+
+        const tutorial = this.makeThemedCard(510, 92, 'summary');
+        tutorial.setPosition(0, -226);
+        const tutorialTitle = this.makeLabel('新手指引', 20, new Color('#E9DDC1'));
+        tutorialTitle.horizontalAlign = Label.HorizontalAlign.LEFT;
+        tutorialTitle.node.setPosition(-132, 17);
+        tutorialTitle.node.getComponent(UITransform)?.setContentSize(210, 28);
+        tutorial.addChild(tutorialTitle.node);
+        const tutorialDetail = this.makeLabel(
+            preferences.tutorialCompleted ? '已完成 · 可在下次入境时重看' : '下次入境将自动显示',
+            14,
+            new Color('#91B2A7'),
+        );
+        tutorialDetail.horizontalAlign = Label.HorizontalAlign.LEFT;
+        tutorialDetail.node.setPosition(-70, -18);
+        tutorialDetail.node.getComponent(UITransform)?.setContentSize(330, 24);
+        tutorial.addChild(tutorialDetail.node);
+        if (preferences.tutorialCompleted) {
+            const replay = this.makeCompactButton('下局重看', () => {
+                this.settings.update({ tutorialCompleted: false });
+                this.persistSettings();
+                this.showSettingsPanel(origin);
+            }, 116, 44);
+            replay.setPosition(170, 6);
+            tutorial.addChild(replay);
+        }
+        panel.addChild(tutorial);
+
+        const close = this.makeActionButton('完 成', 'primary', new Color('#7DD3B8'), () => {
+            if (origin === 'pause') this.showPauseMenu();
+            else this.showMenu();
+        }, 420, 62);
+        close.setPosition(0, -320);
+        panel.addChild(close);
+        this.overlay.addChild(panel);
+    }
+
+    private showJourneyEpilogue(): void {
+        const journey = this.stageProgress.journeyCompletion();
+        if (!journey.allStagesCleared) return;
+        this.phase = 'victory';
+        this.clearOverlay();
+        this.bringOverlayToFront();
+        this.overlay.addChild(this.makeRect(this.visibleDesignWidth(), this.designHeight, new Color(1, 9, 13, 242)));
+        const panel = this.makeThemedCard(620, 920, 'reward', new Color('#E3C06F'));
+        panel.name = 'JourneyEpilogue';
+        const eyebrow = this.makeLabel('仙 途 劫 · 道 藏 终 卷', 18, new Color('#E3C06F'));
+        eyebrow.node.setPosition(0, 386);
+        panel.addChild(eyebrow.node);
+        const title = this.makeLabel('三 境 归 一', 52, new Color('#FFF0BE'));
+        title.node.setPosition(0, 326);
+        panel.addChild(title.node);
+        const closure = this.makeLabel('地脉归寂 · 竹心复明 · 潮声俱寂', 18, new Color('#CDE2D9'));
+        closure.node.setPosition(0, 274);
+        panel.addChild(closure.node);
+
+        const seal = this.makeRect(178, 178, new Color(55, 43, 21, 142), new Color('#E3C06F'), 48, 2);
+        seal.setPosition(0, 156);
+        const sealLabel = this.makeLabel('劫\n尽', 44, new Color('#FFE7A3'));
+        sealLabel.lineHeight = 50;
+        seal.addChild(sealLabel.node);
+        panel.addChild(seal);
+
+        const stats = [
+            ['渡劫', `${journey.totalClears}`],
+            ['道途', `${journey.discoveredRoutes}/6`],
+            ['真形', `${journey.masteredPaths}/3`],
+            ['连斩', `${journey.bestCombo}`],
+        ] as const;
+        const statStrip = this.makeThemedCard(548, 98, 'summary');
+        statStrip.setPosition(0, 22);
+        stats.forEach(([label, value], index) => {
+            const item = this.makeResultStat(label, value, new Color('#E3C06F'));
+            item.setPosition(-204 + index * 136, 0);
+            statStrip.addChild(item);
+        });
+        panel.addChild(statStrip);
+
+        const rewards = this.makeThemedCard(548, 174, 'summary');
+        rewards.setPosition(0, -130);
+        const rewardTitle = this.makeLabel('三 枚 道 印 已 齐 聚', 17, new Color('#E3C06F'));
+        rewardTitle.node.setPosition(0, 56);
+        rewards.addChild(rewardTitle.node);
+        const rewardText = this.makeLabel('青石剑印 · 御剑伤害 +2\n竹影行符 · 移动速度 +10\n寒潭玉魄 · 最大气血 +8', 19, new Color('#E8E0CA'));
+        rewardText.lineHeight = 36;
+        rewardText.node.setPosition(0, -18);
+        rewards.addChild(rewardText.node);
+        panel.addChild(rewards);
+
+        const next = this.makeLabel('终卷不是终点 · 继续印证六条道途与三脉真形', 18, new Color('#A9C9BE'));
+        next.node.setPosition(0, -252);
+        next.node.getComponent(UITransform)?.setContentSize(540, 32);
+        panel.addChild(next.node);
+        const close = this.makeActionButton('返 回 三 境 试 炼', 'primary', new Color('#E3C06F'), () => this.showMenu(), 480, 66);
+        close.name = 'JourneyContinue';
+        close.setPosition(0, -350);
+        panel.addChild(close);
+        this.overlay.addChild(panel);
+    }
+
     private showMenu(): void {
         this.chapterBriefOpen = false;
         this.chapterBriefPreviewChoiceId = undefined;
@@ -1091,6 +1362,7 @@ export class GameBootstrap extends Component {
         this.overlay.addChild(subtitle.node);
 
         const archive = this.stageProgress.cultivationArchive();
+        const journey = this.stageProgress.journeyCompletion();
         const archivePill = this.makeRect(
             410,
             38,
@@ -1101,13 +1373,26 @@ export class GameBootstrap extends Component {
         );
         archivePill.setPosition(0, 438);
         const archiveLabel = this.makeLabel(
-            `道藏 · 道途 ${archive.discoveredRoutes}/6 · 真形 ${archive.masteredPaths.length}/3 · 渡劫 ${archive.totalClears}`,
+            journey.allStagesCleared
+                ? `三境归一 · 道途 ${archive.discoveredRoutes}/6 · 真形 ${archive.masteredPaths.length}/3`
+                : `道藏 · 道途 ${archive.discoveredRoutes}/6 · 真形 ${archive.masteredPaths.length}/3 · 渡劫 ${archive.totalClears}`,
             16,
             new Color('#EBD9A7'),
         );
         archiveLabel.node.getComponent(UITransform)?.setContentSize(390, 28);
         archivePill.addChild(archiveLabel.node);
+        if (journey.allStagesCleared) {
+            archivePill.on(Node.EventType.TOUCH_END, (event: EventTouch) => {
+                event.propagationStopped = true;
+                this.showJourneyEpilogue();
+            });
+        }
         this.overlay.addChild(archivePill);
+
+        const settingsButton = this.makeCompactButton('设 置', () => this.showSettingsPanel('menu'), 94, 40);
+        settingsButton.name = 'MenuSettings';
+        settingsButton.setPosition(this.visibleDesignWidth() / 2 - 62, 558);
+        this.overlay.addChild(settingsButton);
 
         const heroGlow = new Node('HeroGlow');
         heroGlow.layer = Layers.Enum.UI_2D;
@@ -1756,6 +2041,22 @@ export class GameBootstrap extends Component {
     }
 
     private restoreStageProgress(): void {
+        if (this.hasLocalQaFlag('qaJourneyFinal=1')) {
+            // 终局验收只预置另外两章，当前青石首破仍走真实胜利落印，证明“三境归一”由本局触发。
+            this.stageProgress.restore(JSON.stringify({
+                'bamboo-ambush': { clears: 1, bestSeconds: 176.2, bestCombo: 18 },
+                'frozen-ruins': { clears: 1, bestSeconds: 210, bestCombo: 14 },
+            }));
+            return;
+        }
+        if (this.hasLocalQaFlag('qaJourney=1')) {
+            this.stageProgress.restore(JSON.stringify({
+                'qingshi-road': { clears: 2, bestSeconds: 128.4, bestCombo: 27, routeChoices: ['read-the-scar'] },
+                'bamboo-ambush': { clears: 1, bestSeconds: 176.2, bestCombo: 18, routeChoices: ['burn-the-grove'] },
+                'frozen-ruins': { clears: 1, bestSeconds: 210, bestCombo: 14, routeChoices: ['seal-the-tide'] },
+            }));
+            return;
+        }
         if (this.hasLocalQaFlag('qaProgress=1')) {
             this.stageProgress.restore(JSON.stringify({
                 'qingshi-road': {
@@ -1779,6 +2080,25 @@ export class GameBootstrap extends Component {
             this.stageProgress.restore(globalThis.localStorage?.getItem(STAGE_PROGRESS_STORAGE_KEY) ?? undefined);
         } catch {
             // 隐私模式或宿主禁用存储时只退化为单次会话，不阻断章节选择和战斗。
+        }
+    }
+
+    private restoreSettings(): void {
+        try {
+            this.settings.restore(globalThis.localStorage?.getItem(GAME_SETTINGS_STORAGE_KEY) ?? undefined);
+        } catch {
+            // 设置存储不可用时继续使用系统默认值，首局和战斗不能依赖本地存储权限。
+        }
+        this.platformFeedback.configure(this.settings.snapshot());
+    }
+
+    private persistSettings(): void {
+        this.platformFeedback.configure(this.settings.snapshot());
+        if (this.hasLocalQaFlag('qa')) return;
+        try {
+            globalThis.localStorage?.setItem(GAME_SETTINGS_STORAGE_KEY, this.settings.serialize());
+        } catch {
+            // 设置写入失败只影响跨会话记忆，当前会话的音频与动态偏好仍立即生效。
         }
     }
 
@@ -1904,7 +2224,14 @@ export class GameBootstrap extends Component {
         // 正式首境先冻结计时、输入与刷怪，让章节身份和路线方向成立后再交权；
         // 首领直达回归仍跳过该状态，避免测试入口把二相目标误判为章节开场。
         if (this.phase === 'stage-entry') {
-            this.showStageEntry();
+            if (
+                this.hasLocalQaFlag('qaTutorial=1')
+                || (!this.settings.snapshot().tutorialCompleted && !this.hasLocalQaFlag('qa'))
+            ) {
+                this.showFirstRunTutorial();
+            } else {
+                this.showStageEntry();
+            }
         } else if (!this.hasLocalQaFlag('qaBossPhase=2')) {
             this.showWaveAnnouncement();
         }
@@ -2651,6 +2978,11 @@ export class GameBootstrap extends Component {
         this.waveLabel.node.setPosition(0, 606);
         this.waveLabel.node.getComponent(UITransform)?.setContentSize(188, 82);
         hud.addChild(this.waveLabel.node);
+
+        const pauseButton = this.makeCompactButton('暂 停', () => this.showPauseMenu(), 94, 46);
+        pauseButton.name = 'PauseAction';
+        pauseButton.setPosition(visibleWidth / 2 - 58, 611);
+        hud.addChild(pauseButton);
 
         const objectiveWidth = Math.min(620, visibleWidth - 24);
         this.objectiveBacking = this.makeRect(
@@ -6434,9 +6766,15 @@ export class GameBootstrap extends Component {
 
         const nextStageIndex = this.nextUnclearedStageIndex();
         const alternateRoute = this.nextUnprovenRoute();
+        const journeyCompletedThisRun = Boolean(
+            victory
+            && this.lastStageVictory?.firstClear
+            && this.stageProgress.journeyCompletion().allStagesCleared,
+        );
         const guidance = resultActionGuidanceFor({
             victory,
             firstClear: Boolean(this.lastStageVictory?.firstClear),
+            journeyCompleted: journeyCompletedThisRun,
             nextStageName: nextStageIndex === undefined ? undefined : STAGES[nextStageIndex]?.stageName,
             alternateRouteName: alternateRoute?.geometryPreview ?? alternateRoute?.title,
             failureCause: stats.lastDamageCause,
@@ -6466,9 +6804,14 @@ export class GameBootstrap extends Component {
 
         const actionBar = this.makeRect(560, 88, new Color(3, 17, 21, 128), undefined, UI_THEME.radius.compact);
         actionBar.setPosition(0, -405);
-        const continueToNextStage = victory && this.lastStageVictory?.firstClear && nextStageIndex !== undefined;
+        const continueToNextStage = victory
+            && !journeyCompletedThisRun
+            && this.lastStageVictory?.firstClear
+            && nextStageIndex !== undefined;
         const button = this.makeActionButton(
-            continueToNextStage
+            journeyCompletedThisRun
+                ? '见 证 三 境 归 一'
+                : continueToNextStage
                 ? '前 往 下 一 章'
                 : victory && alternateRoute
                     ? '换 路 再 战'
@@ -6478,6 +6821,10 @@ export class GameBootstrap extends Component {
             'primary',
             accent,
             () => {
+                if (journeyCompletedThisRun) {
+                    this.showJourneyEpilogue();
+                    return;
+                }
                 if (continueToNextStage && nextStageIndex !== undefined) {
                     this.selectedStageIndex = nextStageIndex;
                 }
@@ -8626,6 +8973,37 @@ export class GameBootstrap extends Component {
         );
         const label = node.children.find((child) => child.getComponent(Label))?.getComponent(Label);
         if (label) label.color = new Color(style.label);
+        return node;
+    }
+
+    private makeCompactButton(
+        text: string,
+        onClick: () => void,
+        width: number,
+        height: number,
+        active = false,
+    ): Node {
+        const node = this.makeRect(
+            width,
+            height,
+            new Color(active ? 39 : 4, active ? 88 : 25, active ? 74 : 30, 238),
+            new Color(active ? '#7DD3B8' : '#829E95'),
+            13,
+            active ? 2 : 1,
+        );
+        const label = this.makeLabel(text, 17, new Color(active ? '#E6FFF5' : '#C5D8D1'));
+        label.node.getComponent(UITransform)?.setContentSize(width - 10, height - 6);
+        node.addChild(label.node);
+        node.on(Node.EventType.TOUCH_START, (event: EventTouch) => {
+            event.propagationStopped = true;
+            node.setScale(0.96, 0.96);
+        });
+        node.on(Node.EventType.TOUCH_CANCEL, () => node.setScale(1, 1));
+        node.on(Node.EventType.TOUCH_END, (event: EventTouch) => {
+            event.propagationStopped = true;
+            node.setScale(1, 1);
+            onClick();
+        });
         return node;
     }
 

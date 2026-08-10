@@ -31,6 +31,7 @@
     "assets/scripts/systems/OpeningObjectiveRuntime.ts",
     "assets/scripts/systems/EliteEncounterRuntime.ts",
     "assets/scripts/systems/ResultPresentationRuntime.ts",
+    "assets/scripts/systems/GameSettingsRuntime.ts",
     "assets/scripts/systems/SkillRuntime.ts",
     "tests/PlayerActionRuntime.test.ts",
     "tests/SpiritVeinRuntime.test.ts",
@@ -53,6 +54,7 @@
     "tests/OpeningObjectiveRuntime.test.ts",
     "tests/EliteEncounterRuntime.test.ts",
     "tests/ResultPresentationRuntime.test.ts",
+    "tests/GameSettingsRuntime.test.ts",
     "tests/SkillRuntime.test.ts"
   ]
 }

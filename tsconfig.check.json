@@ -33,6 +33,7 @@
     "assets/scripts/systems/OpeningObjectiveRuntime.ts",
     "assets/scripts/systems/EliteEncounterRuntime.ts",
     "assets/scripts/systems/ResultPresentationRuntime.ts",
+    "assets/scripts/systems/GameSettingsRuntime.ts",
     "assets/scripts/systems/SkillRuntime.ts",
     "assets/scripts/ui/SkillHudRenderer.ts",
     "assets/scripts/GameBootstrap.ts"

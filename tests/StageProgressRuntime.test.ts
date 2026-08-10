@@ -77,6 +77,11 @@ const allBonuses = restored.rewardBonuses();
 assertEqual(allBonuses.swordDamage, 2, 'restored sword reward');
 assertEqual(allBonuses.moveSpeed, 10, 'bamboo reward should add movement speed');
 assertEqual(allBonuses.maxHp, 8, 'frozen reward should add maximum health');
+const journey = restored.journeyCompletion();
+assertEqual(journey.allStagesCleared, true, 'clearing all three stages should complete the journey');
+assertEqual(journey.clearedStages, 3, 'journey should count cleared stages');
+assertEqual(journey.totalStages, 3, 'journey should expose the fixed chapter total');
+assertEqual(journey.discoveredRoutes, 1, 'journey should include route discovery progress');
 assertEqual(restored.restore('{broken'), false, 'invalid json should be ignored');
 assertEqual(restored.recordFor('qingshi-road').clears, 4, 'invalid restore should preserve current state');
 

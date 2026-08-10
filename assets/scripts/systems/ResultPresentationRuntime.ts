@@ -46,6 +46,7 @@ export interface ResultActionGuidance {
 export interface ResultActionGuidanceInput {
     victory: boolean;
     firstClear: boolean;
+    journeyCompleted?: boolean;
     nextStageName?: string;
     alternateRouteName?: string;
     failureCause?: RunDamageCause;
@@ -59,6 +60,13 @@ export function resultActionGuidanceFor(
     input: Readonly<ResultActionGuidanceInput>,
 ): ResultActionGuidance {
     if (input.victory) {
+        if (input.journeyCompleted) {
+            return {
+                eyebrow: '三 境 归 一',
+                title: '道藏终卷已经开启',
+                detail: '三枚道印齐聚 · 查看此行总战绩',
+            };
+        }
         if (input.firstClear && input.nextStageName) {
             return {
                 eyebrow: '下 一 目 标',

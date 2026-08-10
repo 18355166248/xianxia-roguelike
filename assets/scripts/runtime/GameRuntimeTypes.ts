@@ -6,6 +6,8 @@ export type Phase =
     | 'menu'
     | 'stage-entry'
     | 'playing'
+    | 'tutorial'
+    | 'paused'
     | 'cultivation-sheet'
     | 'boss-finish'
     | 'upgrade'

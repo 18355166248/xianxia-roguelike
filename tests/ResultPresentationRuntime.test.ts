@@ -67,6 +67,15 @@ const nextChapter = resultActionGuidanceFor({
 });
 assert(nextChapter.title.includes('竹林伏击'), '首次胜利要把下一章变成明确行动目标');
 
+const journeyComplete = resultActionGuidanceFor({
+    victory: true,
+    firstClear: true,
+    journeyCompleted: true,
+    alternateRouteName: '封脉结界',
+});
+assert(journeyComplete.eyebrow.includes('三 境 归 一'), '三章首破完成时要优先显示终局目标');
+assert(journeyComplete.detail.includes('总战绩'), '终局目标要引导玩家查看完整旅程');
+
 const alternateRoute = resultActionGuidanceFor({
     victory: true,
     firstClear: false,

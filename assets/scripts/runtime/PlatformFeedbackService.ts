@@ -13,6 +13,13 @@ interface FeedbackGlobals {
 /** Web 与原生壳都允许无声降级；反馈能力缺失时绝不能阻断升级状态机。 */
 export class PlatformFeedbackService {
     private context?: BrowserAudioContext;
+    private audioEnabled = true;
+    private vibrationEnabled = true;
+
+    public configure(preferences: Readonly<{ audioEnabled: boolean; vibrationEnabled: boolean }>): void {
+        this.audioEnabled = preferences.audioEnabled;
+        this.vibrationEnabled = preferences.vibrationEnabled;
+    }
 
     public dispose(): void {
         const context = this.context;
@@ -65,6 +72,7 @@ export class PlatformFeedbackService {
         duration: number,
         volume: number,
     ): void {
+        if (!this.audioEnabled) return;
         const context = this.audioContext();
         if (!context) return;
         // 自动播放策略可能异步拒绝恢复音频；忽略拒绝并继续走无声反馈，避免产生未处理 Promise。
@@ -88,6 +96,7 @@ export class PlatformFeedbackService {
     }
 
     private vibrate(pattern: number | number[]): void {
+        if (!this.vibrationEnabled) return;
         try {
             const navigator = (globalThis as unknown as FeedbackGlobals).navigator;
             navigator?.vibrate?.(pattern);
