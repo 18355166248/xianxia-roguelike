@@ -1434,8 +1434,29 @@ export class GameBootstrap extends Component {
             panel.addChild(row);
         });
 
-        const close = this.makeActionButton('返 回 试 炼 图', 'primary', new Color('#72DDE8'), () => this.showMenu(), 430, 62);
-        close.setPosition(0, -294);
+        const exportStatus = this.makeLabel('正式对局自动保留最近 60 局 · 可复制给数值汇总工具', 14, new Color('#8FAFA5'));
+        exportStatus.node.setPosition(0, -240);
+        exportStatus.node.getComponent(UITransform)?.setContentSize(500, 24);
+        panel.addChild(exportStatus.node);
+        const copy = this.makeActionButton('复 制 样 本', 'secondary', new Color('#72DDE8'), () => {
+            const clipboard = globalThis.navigator?.clipboard;
+            if (!clipboard) {
+                exportStatus.string = '当前宿主不支持剪贴板 · 请在本地浏览器打开报告';
+                return;
+            }
+            void clipboard.writeText(this.balanceTelemetry.serialize())
+                .then(() => {
+                    if (exportStatus.node.isValid) exportStatus.string = '已复制最近 60 局 JSON 样本';
+                })
+                .catch(() => {
+                    if (exportStatus.node.isValid) exportStatus.string = '复制失败 · 请允许浏览器剪贴板权限后重试';
+                });
+        }, 244, 62);
+        copy.name = 'BalanceExportAction';
+        copy.setPosition(-132, -294);
+        panel.addChild(copy);
+        const close = this.makeActionButton('返 回 试 炼 图', 'primary', new Color('#72DDE8'), () => this.showMenu(), 244, 62);
+        close.setPosition(132, -294);
         panel.addChild(close);
         this.overlay.addChild(panel);
     }
