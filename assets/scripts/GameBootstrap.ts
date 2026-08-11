@@ -8096,7 +8096,7 @@ export class GameBootstrap extends Component {
         this.playerAuraSwords = [];
         if (total === 0) return;
 
-        // 每修一级就在身上多挂一柄剑气：绕行剑气的数量直接等于本局破境次数，
+        // 每修一级就在身边多列一柄剑气：护体剑列的数量直接等于本局破境次数，
         // 颜色分布就是玩家的路线选择。不看面板也能一眼读出"我练到哪了、走的哪条路"。
         const swords: Array<{ path: UpgradePath; step: number }> = [];
         UPGRADE_PATH_ORDER.forEach((path) => {
@@ -8120,8 +8120,8 @@ export class GameBootstrap extends Component {
         const node = new Node(`DaoFoundationSword-${path}`);
         node.layer = Layers.Enum.UI_2D;
         const opacity = node.addComponent(UIOpacity);
-        // 三张素材的长轴方向不同，按各自源图比例校准到约 86–100px 的实机剑气长度。
-        const displayHeight = path === 'edge' ? 86 : path === 'mystic' ? 80 : 42;
+        // 周身只挂轻量剑气符形，统一压到约 42px 的有效长度，避免多柄时围成一圈大武器。
+        const displayHeight = 56;
         node.addChild(this.createResourceSprite(PLAYER_AURA_SWORD_RESOURCES[path], displayHeight));
 
         // 新版素材已经自带附着式剑气拖尾；不再复制整柄剑做残影，避免主修路线看成三把同色武器。
@@ -8137,53 +8137,61 @@ export class GameBootstrap extends Component {
         const motionSpeed = momentum ? 0.78 + momentum.tier * 0.08 : 0.58;
         const motion = this.prefersReducedMotion ? 0 : this.elapsed * motionSpeed;
         const build = resolveCultivationBuild((id) => this.skills.getLevel(id));
-        // 剑身可以小，但轨道不能贴进角色轮廓，否则会重新读成手持武器而不是护体剑气。
-        const radiusX = 66 + build.tier * 3 + (momentum ? 7 + momentum.tier * 2 : 0);
-        const radiusY = 48 + build.tier * 2 + (momentum ? 4 + momentum.tier : 0);
+        // 剑气改为人物两侧的竖直剑列，不再沿椭圆旋转；左右交错分配可让路线颜色自然铺开。
+        const columnX = 56 + build.tier * 1.5 + (momentum ? 4 + momentum.tier : 0);
+        const rowGap = 34;
+        const densityScale = this.playerAuraSwords.length >= 5
+            ? 0.82
+            : this.playerAuraSwords.length >= 3
+                ? 0.9
+                : 1;
 
-        const place = (node: Node, angle: number, scale: number, target: Node): void => {
+        const place = (node: Node, index: number, scale: number): void => {
+            // 奇数柄时把多出的一柄列在身后正上方，避免单边多一柄造成视觉失衡。
+            const crown = this.playerAuraSwords.length % 2 === 1
+                && index === this.playerAuraSwords.length - 1;
+            const target = crown ? back : front;
             if (node.parent !== target) target.addChild(node);
-            const x = Math.cos(angle) * radiusX;
-            const y = Math.sin(angle) * radiusY;
-            const tangent = Math.atan2(Math.cos(angle) * radiusY, -Math.sin(angle) * radiusX);
-            node.setPosition(x, y);
-            node.angle = tangent * 180 / Math.PI - 45;
+            const floatY = this.prefersReducedMotion
+                ? 0
+                : Math.sin(this.elapsed * 1.8 + index * 1.35) * 2.2;
+            if (crown) {
+                node.setPosition(0, 58 + build.tier * 2 + floatY);
+                node.angle = 0;
+                node.setScale(scale, scale);
+                return;
+            }
+            const right = index % 2 === 0;
+            const row = Math.floor(index / 2);
+            const sideCount = Math.floor(this.playerAuraSwords.length / 2);
+            const baseY = (row - (sideCount - 1) / 2) * rowGap;
+            node.setPosition((right ? 1 : -1) * columnX, baseY + floatY);
+            node.angle = 0;
             node.setScale(scale, scale);
         };
 
         this.drawPlayerAuraSigil(build, motion, momentum);
 
-        this.playerAuraSwords.forEach((visual) => {
-            const angle = motion + visual.phase;
-            const depth = (1 - Math.sin(angle)) / 2;
-            const target = Math.sin(angle) < -0.06 ? front : back;
+        this.playerAuraSwords.forEach((visual, index) => {
             const routeSurging = momentum?.path === visual.path;
             const surgePulse = routeSurging && !this.prefersReducedMotion
                 ? 1 + Math.sin(this.elapsed * 8) * 0.07
                 : 1;
-            // 第三级的剑气代表某式已经圆满，单独放大一档，让"修满了"在战场上看得见。
-            const masteredStep = visual.step >= 3 ? 1.16 : 1;
-            const scale = (0.9 + depth * 0.18)
-                * (visual.active ? 1 + build.tier * 0.03 : 0.86)
+            // 同系后续剑气逐柄收小；圆满靠亮度而非体积表达，避免第三级反而把剑列挤满。
+            const stepScale = 1 - Math.min(Math.max(visual.step - 1, 0), 2) * 0.1;
+            const masteredStep = visual.step >= 3 ? 1.04 : 1;
+            const scale = (visual.active ? 1 + build.tier * 0.01 : 0.86)
+                * densityScale
+                * stepScale
                 * masteredStep
-                * (routeSurging ? (1.12 + momentum.tier * 0.035) * surgePulse : 1);
+                * (routeSurging ? (1.06 + momentum.tier * 0.02) * surgePulse : 1);
             // 素材自身已经包含半透明剑气；潜伏路线仍需保留约六成亮度，避免二次透明后完全消失。
             visual.opacity.opacity = Math.min(255, Math.round(
-                (visual.active ? 210 : 166)
-                + depth * (visual.active ? 40 : 24)
+                (visual.active ? 238 : 182)
                 + (visual.step >= 3 ? 30 : 0)
                 + (routeSurging ? 35 : 0),
             ));
-            place(visual.node, angle, scale, target);
-            visual.ghosts.forEach((ghost, index) => {
-                const ghostAngle = angle - ghost.phaseOffset;
-                const ghostDepth = (1 - Math.sin(ghostAngle)) / 2;
-                const ghostTarget = Math.sin(ghostAngle) < -0.06 ? front : back;
-                ghost.opacity.opacity = Math.round(
-                    (visual.active ? 24 + build.tier * 6 : 0) * (index === 0 ? 1 : 0.42) * (0.6 + ghostDepth * 0.4),
-                );
-                place(ghost.node, ghostAngle, scale * (index === 0 ? 0.94 : 0.86), ghostTarget);
-            });
+            place(visual.node, index, scale);
         });
     }
 
