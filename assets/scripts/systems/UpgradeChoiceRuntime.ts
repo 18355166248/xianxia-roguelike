@@ -13,40 +13,23 @@ export const UPGRADE_PATH_LABELS: Readonly<Record<UpgradePath, string>> = {
     vitality: '守元',
 };
 
-export const CULTIVATION_SEED_IDS: Readonly<Record<UpgradePath, UpgradeId>> = {
-    edge: 'seed-edge',
-    mystic: 'seed-mystic',
-    vitality: 'seed-vitality',
-};
-
 export type UpgradeLevelReader = (id: UpgradeId) => number;
 
-export type UpgradeRarity = 'mortal' | 'spirit' | 'earth' | 'heaven';
-
-export interface UpgradeRarityPresentation {
-    rarity: UpgradeRarity;
-    label: string;
-    stars: number;
+/**
+ * 道法只有九张、每张三级，进度就是各系已修等级之和，不再需要单独的路线权重。
+ */
+export function summarizeUpgradePaths(
+    getLevel: UpgradeLevelReader,
+): Readonly<Record<UpgradePath, number>> {
+    const totals: Record<UpgradePath, number> = { edge: 0, mystic: 0, vitality: 0 };
+    for (const choice of UPGRADES) {
+        totals[choice.path] += Math.min(choice.maxLevel, Math.max(0, getLevel(choice.id)));
+    }
+    return totals;
 }
 
-/** 稀有度表达的是构筑质变强度，不直接复制一套独立掉落数值。 */
-export function upgradeRarityPresentation(
-    choice: UpgradeConfig,
-    willReachMilestone: boolean,
-    refinedBonus = false,
-): UpgradeRarityPresentation {
-    let stars = choice.offerKind === 'ultimate' || choice.offerKind === 'synergy'
-        ? 4
-        : willReachMilestone
-            ? 3
-            : choice.offerKind === 'seed' || choice.offerKind === 'regular'
-                ? 2
-                : 1;
-    if (refinedBonus) stars = Math.min(4, stars + 1);
-    if (stars >= 4) return { rarity: 'heaven', label: '天品成诀', stars };
-    if (stars >= 3) return { rarity: 'earth', label: '地品突破', stars };
-    if (stars >= 2) return { rarity: 'spirit', label: '灵品功法', stars };
-    return { rarity: 'mortal', label: '凡品命格', stars };
+function upgradableIn(path: UpgradePath, getLevel: UpgradeLevelReader): UpgradeConfig[] {
+    return UPGRADES.filter((choice) => choice.path === path && getLevel(choice.id) < choice.maxLevel);
 }
 
 function takeRandom<T>(values: readonly T[], random: () => number): T | undefined {
@@ -55,127 +38,32 @@ function takeRandom<T>(values: readonly T[], random: () => number): T | undefine
     return values[index];
 }
 
-function availableChoices(getLevel: UpgradeLevelReader, kinds: ReadonlySet<string>): UpgradeConfig[] {
-    return UPGRADES.filter((choice) => (
-        kinds.has(choice.offerKind ?? 'hidden')
-        && getLevel(choice.id) < choice.maxLevel
-    ));
-}
-
-export function cultivationSeedPath(getLevel: UpgradeLevelReader): UpgradePath | undefined {
-    return UPGRADE_PATH_ORDER.find((path) => getLevel(CULTIVATION_SEED_IDS[path]) > 0);
-}
-
-export function summarizeUpgradePaths(
-    getLevel: UpgradeLevelReader,
-): Readonly<Record<UpgradePath, number>> {
-    const totals: Record<UpgradePath, number> = { edge: 0, mystic: 0, vitality: 0 };
-    for (const choice of UPGRADES) {
-        totals[choice.path] += getLevel(choice.id) * (choice.routeContribution ?? 0);
-    }
-    return totals;
-}
-
-function synergyEligible(choice: UpgradeConfig, totals: Readonly<Record<UpgradePath, number>>): boolean {
-    if (choice.id === 'thunder-swords') return totals.edge >= 3 && totals.mystic >= 2;
-    if (choice.id === 'blood-sword-return') return totals.edge >= 3 && totals.vitality >= 2;
-    if (choice.id === 'heavenly-cycle') return totals.mystic >= 3 && totals.vitality >= 2;
-    return false;
-}
-
-function ultimateEligible(choice: UpgradeConfig, totals: Readonly<Record<UpgradePath, number>>): boolean {
-    if (choice.id === 'myriad-swords') return totals.edge >= 5;
-    if (choice.id === 'ninefold-tribulation') return totals.mystic >= 5;
-    if (choice.id === 'undying-sword-body') return totals.vitality >= 5;
-    return false;
-}
-
-export function unlockedFormationChoices(getLevel: UpgradeLevelReader): UpgradeConfig[] {
-    const totals = summarizeUpgradePaths(getLevel);
-    return UPGRADES.filter((choice) => (
-        getLevel(choice.id) < choice.maxLevel
-        && (
-            (choice.offerKind === 'synergy' && synergyEligible(choice, totals))
-            || (choice.offerKind === 'ultimate' && ultimateEligible(choice, totals))
-        )
-    ));
-}
-
-function pushUnique(result: UpgradeConfig[], choice: UpgradeConfig | undefined): void {
-    if (choice && !result.some((current) => current.id === choice.id)) result.push(choice);
-}
-
 /**
- * 第一次破境固定三道种。之后三槽分别服务于“深化当前主修、推进跨路联动、补足短板”，
- * 不再按固定路径顺序截断候选，避免二选一时守元永远进不了牌池。
+ * 每次破境固定给"锋芒 / 玄术 / 守元各一张"，玩家不需要理解任何分类或前置，
+ * 一眼就能判断这次是要打得更狠、多个主动手段，还是活得更久。
+ * 某一系全部满级后，该槽位由仍可成长的其他系补上，绝不出现空槽。
  */
 export function pickUpgradeChoices(
     getLevel: UpgradeLevelReader,
     count: number,
     random: () => number = Math.random,
 ): UpgradeConfig[] {
-    const seedPath = cultivationSeedPath(getLevel);
-    if (!seedPath) {
-        return UPGRADE_PATH_ORDER
-            .map((path) => UPGRADES.find((choice) => choice.id === CULTIVATION_SEED_IDS[path]))
-            .filter((choice): choice is UpgradeConfig => Boolean(choice))
-            .slice(0, count);
-    }
-
     const result: UpgradeConfig[] = [];
-    const regular = availableChoices(getLevel, new Set(['regular']));
-    const commons = availableChoices(getLevel, new Set(['common']));
-    const formations = unlockedFormationChoices(getLevel);
-
-    // 深化：保证当前道种至少有一张可继续追求的牌。
-    pushUnique(result, takeRandom(regular.filter((choice) => choice.path === seedPath), random));
-
-    // 联动：前置一旦满足就优先展示，否则给一张非主修路线，让双修目标可达。
-    pushUnique(result, takeRandom(formations, random));
-    if (result.length < 2) {
-        const offPath = regular.filter((choice) => choice.path !== seedPath);
-        const leastRepresentedPath = UPGRADE_PATH_ORDER
-            .filter((path) => path !== seedPath)
-            .sort((a, b) => summarizeUpgradePaths(getLevel)[a] - summarizeUpgradePaths(getLevel)[b])[0];
-        pushUnique(result, takeRandom(
-            offPath.filter((choice) => choice.path === leastRepresentedPath),
-            random,
+    for (const path of UPGRADE_PATH_ORDER) {
+        const choice = takeRandom(upgradableIn(path, getLevel), random);
+        if (choice) result.push(choice);
+    }
+    if (result.length < count) {
+        const fill = UPGRADES.filter((choice) => (
+            getLevel(choice.id) < choice.maxLevel
+            && !result.some((current) => current.id === choice.id)
         ));
-        if (result.length < 2) pushUnique(result, takeRandom(offPath, random));
+        while (result.length < count && fill.length > 0) {
+            const choice = takeRandom(fill, random);
+            if (!choice) break;
+            fill.splice(fill.indexOf(choice), 1);
+            result.push(choice);
+        }
     }
-
-    // 破局：优先通用能力；耗尽后从尚未出现的任意路线补位。
-    pushUnique(result, takeRandom(commons, random));
-    const remaining = [...formations, ...regular, ...commons]
-        .filter((choice) => !result.some((current) => current.id === choice.id));
-    while (result.length < count && remaining.length > 0) {
-        const choice = takeRandom(remaining, random);
-        pushUnique(result, choice);
-        if (choice) remaining.splice(remaining.indexOf(choice), 1);
-    }
-    return result.slice(0, count);
-}
-
-/** 关底前只提供已经满足前置的天机/真诀；不足两张时用主修真诀补足预告位。 */
-export function pickBossCultivationChoices(
-    getLevel: UpgradeLevelReader,
-    count = 2,
-): UpgradeConfig[] {
-    const totals = summarizeUpgradePaths(getLevel);
-    const unlocked = unlockedFormationChoices(getLevel);
-    const dominant = UPGRADE_PATH_ORDER.reduce((best, path) => (
-        totals[path] > totals[best] ? path : best
-    ), UPGRADE_PATH_ORDER[0]);
-    const fallback = UPGRADES.filter((choice) => (
-        choice.offerKind === 'ultimate'
-        && choice.path === dominant
-        && getLevel(choice.id) < choice.maxLevel
-    ));
-    const otherFormations = UPGRADES.filter((choice) => (
-        (choice.offerKind === 'ultimate' || choice.offerKind === 'synergy')
-        && getLevel(choice.id) < choice.maxLevel
-    ));
-    const result: UpgradeConfig[] = [];
-    [...unlocked, ...fallback, ...otherFormations].forEach((choice) => pushUnique(result, choice));
     return result.slice(0, count);
 }

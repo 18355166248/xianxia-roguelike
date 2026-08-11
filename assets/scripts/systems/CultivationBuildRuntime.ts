@@ -105,10 +105,14 @@ export const CULTIVATION_RELICS: Readonly<Record<UpgradePath, CultivationRelicDe
     },
 };
 
+/**
+ * 法宝不再是需要单独理解的元系统，它就是角色身上那层光效的强度：
+ * 某一系每修一级，本命法宝就更亮一分。一局约五次破境，1/3/5 让真形刚好够得着。
+ */
 function relicTier(total: number): RelicTier {
     if (total >= 5) return 3;
     if (total >= 3) return 2;
-    if (total >= 2) return 1;
+    if (total >= 1) return 1;
     return 0;
 }
 
@@ -124,7 +128,7 @@ export function resolveCultivationBuild(getLevel: UpgradeLevelReader): Cultivati
             tierName: '未觉醒',
             evolutionName: '待择本命法宝',
             resonanceText: '破境后显化',
-            nextText: '选择道种以觉醒法宝',
+            nextText: '破境修行以觉醒法宝',
         };
     }
     const path = UPGRADE_PATH_ORDER.reduce((best, current) => (
@@ -135,10 +139,10 @@ export function resolveCultivationBuild(getLevel: UpgradeLevelReader): Cultivati
     const relic = CULTIVATION_RELICS[path];
     const index = Math.max(0, tier - 1);
     const nextText = tier < 2
-        ? `再修 ${3 - pathTotal} 重，共鸣进化`
+        ? `再修 ${3 - pathTotal} 级，法宝共鸣`
         : tier < 3
-            ? `再修 ${5 - pathTotal} 重，显化真形`
-            : '真形已成 · 流派核心生效';
+            ? `再修 ${5 - pathTotal} 级，显化真形`
+            : '真形已成 · 光华圆满';
     return {
         path,
         pathTotal,
@@ -148,7 +152,7 @@ export function resolveCultivationBuild(getLevel: UpgradeLevelReader): Cultivati
         relic,
         tierName: tier > 0 ? relic.tierNames[index] : '未觉醒',
         evolutionName: tier > 0 ? relic.evolutionNames[index] : '待觉醒',
-        resonanceText: `${UPGRADE_PATH_LABELS[path]} ${pathTotal}重 · ${tier > 0 ? relic.tierNames[index] : '未觉醒'}`,
+        resonanceText: `${UPGRADE_PATH_LABELS[path]} ${pathTotal}级 · ${tier > 0 ? relic.tierNames[index] : '未觉醒'}`,
         nextText,
     };
 }
@@ -162,39 +166,20 @@ export function previewUpgradeImpact(
     const after = resolveCultivationBuild((id: UpgradeId) => (
         id === choice.id ? afterLevel : getLevel(id)
     ));
-    const changedRelic = before.tier !== after.tier || before.path !== after.path;
-    const milestone = changedRelic && after.relic
-        ? `${after.relic.name} · ${after.tierName}`
-        : choice.offerKind === 'synergy'
-            ? '双脉共鸣已接通'
-            : choice.offerKind === 'ultimate'
-                ? '真诀已刻入本命法宝'
-                : undefined;
-    const headline = choice.offerKind === 'seed'
-        ? `装备 ${after.relic?.name ?? choice.title}`
-        : `${choice.title} · ${UPGRADE_PATH_LABELS[choice.path]} +${choice.routeContribution ?? 0}重`;
-    const detail = after.path === choice.path && after.pathTotal !== before.pathTotal
-        ? `${UPGRADE_PATH_LABELS[choice.path]} ${before.pathTotal}重 → ${after.pathTotal}重 · ${after.nextText}`
-        : choice.combatRead ?? choice.descriptions[Math.max(0, afterLevel - 1)] ?? '';
+    // 满级即质变，是这套精简牌池里唯一需要预告的"里程碑"；法宝升阶次之。
+    const milestone = afterLevel >= choice.maxLevel
+        ? `${choice.title} 圆满`
+        : before.tier !== after.tier && after.relic
+            ? `${after.relic.name} · ${after.tierName}`
+            : undefined;
+    const headline = `${choice.title} Lv${afterLevel}`;
+    const detail = choice.descriptions[Math.max(0, afterLevel - 1)] ?? '';
     return { before, after, headline, detail, milestone };
 }
 
 /** 选择确认页只展示一条稳定的前后对比，让玩家能立刻验证本次进化到底改变了什么。 */
 export function describeUpgradeDelta(impact: UpgradeImpactPreview): string {
-    const { before, after } = impact;
-    if (!before.relic && after.relic) {
-        return `未觉醒 → ${after.relic.name}·${after.tierName}`;
-    }
-    if (before.path === after.path && before.pathTotal !== after.pathTotal && after.path) {
-        const tierChanged = before.tier !== after.tier;
-        return tierChanged
-            ? `${UPGRADE_PATH_LABELS[after.path]} ${before.pathTotal}重 → ${after.pathTotal}重·${after.tierName}`
-            : `${UPGRADE_PATH_LABELS[after.path]} ${before.pathTotal}重 → ${after.pathTotal}重`;
-    }
-    if (after.relic) {
-        return `${before.evolutionName} → ${after.relic.name}·${after.tierName}`;
-    }
-    return impact.detail.split(' · ')[0] || impact.headline;
+    return `${impact.headline} · ${impact.detail}`;
 }
 
 /**
@@ -217,14 +202,14 @@ export function resolveBossReadiness(
         return {
             grade: 'resonant',
             title: `${build.evolutionName} · 共鸣应劫`,
-            detail: `以联动破相 · ${survival}`,
+            detail: `法宝共鸣 · ${survival}`,
         };
     }
     if (build.tier >= 1) {
         return {
             grade: 'awakened',
             title: `${build.relic?.name ?? '本命法宝'} · 初醒`,
-            detail: `尚未共鸣 · 保留踏云 · ${survival}`,
+            detail: `尚未共鸣 · ${survival}`,
         };
     }
     return {

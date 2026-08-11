@@ -14,120 +14,101 @@ function assert(condition: boolean, message: string): void {
     if (!condition) throw new Error(message);
 }
 
-const levels: Partial<Record<UpgradeId, number>> = {};
-const read = (id: UpgradeId): number => levels[id] ?? 0;
-assert(resolveCultivationBuild(read).tier === 0, 'empty build should have no relic');
+const art = (id: UpgradeId) => {
+    const found = UPGRADES.find((choice) => choice.id === id);
+    if (!found) throw new Error(`missing cultivation art: ${id}`);
+    return found;
+};
+const read = (levels: Partial<Record<UpgradeId, number>>) => (id: UpgradeId): number => levels[id] ?? 0;
+
+const empty = read({});
+assert(resolveCultivationBuild(empty).tier === 0, 'an empty build has no relic yet');
 assert(
-    resolveBossReadiness(resolveCultivationBuild(read), 0.4).detail.includes('先避首轮'),
+    resolveBossReadiness(resolveCultivationBuild(empty), 0.4).detail.includes('先避首轮'),
     'boss readiness should turn low health into an actionable opening instruction',
 );
-
-const edgeSeed = UPGRADES.find((choice) => choice.id === 'seed-edge');
-assert(Boolean(edgeSeed), 'edge seed config should exist');
-if (edgeSeed) {
-    const preview = previewUpgradeImpact(edgeSeed, read);
-    assert(preview.after.relic?.name === '太初剑匣', 'edge seed should equip sword relic');
-    assert(preview.after.tier === 1, 'seed contribution should awaken tier one');
-    assert(preview.milestone?.includes('初醒') ?? false, 'seed should announce awakening');
-    assert(
-        describeUpgradeDelta(preview).includes('未觉醒 → 太初剑匣'),
-        'upgrade confirmation should expose a readable before-and-after delta',
-    );
-    const showcase = resolveUpgradeShowcase(edgeSeed, preview.after);
-    assert(
-        showcase.kind === 'sword-volley' && showcase.amount === 3,
-        'edge awakening should immediately demonstrate three swords',
-    );
-    const momentum = resolveUpgradeMomentum(edgeSeed, preview.after, Boolean(preview.milestone));
-    assert(
-        momentum.label === '剑势正盛'
-        && momentum.duration === 10
-        && momentum.attackIntervalMultiplier < 1,
-        'edge awakening should open a visible rapid-sword momentum window',
-    );
-}
-
-levels['seed-edge'] = 1;
-const awakenedPulse = resolveRelicPulse(resolveCultivationBuild(read));
 assert(
-    awakenedPulse?.kind === 'sword-echo' && awakenedPulse.cadence === 4,
-    'first seed should immediately unlock a readable relic pulse',
+    resolveRelicPulse(resolveCultivationBuild(empty)) === undefined,
+    'no relic means no pulse',
 );
-const returnSword = UPGRADES.find((choice) => choice.id === 'returning-sword');
-assert(Boolean(returnSword), 'returning sword config should exist');
-if (returnSword) {
-    const preview = previewUpgradeImpact(returnSword, read);
-    assert(preview.before.pathTotal === 2 && preview.after.pathTotal === 3, 'route progress should be explicit');
-    assert(preview.after.tier === 2, 'third route point should trigger resonance');
-    assert(preview.milestone?.includes('共鸣') ?? false, 'tier change should be surfaced');
-    assert(
-        describeUpgradeDelta(preview).includes('2重 → 3重·共鸣'),
-        'route milestones should name both the numeric change and the new tier',
-    );
-    assert(
-        resolveUpgradeShowcase(returnSword, preview.after).amount === 5,
-        'edge resonance should expand the free volley to five swords',
-    );
-}
 
-levels['returning-sword'] = 1;
-levels['sword-mark'] = 1;
-levels['split-sword'] = 1;
-const completed = resolveCultivationBuild(read);
-assert(completed.tier === 3, 'five route points should reveal true form');
-assert(completed.evolutionName === '万剑归宗', 'edge true form should have a readable identity');
+// 第一级就点亮法宝：光效从第一次破境起就长在角色身上，而不是攒够重数才出现。
+const firstSword = previewUpgradeImpact(art('sword'), empty);
+assert(firstSword.after.tier === 1, 'the very first level should awaken the relic');
+assert(firstSword.after.relic?.name === '太初剑匣', 'edge arts equip the sword relic');
+assert(firstSword.headline === '御剑诀 Lv1', 'the card headline states the art and the level it reaches');
+assert(
+    firstSword.detail === art('sword').descriptions[0],
+    'the detail line is simply that level of the card copy, with no extra vocabulary',
+);
+assert(
+    describeUpgradeDelta(firstSword).includes('御剑诀 Lv1'),
+    'the confirmation delta stays readable without route or tier jargon',
+);
+
+// 满级是这套牌池里唯一需要预告的里程碑。
+const swordToMax = previewUpgradeImpact(art('sword'), read({ sword: 2 }));
+assert(swordToMax.milestone === '御剑诀 圆满', 'reaching max level must be announced as the milestone');
+assert(
+    previewUpgradeImpact(art('sword'), read({ sword: 0 })).milestone !== '御剑诀 圆满',
+    'a first level is not a completion milestone',
+);
+
+const edgeThree = read({ sword: 2, damage: 1 });
+assert(resolveCultivationBuild(edgeThree).tier === 2, 'three levels in one path resonate the relic');
+const edgeFive = read({ sword: 3, damage: 2 });
+const completed = resolveCultivationBuild(edgeFive);
+assert(completed.tier === 3, 'five levels in one path reveal the relic true form');
+assert(completed.evolutionName === '万剑归宗', 'edge true form keeps a readable identity');
 assert(
     resolveBossReadiness(completed, 0.8).grade === 'true-form',
-    'a completed route should enter the boss as a named true-form build',
+    'a completed path should enter the boss fight as a named true form',
 );
+
 const pulse = resolveRelicPulse(completed);
-assert(pulse?.kind === 'sword-echo' && pulse.cadence === 3, 'true-form sword relic should pulse every third volley');
-if (returnSword) {
-    const trueFormShowcase = resolveUpgradeShowcase(returnSword, completed);
-    assert(
-        trueFormShowcase.amount === 9 && trueFormShowcase.label.includes('万剑归宗'),
-        'edge true form should culminate in a named nine-sword volley',
-    );
-}
+assert(pulse?.kind === 'sword-echo' && pulse.cadence === 3, 'true-form sword relic pulses every third volley');
+assert(
+    resolveRelicPulse(resolveCultivationBuild(read({ sword: 1 })))?.cadence === 4,
+    'an awakened relic already pulses, just more slowly',
+);
 
-const mysticSeed = UPGRADES.find((choice) => choice.id === 'seed-mystic');
-const vitalitySeed = UPGRADES.find((choice) => choice.id === 'seed-vitality');
-const emptyRead = (_id: UpgradeId): number => 0;
-if (mysticSeed) {
-    const preview = previewUpgradeImpact(mysticSeed, emptyRead);
-    const showcase = resolveUpgradeShowcase(mysticSeed, preview.after);
-    assert(
-        showcase.kind === 'thunder-chain' && showcase.amount === 4,
-        'mystic awakening should immediately chain thunder across four targets',
-    );
-    const momentum = resolveUpgradeMomentum(mysticSeed, preview.after, true);
-    assert(
-        momentum.cooldownAcceleration > 0 && momentum.shieldPerSecond === 0,
-        'mystic momentum should accelerate spell circulation',
-    );
-}
-if (vitalitySeed) {
-    const preview = previewUpgradeImpact(vitalitySeed, emptyRead);
-    const showcase = resolveUpgradeShowcase(vitalitySeed, preview.after);
-    assert(
-        showcase.kind === 'shield-bloom' && showcase.shieldAmount > 0,
-        'vitality awakening should immediately grant shield and retaliation',
-    );
-    const momentum = resolveUpgradeMomentum(vitalitySeed, preview.after, true);
-    assert(
-        momentum.shieldPerSecond > 0 && momentum.cooldownAcceleration === 0,
-        'vitality momentum should continuously restore cultivation shield',
-    );
-}
+assert(
+    resolveUpgradeShowcase(art('sword'), resolveCultivationBuild(read({ sword: 1 }))).amount === 3,
+    'edge awakening immediately demonstrates three swords',
+);
+assert(
+    resolveUpgradeShowcase(art('sword'), completed).amount === 9,
+    'edge true form culminates in a nine-sword volley',
+);
+assert(
+    resolveUpgradeShowcase(art('formation'), resolveCultivationBuild(read({ formation: 1 }))).kind === 'thunder-chain',
+    'mystic arts demonstrate as a thunder chain',
+);
+assert(
+    resolveUpgradeShowcase(art('guard'), resolveCultivationBuild(read({ guard: 1 }))).shieldAmount > 0,
+    'vitality arts demonstrate as shield and retaliation',
+);
 
-if (vitalitySeed && returnSword) {
-    const sidePathBuild = previewUpgradeImpact(vitalitySeed, read).after;
-    const sidePathShowcase = resolveUpgradeShowcase(vitalitySeed, sidePathBuild);
-    const sidePathMomentum = resolveUpgradeMomentum(vitalitySeed, sidePathBuild);
-    assert(
-        sidePathShowcase.tier === 1 && sidePathMomentum.tier === 1,
-        'a true-form main path must not promote a newly chosen side path to tier three',
-    );
-}
+// 混修时旁系不能借用主修的阶数。
+const sidePathBuild = previewUpgradeImpact(art('guard'), edgeFive).after;
+assert(
+    resolveUpgradeShowcase(art('guard'), sidePathBuild).tier === 1
+    && resolveUpgradeMomentum(art('guard'), sidePathBuild).tier === 1,
+    'a true-form main path must not promote a freshly chosen side path to tier three',
+);
+
+const edgeMomentum = resolveUpgradeMomentum(art('sword'), firstSword.after, Boolean(firstSword.milestone));
+assert(
+    edgeMomentum.label === '剑势正盛' && edgeMomentum.attackIntervalMultiplier < 1,
+    'edge momentum opens a visible rapid-sword window',
+);
+assert(
+    resolveUpgradeMomentum(art('formation'), resolveCultivationBuild(read({ formation: 1 }))).cooldownAcceleration > 0,
+    'mystic momentum accelerates spell circulation',
+);
+assert(
+    resolveUpgradeMomentum(art('guard'), resolveCultivationBuild(read({ guard: 1 }))).shieldPerSecond > 0,
+    'vitality momentum continuously restores cultivation shield',
+);
 
 console.log('CultivationBuildRuntime tests passed');

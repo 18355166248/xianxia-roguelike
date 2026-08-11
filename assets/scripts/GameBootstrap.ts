@@ -158,11 +158,8 @@ import {
     type FrostRouteGeometry,
 } from './systems/FrostRouteRuntime';
 import {
-    cultivationSeedPath,
     pickUpgradeChoices,
-    pickBossCultivationChoices,
     summarizeUpgradePaths,
-    upgradeRarityPresentation,
     UPGRADE_PATH_LABELS,
     UPGRADE_PATH_ORDER,
 } from './systems/UpgradeChoiceRuntime';
@@ -289,14 +286,30 @@ interface CasualUpgradePresentation {
     readonly accent: string;
 }
 
-const CASUAL_SEED_PRESENTATIONS: Readonly<Partial<Record<UpgradeId, CasualUpgradePresentation>>> = {
-    'seed-edge': { title: '万剑', result: '飞剑 ×3', accent: '#72DDE8' },
-    'seed-mystic': { title: '天雷', result: '连锁 4 敌', accent: '#A78BFA' },
-    'seed-vitality': { title: '护体', result: '护盾反震', accent: '#82D7AC' },
-};
 
 // 修为进入这一段后开始播报破境预警：留出约一次击杀的反应时间，形成"看着它来"的期待。
 const BREAKTHROUGH_WARNING_RATIO = 0.78;
+
+/**
+ * 九张道法各自的三级质变。键是能力语义，值是"哪张牌修满会给出它"，
+ * 让战斗代码按能力读，而不必记住某个效果挂在哪张卡上。
+ */
+type CultivationTrait =
+    | 'returning-sword'
+    | 'sword-mark'
+    | 'cloud-step'
+    | 'thunder-seal'
+    | 'shield-burst'
+    | 'overflow-shield';
+
+const CULTIVATION_TRAIT_SOURCES: Readonly<Record<CultivationTrait, UpgradeId>> = {
+    'returning-sword': 'sword',
+    'sword-mark': 'damage',
+    'cloud-step': 'dash',
+    'thunder-seal': 'tribulation',
+    'shield-burst': 'guard',
+    'overflow-shield': 'endless-life',
+};
 const STAGE_PROGRESS_STORAGE_KEY = 'xianxia-roguelike.stage-progress.v1';
 const GAME_SETTINGS_STORAGE_KEY = 'xianxia-roguelike.settings.v1';
 const BALANCE_TELEMETRY_STORAGE_KEY = 'xianxia-roguelike.balance-runs.v1';
@@ -465,14 +478,8 @@ export class GameBootstrap extends Component {
     private playerMoveAmount = 0;
     private playerFacing = 1;
     private cultivationRerolls = 1;
-    private cultivationRefineBonus = 0;
     private cultivationShield = 0;
     private cultivationShieldMax = 0;
-    private cultivationAfterSpell = false;
-    private cultivationSplitCooldown = 0;
-    private cultivationUltimateTimer = 0;
-    private cultivationBossRewardShown = false;
-    private cultivationUndyingUsed = false;
     private cultivationResumeAfterUpgrade?: () => void;
     private cultivationMomentum?: UpgradeMomentumSpec;
     private cultivationMomentumTimer = 0;
@@ -1104,7 +1111,7 @@ export class GameBootstrap extends Component {
             this.clearMoveTarget();
             return;
         }
-        if (this.hasCultivation('cloud-step')) {
+        if (this.hasTrait('cloud-step')) {
             this.playerInvulnerableTimer = Math.max(this.playerInvulnerableTimer, 0.28);
             this.createAbilityHint('踏云无痕', new Color('#B7D8CB'));
         }
@@ -2328,16 +2335,10 @@ export class GameBootstrap extends Component {
         this.lastMoveDirection.set(0, 1);
         this.skills.reset();
         this.cultivationRerolls = 1;
-        this.cultivationRefineBonus = 0;
         this.cultivationChoiceHistory = [];
         this.cultivationShield = 0;
         this.cultivationShieldMax = 0;
-        this.cultivationAfterSpell = false;
-        this.cultivationSplitCooldown = 0;
-        this.cultivationUltimateTimer = 5.5;
         this.cultivationRelicVolley = 0;
-        this.cultivationBossRewardShown = false;
-        this.cultivationUndyingUsed = false;
         this.cultivationMomentum = undefined;
         this.cultivationMomentumTimer = 0;
         this.recentUpgradeText = '';
@@ -2419,16 +2420,16 @@ export class GameBootstrap extends Component {
             // 累计进化验收使用真实确认路径写入三次选择，再直达修行卷检查历史、阶数与叠加结果。
             this.phase = 'playing';
             this.clearOverlay();
-            this.applyUpgrade('seed-mystic');
-            this.applyUpgrade('cycle-breath');
-            this.applyUpgrade('spell-sword');
+            this.applyUpgrade('formation');
+            this.applyUpgrade('tribulation');
+            this.applyUpgrade('dash');
             this.updateHud();
             this.showUpgradeHistorySummary();
             this.showCultivationSheet();
         } else if (this.hasLocalQaFlag('qaCultivationAura=1')) {
-            // 固定在锋芒共鸣后的可玩战场，便于核对本命法宝、常驻面板和周期追锋，不弹出选择层。
-            this.skills.upgrade('seed-edge');
-            this.skills.upgrade('returning-sword');
+            // 固定在锋芒共鸣后的可玩战场，便于核对本命法宝光效与常驻面板，不弹出选择层。
+            this.skills.upgrade('sword');
+            this.skills.upgrade('sword');
             this.level = 4;
             this.refreshPlayerAura();
             this.updateHud();
@@ -2436,15 +2437,15 @@ export class GameBootstrap extends Component {
             // 固定展示强反馈退场后的下一成形目标，不刷怪、不追加第二次破境。
             this.phase = 'playing';
             this.clearOverlay();
-            this.applyUpgrade('seed-edge');
+            this.applyUpgrade('sword');
             this.spawnTimer = Number.POSITIVE_INFINITY;
             this.showUpgradeHistorySummary();
             this.updateHud();
         } else if (this.hasLocalQaFlag('qaUpgradeAdvanced=1')) {
-            // 后续破境专门验收稀有度、观星和炼化；先走真实道种结算，再打开普通三槽命盘。
+            // 后续破境专门验收等级徽章与观星；先走一次真实结算，再打开三槽命盘。
             this.phase = 'playing';
             this.clearOverlay();
-            this.applyUpgrade('seed-edge');
+            this.applyUpgrade('sword');
             this.level = 3;
             this.showUpgrade();
         } else if (this.hasLocalQaFlag('qaCombo=1')) {
@@ -3070,26 +3071,20 @@ export class GameBootstrap extends Component {
     }
 
     private currentSwordDamage(): number {
-        const seedMultiplier = this.hasCultivation('seed-edge') ? 1.15 : 1;
         const momentumMultiplier = this.cultivationMomentumTimer > 0
             ? this.cultivationMomentum?.damageMultiplier ?? 1
             : 1;
         return this.swordDamage
-            * seedMultiplier
             * this.spiritVein.damageMultiplier()
             * momentumMultiplier
             * this.combatFlow.snapshot().damageMultiplier;
     }
 
     private currentAttackInterval(): number {
-        const lowHealthHaste = this.hasCultivation('wither-cycle')
-            && this.hp / Math.max(this.maxHp, 1) < 0.45
-            ? 0.78
-            : 1;
         const momentumMultiplier = this.cultivationMomentumTimer > 0
             ? this.cultivationMomentum?.attackIntervalMultiplier ?? 1
             : 1;
-        return Math.max(0.2, this.attackInterval * lowHealthHaste * momentumMultiplier);
+        return Math.max(0.2, this.attackInterval * momentumMultiplier);
     }
 
     private cultivationVisualTone(): { color: Color; tier: number } {
@@ -3565,31 +3560,19 @@ export class GameBootstrap extends Component {
         }
     }
 
-    private hasCultivation(id: UpgradeId): boolean {
-        return this.skills.getLevel(id) > 0;
+    /**
+     * 每张道法修到三级都会附带一个质变效果。它们不是独立的牌，也不需要玩家额外理解——
+     * 卡面描述里已经写明，这里只负责把"某张牌满级了"翻译成具体的战斗行为。
+     */
+    private hasTrait(trait: CultivationTrait): boolean {
+        return this.skills.getLevel(CULTIVATION_TRAIT_SOURCES[trait]) >= 3;
     }
 
     private updateCultivation(dt: number): void {
         this.updateUpgradeMomentum(dt);
-        this.cultivationSplitCooldown = Math.max(0, this.cultivationSplitCooldown - dt);
         for (const enemy of this.enemies) {
             if ((enemy.thunderMarkTimer ?? 0) > 0) enemy.thunderMarkTimer = Math.max(0, (enemy.thunderMarkTimer ?? 0) - dt);
         }
-        if (this.hasCultivation('wither-cycle') && this.hp / Math.max(this.maxHp, 1) > 0.8) {
-            this.healCultivation(dt * 0.9);
-        }
-        if (!this.hasCultivation('myriad-swords')) return;
-        this.cultivationUltimateTimer -= dt;
-        if (this.cultivationUltimateTimer > 0 || this.enemies.length === 0) return;
-        const target = this.findNearestEnemy();
-        if (!target) return;
-        this.cultivationUltimateTimer = 7.2;
-        for (let index = 0; index < 5; index += 1) {
-            this.fireSword(target, (index - 2) * 0.12, 0.78);
-        }
-        this.attackTimer = Math.max(this.attackTimer, this.attackInterval * 1.35);
-        this.createAbilityHint('万剑归宗', new Color('#F6D88B'));
-        this.createScreenFlash(new Color(240, 200, 121, 34), 0.22);
     }
 
     private activateUpgradeMomentum(
@@ -3600,31 +3583,12 @@ export class GameBootstrap extends Component {
         const resolved = resolveUpgradeMomentum(choice, build, milestone);
         this.cultivationMomentum = {
             ...resolved,
-            duration: resolved.duration + (this.cultivationRefineBonus > 0 ? 3 : 0),
+            duration: resolved.duration,
         };
-        this.cultivationRefineBonus = 0;
         this.cultivationMomentumTimer = this.cultivationMomentum.duration;
         return this.cultivationMomentum;
     }
 
-    private refineUpgradeDraft(resumeAfterUpgrade?: () => void): void {
-        this.cultivationRefineBonus = 1;
-        const healed = Math.max(1, Math.round(this.maxHp * 0.18));
-        this.healCultivation(healed);
-        this.clearOverlay();
-        this.phase = 'playing';
-        this.cultivationResumeAfterUpgrade = undefined;
-        resumeAfterUpgrade?.();
-        this.recentUpgradeText = `炼化回气 +${healed} · 下次功法升品，余势 +3秒`;
-        if (this.recentUpgradePanel?.isValid && this.recentUpgradeLabel) {
-            this.recentUpgradeLabel.string = this.recentUpgradeText;
-            this.recentUpgradeLabel.color = new Color('#82D7AC');
-            this.recentUpgradePanel.active = true;
-            this.recentUpgradeTimer = 6;
-        }
-        this.createAbilityHint('炼化命盘 · 灵蕴留待下次破境', new Color('#82D7AC'));
-        this.createScreenFlash(new Color(130, 215, 172, 38), 0.26);
-    }
 
     private updateUpgradeMomentum(dt: number): void {
         const momentum = this.cultivationMomentum;
@@ -3650,7 +3614,7 @@ export class GameBootstrap extends Component {
         const restored = Math.min(missing, amount);
         this.hp += restored;
         const overflow = amount - restored;
-        if (overflow > 0 && (this.hasCultivation('overflow-shield') || this.hasCultivation('heavenly-cycle'))) {
+        if (overflow > 0 && this.hasTrait('overflow-shield')) {
             this.grantCultivationShield(overflow);
         }
     }
@@ -3662,9 +3626,9 @@ export class GameBootstrap extends Component {
     }
 
     private triggerCultivationShieldBurst(): void {
-        if (!this.hasCultivation('shield-burst') && !this.hasCultivation('blood-sword-return')) return;
-        const radius = this.hasCultivation('blood-sword-return') ? 172 : 138;
-        const damage = this.currentSwordDamage() * (this.hasCultivation('blood-sword-return') ? 1.15 : 0.8);
+        if (!this.hasTrait('shield-burst')) return;
+        const radius = 152;
+        const damage = this.currentSwordDamage() * 0.95;
         this.createSwordFormationEffect(this.player.position, radius, 6);
         for (const enemy of this.enemies) {
             if (!enemy.node.isValid || enemy.dead) continue;
@@ -3698,7 +3662,6 @@ export class GameBootstrap extends Component {
         this.playerFacing = Math.abs(direction.x) > 0.08 ? (direction.x >= 0 ? 1 : -1) : this.playerFacing;
         this.playerInvulnerableTimer = Math.max(this.playerInvulnerableTimer, 0.18 + level * 0.08);
         this.skills.markDashUsed(level);
-        this.onCultivationSpellCast();
         this.actions.enter('dash', 0.32);
         this.createDashEffect(from, to, level);
 
@@ -3728,7 +3691,6 @@ export class GameBootstrap extends Component {
         const { radius, swordAmount } = spec;
         const damage = this.currentSwordDamage() * spec.damageMultiplier;
         this.skills.markFormationUsed(level);
-        this.onCultivationSpellCast();
         this.actions.enter('formation', 0.58);
         this.playerInvulnerableTimer = Math.max(this.playerInvulnerableTimer, 0.16);
         this.createSwordFormationEffect(this.player.position, radius, swordAmount);
@@ -3739,18 +3701,6 @@ export class GameBootstrap extends Component {
             }
         }
         this.damageMapObstaclesInRadius(this.player.position, radius, damage);
-        if (this.hasCultivation('ninefold-tribulation')) {
-            const target = this.findNearestEnemy();
-            const strikePosition = target?.node.position ?? this.player.position;
-            this.createTribulationStrike(strikePosition, 92, 0);
-            for (const enemy of this.enemies) {
-                if (!enemy.node.isValid || enemy.dead) continue;
-                if (Vec3.distance(enemy.node.position, strikePosition) <= 92 + enemy.radius) {
-                    this.dealSkillDamage(enemy, damage * 0.9, new Color('#D8C4FF'), 46, 'skill');
-                }
-            }
-            this.skills.formationCooldown += 1.2;
-        }
         this.cameraShakeTimer = 0.18;
         this.cameraShakeStrength = Math.max(this.cameraShakeStrength, 6 + level);
     }
@@ -3802,7 +3752,6 @@ export class GameBootstrap extends Component {
             this.damageMapObstaclesInRadius(position, strikeRadius, damage);
         }
         this.skills.markTribulationCast();
-        this.onCultivationSpellCast();
         this.actions.enter('tribulation', 0.8);
         this.playerInvulnerableTimer = Math.max(this.playerInvulnerableTimer, 0.45);
         this.createScreenFlash(new Color(154, 230, 255, 46), 0.28);
@@ -3810,14 +3759,6 @@ export class GameBootstrap extends Component {
         this.cameraShakeStrength = Math.max(this.cameraShakeStrength, 10 + level * 2);
     }
 
-    private onCultivationSpellCast(): void {
-        if (this.hasCultivation('spell-sword')) this.cultivationAfterSpell = true;
-        if (this.hasCultivation('heavenly-cycle')) {
-            const before = this.hp;
-            this.healCultivation(4);
-            if (before >= this.maxHp) this.skills.addTribulationCharge(0.08);
-        }
-    }
 
     private dealSkillDamage(
         enemy: EnemyState,
@@ -3858,7 +3799,7 @@ export class GameBootstrap extends Component {
         );
         this.runStats.recordDamageDealt(Math.min(hpBeforeHit, resolvedDamage));
         enemy.hp -= resolvedDamage;
-        if (source === 'skill' && this.hasCultivation('thunder-seal')) {
+        if (source === 'skill' && this.hasTrait('thunder-seal')) {
             enemy.thunderMarkTimer = 5;
         }
         enemy.hitTimer = 0.18;
@@ -4114,11 +4055,7 @@ export class GameBootstrap extends Component {
     private createUpgradeDemonstration(upgrade: UpgradeConfig, build: CultivationBuildSnapshot): void {
         const path = upgrade.path;
         const color = new Color(UPGRADE_PATH_COLORS[path]);
-        const amount = upgrade.offerKind === 'ultimate'
-            ? 5
-            : build.tier >= 2
-                ? 3
-                : 2;
+        const amount = build.tier >= 3 ? 5 : build.tier >= 2 ? 3 : 2;
         const displayHeight = path === 'edge' ? 62 : path === 'mystic' ? 58 : 31;
         const travel = path === 'edge' ? 126 : path === 'mystic' ? 108 : 92;
         for (let index = 0; index < amount; index += 1) {
@@ -4856,16 +4793,6 @@ export class GameBootstrap extends Component {
             }
         }
 
-        if (this.hp <= 0 && this.hasCultivation('undying-sword-body') && !this.cultivationUndyingUsed) {
-            this.cultivationUndyingUsed = true;
-            this.hp = 1;
-            this.grantCultivationShield(this.maxHp * 0.42);
-            this.playerInvulnerableTimer = 1.1;
-            this.triggerCultivationShieldBurst();
-            this.createAbilityHint('不灭剑体 · 抵命', new Color('#F4D78B'));
-            this.createScreenFlash(new Color(244, 215, 139, 76), 0.42);
-            return;
-        }
         if (this.hp <= 0) this.finish(false);
     }
 
@@ -5266,11 +5193,9 @@ export class GameBootstrap extends Component {
         if (this.attackTimer > 0 || this.enemies.length === 0) return;
         const target = this.findNearestEnemy();
         if (!target) return;
-        const spellMultiplier = this.cultivationAfterSpell ? 1.5 : 1;
-        this.cultivationAfterSpell = false;
         for (let i = 0; i < this.swordCount; i += 1) {
             const spread = (i - (this.swordCount - 1) / 2) * 0.16;
-            this.fireSword(target, spread, spellMultiplier);
+            this.fireSword(target, spread);
         }
         this.triggerCultivationRelicVolley(target);
         this.attackTimer = this.currentAttackInterval();
@@ -5389,8 +5314,8 @@ export class GameBootstrap extends Component {
             life: 1.6,
             hit: new Set<Node>(),
             trailTimer: 0,
-            piercesRemaining: this.hasCultivation('piercing-sword') ? 1 : 0,
-            canReturn: this.hasCultivation('returning-sword'),
+            piercesRemaining: 0,
+            canReturn: this.hasTrait('returning-sword'),
         });
     }
 
@@ -5417,8 +5342,7 @@ export class GameBootstrap extends Component {
                 if (Vec3.distance(projectile.node.position, enemy.node.position) > projectile.radius + enemy.radius) continue;
                 projectile.hit.add(enemy.node);
                 const marked = (enemy.swordMarkStacks ?? 0) > 0;
-                const swordMarkMultiplier = marked && this.hasCultivation('sword-mark') ? 1.25 : 1;
-                const hadThunderMark = (enemy.thunderMarkTimer ?? 0) > 0;
+                const swordMarkMultiplier = marked && this.hasTrait('sword-mark') ? 1.25 : 1;
                 this.dealSkillDamage(
                     enemy,
                     projectile.damage * swordMarkMultiplier,
@@ -5426,15 +5350,7 @@ export class GameBootstrap extends Component {
                     (enemy.elite ? 42 : enemy.champion ? 36 : 28) + this.cultivationVisualTone().tier * 3,
                     'sword',
                 );
-                if (this.hasCultivation('sword-mark')) enemy.swordMarkStacks = 1;
-                if (hadThunderMark && this.hasCultivation('cycle-breath')) this.skills.reduceCooldowns(0.35);
-                if (hadThunderMark && this.hasCultivation('thunder-swords')) {
-                    const chain = this.findNearestEnemyFrom(enemy.node.position, projectile.hit);
-                    if (chain) {
-                        this.createHitBurst(chain.node.position, new Color('#B9A4FF'), 38, true);
-                        this.dealSkillDamage(chain, projectile.damage * 0.62, new Color('#B9A4FF'), 34, 'environment');
-                    }
-                }
+                if (this.hasTrait('sword-mark')) enemy.swordMarkStacks = 1;
                 if (enemy.dead) this.onCultivationSwordKill(enemy);
                 const returnTarget = projectile.canReturn
                     ? this.findNearestEnemyFrom(projectile.node.position, projectile.hit)
@@ -5472,21 +5388,12 @@ export class GameBootstrap extends Component {
     }
 
     private onCultivationSwordKill(enemy: EnemyState): void {
-        if (this.hasCultivation('endless-life')) this.healCultivation(enemy.elite ? 5 : 2);
-        if (this.hasCultivation('blood-sword-return')) this.grantCultivationShield(enemy.elite ? 12 : 5);
-        if (this.hasCultivation('relay-seal') && (enemy.thunderMarkTimer ?? 0) > 0) {
-            const next = this.findNearestEnemyFrom(enemy.node.position, new Set([enemy.node]));
-            if (next) {
-                next.thunderMarkTimer = 5;
-                this.createHitBurst(next.node.position, new Color('#A996F2'), 28, true);
-            }
+        const lifeLevel = this.skills.getLevel('endless-life');
+        if (lifeLevel > 0) {
+            // 三级分别回 2 / 3 / 5 点，满级的溢出部分由 healCultivation 转为护体。
+            const restore = lifeLevel >= 3 ? 5 : lifeLevel === 2 ? 3 : 2;
+            this.healCultivation(enemy.elite ? restore * 2 : restore);
         }
-        if (!this.hasCultivation('split-sword') || this.cultivationSplitCooldown > 0) return;
-        const target = this.findNearestEnemy();
-        if (!target) return;
-        this.cultivationSplitCooldown = 0.16;
-        this.fireSword(target, -0.12, 0.46);
-        this.fireSword(target, 0.12, 0.46);
     }
 
     private killEnemy(enemy: EnemyState): void {
@@ -5722,8 +5629,7 @@ export class GameBootstrap extends Component {
             resumeAfterUpgrade?.();
             return;
         }
-        const openingDraft = choices.every((choice) => choice.offerKind === 'seed');
-        const allowDraftActions = !bossReward && !openingDraft;
+        const allowDraftActions = !bossReward;
 
         const panel = this.makeRect(
             596,
@@ -5766,9 +5672,10 @@ export class GameBootstrap extends Component {
             button.setPosition((index - (choices.length - 1) / 2) * spacing, -14);
             panel.addChild(button);
         });
-        if (allowDraftActions) {
+        if (allowDraftActions && this.cultivationRerolls > 0) {
+            // 观星是唯一的抽牌调节手段，居中放大，不再和炼化挤在一行里被忽略。
             const reroll = this.makeActionButton(
-                `观 星 · ${this.cultivationRerolls}`,
+                `观 星 换 一 批 · 剩 ${this.cultivationRerolls} 次`,
                 'secondary',
                 new Color('#72DDE8'),
                 () => {
@@ -5776,31 +5683,19 @@ export class GameBootstrap extends Component {
                     this.cultivationRerolls -= 1;
                     this.showUpgrade(undefined, false, resumeAfterUpgrade);
                 },
-                206,
-                48,
+                332,
+                52,
             );
-            reroll.setPosition(-112, -248);
+            reroll.setPosition(0, -248);
             panel.addChild(reroll);
-            const refine = this.makeActionButton(
-                '炼 化 · 回 气',
-                'quiet',
-                new Color('#82D7AC'),
-                () => this.refineUpgradeDraft(resumeAfterUpgrade),
-                206,
-                48,
-            );
-            refine.setPosition(112, -248);
-            panel.addChild(refine);
         }
     }
 
     private casualUpgradePresentation(choice: UpgradeConfig): CasualUpgradePresentation {
-        const seed = CASUAL_SEED_PRESENTATIONS[choice.id];
-        if (seed) return seed;
         const nextLevel = Math.min(choice.maxLevel, this.skills.getLevel(choice.id) + 1);
         return {
             title: choice.title,
-            result: choice.descriptions[nextLevel - 1] ?? choice.combatRead ?? '立即生效',
+            result: choice.descriptions[nextLevel - 1] ?? '立即生效',
             accent: UPGRADE_PATH_COLORS[choice.path],
         };
     }
@@ -5811,11 +5706,8 @@ export class GameBootstrap extends Component {
     ): Node {
         const presentation = this.casualUpgradePresentation(choice);
         const anticipation = previewUpgradeImpact(choice, (id) => this.skills.getLevel(id));
-        const rarity = upgradeRarityPresentation(
-            choice,
-            Boolean(anticipation.milestone),
-            this.cultivationRefineBonus > 0,
-        );
+        const currentLevel = this.skills.getLevel(choice.id);
+        const nextLevel = Math.min(choice.maxLevel, currentLevel + 1);
         const accent = new Color(presentation.accent);
         const node = this.makeRect(
             172,
@@ -5839,23 +5731,28 @@ export class GameBootstrap extends Component {
         iconBacking.addChild(this.createResourceSprite(choice.iconResourcePath, 108));
         node.addChild(iconBacking);
 
-        const rarityBadge = this.makeRect(
+        // 玩家真正需要判断的是"这张我修到第几级了"，而不是品级星数。
+        const levelBadge = this.makeRect(
             134,
             28,
-            new Color(accent.r, accent.g, accent.b, rarity.stars >= 3 ? 82 : 42),
+            new Color(accent.r, accent.g, accent.b, nextLevel >= choice.maxLevel ? 82 : 42),
             new Color(accent.r, accent.g, accent.b, 190),
             10,
             1,
         );
-        rarityBadge.setPosition(0, 154);
-        const rarityLabel = this.makeLabel(
-            `${rarity.label} · ${'✦'.repeat(rarity.stars)}`,
+        levelBadge.setPosition(0, 154);
+        const levelLabel = this.makeLabel(
+            currentLevel <= 0
+                ? `初 修 · Lv1`
+                : nextLevel >= choice.maxLevel
+                    ? `Lv${currentLevel} → 圆 满`
+                    : `Lv${currentLevel} → Lv${nextLevel}`,
             15,
             new Color('#FFF0BE'),
         );
-        rarityLabel.node.getComponent(UITransform)?.setContentSize(126, 22);
-        rarityBadge.addChild(rarityLabel.node);
-        node.addChild(rarityBadge);
+        levelLabel.node.getComponent(UITransform)?.setContentSize(126, 22);
+        levelBadge.addChild(levelLabel.node);
+        node.addChild(levelBadge);
 
         const name = this.makeLabel(presentation.title, 28, new Color('#FFF0C8'));
         name.node.setPosition(0, -78);
@@ -6011,7 +5908,7 @@ export class GameBootstrap extends Component {
         progression.node.getComponent(UITransform)?.setContentSize(380, 34);
         panel.addChild(progression.node);
         const milestone = this.makeLabel(
-            `战斗验证  ·  ${choice.combatRead ?? impact.milestone ?? '强化已生效'}`,
+            `战斗验证  ·  ${impact.milestone ?? impact.detail}`,
             17,
             new Color(impact.milestone ? '#F4D78B' : '#9CB8AE'),
         );
@@ -6563,7 +6460,7 @@ export class GameBootstrap extends Component {
     }
 
     private applyUpgrade(id: UpgradeId): number {
-        // 选择历史只记录玩家确认过的进化；道种自动解锁的隐藏功法仍生效，但不伪装成额外选择。
+        // 选择历史记录本局确认过的每一次修行，供修行卷与战报回放。
         this.cultivationChoiceHistory.push(id);
         const nextLevel = this.skills.upgrade(id);
         if (id === 'sword') this.swordCount = nextLevel;
@@ -6581,25 +6478,7 @@ export class GameBootstrap extends Component {
             this.hp = Math.min(this.maxHp, this.hp + this.maxHp * ratio);
             if (nextLevel >= 3) this.playerInvulnerableTimer = Math.max(this.playerInvulnerableTimer, 1.2);
         }
-        // 首次进化必须立即改变战场轮廓：万剑直接增加弹道数量，而不是只写入隐藏数值。
-        if (id === 'seed-edge') this.swordCount = Math.max(this.swordCount, 3);
-        if (id === 'seed-mystic' && this.skills.getLevel('formation') <= 0) this.skills.upgrade('formation');
-        if (id === 'seed-vitality') {
-            this.maxHp += 25;
-            this.healCultivation(25);
-            this.grantCultivationShield(28);
-            if (this.skills.getLevel('shield-burst') <= 0) this.skills.upgrade('shield-burst', 1);
-        }
-        if (id === 'thunder-seal' && this.skills.getLevel('tribulation') <= 0) this.skills.upgrade('tribulation');
-        if (id === 'piercing-sword') this.attackInterval *= 1.08;
-        if (id === 'overflow-shield') this.grantCultivationShield(16);
-        if (id === 'clear-mind') this.cultivationRerolls += 1;
-        if (id === 'breath-return') {
-            this.maxHp += 30;
-            this.healCultivation(30);
-        }
-        if (id === 'ninefold-tribulation' && this.skills.getLevel('formation') <= 0) this.skills.upgrade('formation');
-        if (id === 'undying-sword-body') this.grantCultivationShield(this.maxHp * 0.2);
+        if (id === 'endless-life' && nextLevel >= 3) this.grantCultivationShield(16);
         this.createUpgradeResonance(id, nextLevel);
         this.refreshPlayerAura();
         return nextLevel;
@@ -6620,19 +6499,6 @@ export class GameBootstrap extends Component {
             this.finish(true);
             return;
         }
-        const nextWave = this.currentStage.waves[this.waveIndex + 1];
-        if (
-            nextWave?.danger === 'boss'
-            && !this.cultivationBossRewardShown
-            && cultivationSeedPath((id) => this.skills.getLevel(id))
-        ) {
-            const bossChoices = pickBossCultivationChoices((id) => this.skills.getLevel(id), 2);
-            if (bossChoices.length > 0) {
-                this.cultivationBossRewardShown = true;
-                this.showUpgrade(bossChoices, true, () => this.advanceToNextWave());
-                return;
-            }
-        }
         if (this.mapEvent.shouldTriggerAfterWave(this.waveIndex)) {
             this.showMapEventPrelude(true);
             return;
@@ -6642,7 +6508,6 @@ export class GameBootstrap extends Component {
 
     private advanceToNextWave(announce = true): void {
         this.waveIndex += 1;
-        this.cultivationUndyingUsed = false;
         this.spawned = 0;
         const nextWave = this.currentStage.waves[this.waveIndex];
         this.spawnTimer = nextWave?.danger ? 1.7 : 0.65;
@@ -7825,14 +7690,7 @@ export class GameBootstrap extends Component {
             rowTitle.node.setPosition(-48, 14);
             rowTitle.node.getComponent(UITransform)?.setContentSize(292, 28);
             row.addChild(rowTitle.node);
-            const rawDetail = upgrade.descriptions[Math.max(0, level - 1)] ?? upgrade.combatRead ?? '';
-            const compactDetail = upgrade.id.indexOf('seed-') === 0
-                ? `${UPGRADE_PATH_LABELS[upgrade.path]}道基由 ${upgrade.routeContribution ?? 1}重起步`
-                : upgrade.id === 'cycle-breath'
-                    ? '功法冷却缩短 0.35秒'
-                    : upgrade.id === 'spell-sword'
-                        ? '下一轮飞剑伤害 +50%'
-                        : rawDetail;
+            const compactDetail = upgrade.descriptions[Math.max(0, level - 1)] ?? '';
             const rowDetail = this.makeLabel(
                 compactDetail,
                 20,
@@ -7842,13 +7700,7 @@ export class GameBootstrap extends Component {
             rowDetail.node.setPosition(-48, -15);
             rowDetail.node.getComponent(UITransform)?.setContentSize(292, 24);
             row.addChild(rowDetail.node);
-            const effectTag = upgrade.id.indexOf('seed-') === 0
-                ? '根基'
-                : upgrade.id === 'cycle-breath' || upgrade.id === 'thunder-seal' || upgrade.id === 'relay-seal'
-                    ? '联动'
-                    : upgrade.id === 'spell-sword' || upgrade.offerKind === 'ultimate'
-                        ? '爆发'
-                        : upgrade.role.split(' · ')[0];
+            const effectTag = upgrade.role.split(' · ')[0];
             const tag = this.makeLabel(effectTag, 20, accent);
             tag.horizontalAlign = Label.HorizontalAlign.RIGHT;
             tag.node.setPosition(210, 0);
