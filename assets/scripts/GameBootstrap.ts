@@ -327,6 +327,8 @@ interface PlayerAuraSwordVisual {
     readonly opacity: UIOpacity;
     readonly ghosts: ReadonlyArray<{ node: Node; opacity: UIOpacity; phaseOffset: number }>;
     readonly active: boolean;
+    /** 该柄剑气代表的是某一系的第几级，用于给最新一级做出场高亮。 */
+    readonly step: number;
 }
 
 interface MapObstacleVisual {
@@ -386,6 +388,7 @@ export class GameBootstrap extends Component {
     private playerAuraNode?: Node;
     private playerAuraFrontNode?: Node;
     private playerAuraSwords: PlayerAuraSwordVisual[] = [];
+    private playerAuraSigil?: Graphics;
     private playerAnimationFrameIndex = -1;
     private playerAnimationFrames: SpriteFrame[] = [];
     private bossAnimationFrames: SpriteFrame[] = [];
@@ -1285,12 +1288,17 @@ export class GameBootstrap extends Component {
         subtitle.node.setPosition(0, 456);
         subtitle.node.getComponent(UITransform)?.setContentSize(556, 28);
         panel.addChild(subtitle.node);
+        // 把身上光效的读法直接写出来，玩家才能把战场上看到的东西和这一页对上。
+        const rule = this.makeLabel('每 修 一 重 · 身 上 多 一 柄 剑 气 　 同 系 满 三 重 · 脚 下 法 阵 显 化 真 形', 14, new Color('#8FB3A8'));
+        rule.node.setPosition(0, 430);
+        rule.node.getComponent(UITransform)?.setContentSize(556, 24);
+        panel.addChild(rule.node);
 
         const columnX = [-186, 0, 186];
         UPGRADE_PATH_ORDER.forEach((path, columnIndex) => {
             const pathColor = new Color(UPGRADE_PATH_COLORS[path]);
             const header = this.makeLabel(UPGRADE_PATH_LABELS[path], 22, pathColor);
-            header.node.setPosition(columnX[columnIndex], 408);
+            header.node.setPosition(columnX[columnIndex], 400);
             header.node.getComponent(UITransform)?.setContentSize(172, 30);
             panel.addChild(header.node);
 
@@ -1380,9 +1388,23 @@ export class GameBootstrap extends Component {
             row.addChild(tier.node);
             const body = this.makeLabel(text, 17, new Color(final ? '#FFF0C8' : '#DCEDE6'));
             body.horizontalAlign = Label.HorizontalAlign.LEFT;
-            body.node.setPosition(40, 0);
-            body.node.getComponent(UITransform)?.setContentSize(380, 44);
+            body.node.setPosition(30, 0);
+            body.node.getComponent(UITransform)?.setContentSize(340, 44);
             row.addChild(body.node);
+            // 行末用剑气菱形标出修到这一重时身上累计挂几柄，和战场表现一一对应。
+            const marks = row.getComponent(Graphics);
+            if (marks) {
+                for (let slot = 0; slot <= index; slot += 1) {
+                    const x = 214 + slot * 15;
+                    marks.fillColor = new Color(selectedColor.r, selectedColor.g, selectedColor.b, final ? 250 : 200);
+                    marks.moveTo(x, 9);
+                    marks.lineTo(x + 5, 0);
+                    marks.lineTo(x, -9);
+                    marks.lineTo(x - 5, 0);
+                    marks.close();
+                    marks.fill();
+                }
+            }
             detail.addChild(row);
         });
 
@@ -8039,6 +8061,14 @@ export class GameBootstrap extends Component {
     }
 
     private createPlayerAura(): void {
+        // 法阵画在最底层：它是脚下的地面光，必须压在角色与剑气之下。
+        const sigil = new Node('PlayerAuraSigil');
+        sigil.layer = Layers.Enum.UI_2D;
+        sigil.setPosition(0, -34);
+        this.player.addChild(sigil);
+        sigil.setSiblingIndex(0);
+        this.playerAuraSigil = sigil.addComponent(Graphics);
+
         const back = new Node('PlayerAuraBack');
         back.layer = Layers.Enum.UI_2D;
         back.setPosition(0, -5);
@@ -8066,14 +8096,27 @@ export class GameBootstrap extends Component {
         this.playerAuraSwords = [];
         if (total === 0) return;
 
-        // 设计稿固定由金、冰青、玉绿三柄剑气构成；路线等级控制亮度，不再让未主修路线整柄消失。
-        this.playerAuraSwords = UPGRADE_PATH_ORDER.map((path, index) => (
-            this.createAuraSword(path, -Math.PI / 2 + index * Math.PI * 2 / 3, totals[path] > 0)
+        // 每修一级就在身上多挂一柄剑气：绕行剑气的数量直接等于本局破境次数，
+        // 颜色分布就是玩家的路线选择。不看面板也能一眼读出"我练到哪了、走的哪条路"。
+        const swords: Array<{ path: UpgradePath; step: number }> = [];
+        UPGRADE_PATH_ORDER.forEach((path) => {
+            for (let step = 1; step <= totals[path]; step += 1) swords.push({ path, step });
+        });
+        this.playerAuraSwords = swords.map((entry, index) => this.createAuraSword(
+            entry.path,
+            -Math.PI / 2 + index * Math.PI * 2 / swords.length,
+            true,
+            entry.step,
         ));
         this.updatePlayerAuraVisual();
     }
 
-    private createAuraSword(path: UpgradePath, phase: number, active: boolean): PlayerAuraSwordVisual {
+    private createAuraSword(
+        path: UpgradePath,
+        phase: number,
+        active: boolean,
+        step: number,
+    ): PlayerAuraSwordVisual {
         const node = new Node(`DaoFoundationSword-${path}`);
         node.layer = Layers.Enum.UI_2D;
         const opacity = node.addComponent(UIOpacity);
@@ -8083,7 +8126,7 @@ export class GameBootstrap extends Component {
 
         // 新版素材已经自带附着式剑气拖尾；不再复制整柄剑做残影，避免主修路线看成三把同色武器。
         const ghosts: PlayerAuraSwordVisual['ghosts'] = [];
-        return { path, phase, node, opacity, ghosts, active };
+        return { path, phase, node, opacity, ghosts, active, step };
     }
 
     private updatePlayerAuraVisual(): void {
@@ -8108,6 +8151,8 @@ export class GameBootstrap extends Component {
             node.setScale(scale, scale);
         };
 
+        this.drawPlayerAuraSigil(build, motion, momentum);
+
         this.playerAuraSwords.forEach((visual) => {
             const angle = motion + visual.phase;
             const depth = (1 - Math.sin(angle)) / 2;
@@ -8116,13 +8161,17 @@ export class GameBootstrap extends Component {
             const surgePulse = routeSurging && !this.prefersReducedMotion
                 ? 1 + Math.sin(this.elapsed * 8) * 0.07
                 : 1;
+            // 第三级的剑气代表某式已经圆满，单独放大一档，让"修满了"在战场上看得见。
+            const masteredStep = visual.step >= 3 ? 1.16 : 1;
             const scale = (0.9 + depth * 0.18)
                 * (visual.active ? 1 + build.tier * 0.03 : 0.86)
+                * masteredStep
                 * (routeSurging ? (1.12 + momentum.tier * 0.035) * surgePulse : 1);
             // 素材自身已经包含半透明剑气；潜伏路线仍需保留约六成亮度，避免二次透明后完全消失。
             visual.opacity.opacity = Math.min(255, Math.round(
                 (visual.active ? 210 : 166)
                 + depth * (visual.active ? 40 : 24)
+                + (visual.step >= 3 ? 30 : 0)
                 + (routeSurging ? 35 : 0),
             ));
             place(visual.node, angle, scale, target);
@@ -8136,6 +8185,50 @@ export class GameBootstrap extends Component {
                 place(ghost.node, ghostAngle, scale * (index === 0 ? 0.94 : 0.86), ghostTarget);
             });
         });
+    }
+
+    /**
+     * 脚下法阵是本命法宝阶数唯一的常驻形态：初醒一环、共鸣两环、真形三环，
+     * 环的颜色取自主修路线，破境余势期间整体加亮。玩家不必打开任何面板就知道法宝练到哪了。
+     */
+    private drawPlayerAuraSigil(
+        build: CultivationBuildSnapshot,
+        motion: number,
+        momentum?: UpgradeMomentumSpec,
+    ): void {
+        const sigil = this.playerAuraSigil;
+        if (!sigil?.isValid) return;
+        sigil.clear();
+        if (!build.path || build.tier <= 0) return;
+        const tone = new Color(UPGRADE_PATH_COLORS[build.path]);
+        const surge = momentum ? 1.14 : 1;
+        const breath = this.prefersReducedMotion ? 1 : 1 + Math.sin(this.elapsed * 2.4) * 0.045;
+
+        for (let ring = 0; ring < build.tier; ring += 1) {
+            const rx = (30 + ring * 11) * surge * breath;
+            const alpha = Math.round((132 - ring * 24) * (momentum ? 1.25 : 1));
+            sigil.strokeColor = new Color(tone.r, tone.g, tone.b, Math.min(215, alpha));
+            sigil.lineWidth = ring === 0 ? 2.6 : 1.6;
+            // 地面透视统一压成 0.42 的扁椭圆，避免看成悬空的正圆。
+            sigil.ellipse(0, 0, rx, rx * 0.42);
+            sigil.stroke();
+        }
+
+        // 真形追加一圈随行旋转的刻度，让最高阶在动态上也和共鸣区分开。
+        if (build.tier >= 3) {
+            const marks = 6;
+            const rx = 56 * surge * breath;
+            sigil.strokeColor = new Color(tone.r, tone.g, tone.b, momentum ? 205 : 165);
+            sigil.lineWidth = 2.4;
+            for (let index = 0; index < marks; index += 1) {
+                const angle = motion * 0.6 + index * Math.PI * 2 / marks;
+                const cos = Math.cos(angle);
+                const sin = Math.sin(angle) * 0.42;
+                sigil.moveTo(cos * rx * 0.82, sin * rx * 0.82);
+                sigil.lineTo(cos * rx, sin * rx);
+                sigil.stroke();
+            }
+        }
     }
 
     private createBossAura(enemy: EnemyState): void {
@@ -8934,6 +9027,7 @@ export class GameBootstrap extends Component {
         this.playerAuraNode = undefined;
         this.playerAuraFrontNode = undefined;
         this.playerAuraSwords = [];
+        this.playerAuraSigil = undefined;
         this.recentUpgradePanel = undefined;
         this.recentUpgradeLabel = undefined;
         this.recentUpgradeTimer = 0;
