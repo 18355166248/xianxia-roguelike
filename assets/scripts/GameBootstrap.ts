@@ -1261,6 +1261,137 @@ export class GameBootstrap extends Component {
         this.overlay.addChild(panel);
     }
 
+    /**
+     * 道法谱是局外的独立页面：九式道法一屏排开，点开任意一式看清三重效果。
+     * 玩家应当能在开局之前就知道自己能修什么，而不是靠局内三选一慢慢试出来。
+     */
+    private showCultivationCodex(selectedId: UpgradeId = UPGRADES[0].id): void {
+        this.clearOverlay();
+        this.bringOverlayToFront();
+        this.overlay.addChild(this.makeRect(
+            this.visibleDesignWidth(),
+            this.designHeight,
+            new Color(2, 10, 14, 238),
+        ));
+        const gold = new Color('#D8B86B');
+        const panel = this.makeThemedCard(600, 1150, 'chapter', gold);
+        panel.name = 'CultivationCodex';
+        this.overlay.addChild(panel);
+
+        const title = this.makeLabel('道 法 谱', 46, new Color('#FFF0BE'));
+        title.node.setPosition(0, 500);
+        panel.addChild(title.node);
+        const subtitle = this.makeLabel('九 式 道 法  ·  每 式 三 重  ·  破 境 时 三 选 一', 17, new Color('#BBD6CC'));
+        subtitle.node.setPosition(0, 456);
+        subtitle.node.getComponent(UITransform)?.setContentSize(556, 28);
+        panel.addChild(subtitle.node);
+
+        const columnX = [-186, 0, 186];
+        UPGRADE_PATH_ORDER.forEach((path, columnIndex) => {
+            const pathColor = new Color(UPGRADE_PATH_COLORS[path]);
+            const header = this.makeLabel(UPGRADE_PATH_LABELS[path], 22, pathColor);
+            header.node.setPosition(columnX[columnIndex], 408);
+            header.node.getComponent(UITransform)?.setContentSize(172, 30);
+            panel.addChild(header.node);
+
+            UPGRADES.filter((art) => art.path === path).forEach((art, rowIndex) => {
+                const chosen = art.id === selectedId;
+                const cell = this.makeRect(
+                    172,
+                    150,
+                    new Color(pathColor.r, pathColor.g, pathColor.b, chosen ? 46 : 20),
+                    new Color(pathColor.r, pathColor.g, pathColor.b, chosen ? 245 : 120),
+                    16,
+                    chosen ? 3 : 1,
+                );
+                cell.name = `CodexArt-${art.id}`;
+                cell.setPosition(columnX[columnIndex], 296 - rowIndex * 160);
+                const icon = this.createResourceSprite(art.iconResourcePath, 62);
+                icon.setPosition(0, 26);
+                cell.addChild(icon);
+                const name = this.makeLabel(art.title, 20, new Color(chosen ? '#FFF0C8' : '#DCEDE6'));
+                name.node.setPosition(0, -30);
+                name.node.getComponent(UITransform)?.setContentSize(160, 28);
+                cell.addChild(name.node);
+                const role = this.makeLabel(art.role, 14, new Color(pathColor.r, pathColor.g, pathColor.b, 225));
+                role.node.setPosition(0, -54);
+                role.node.getComponent(UITransform)?.setContentSize(160, 22);
+                cell.addChild(role.node);
+                cell.on(Node.EventType.TOUCH_END, (event: EventTouch) => {
+                    event.propagationStopped = true;
+                    this.showCultivationCodex(art.id);
+                });
+                panel.addChild(cell);
+            });
+        });
+
+        const selected = UPGRADES.find((art) => art.id === selectedId) ?? UPGRADES[0];
+        const selectedColor = new Color(UPGRADE_PATH_COLORS[selected.path]);
+        const detail = this.makeRect(
+            556,
+            286,
+            new Color(2, 16, 20, 232),
+            new Color(selectedColor.r, selectedColor.g, selectedColor.b, 168),
+            18,
+            2,
+        );
+        detail.name = 'CodexDetail';
+        detail.setPosition(0, -324);
+        panel.addChild(detail);
+
+        const detailIcon = this.createResourceSprite(selected.iconResourcePath, 74);
+        detailIcon.setPosition(-222, 84);
+        detail.addChild(detailIcon);
+        const detailName = this.makeLabel(selected.title, 28, new Color('#FFF0C8'));
+        detailName.horizontalAlign = Label.HorizontalAlign.LEFT;
+        detailName.node.setPosition(-46, 96);
+        detailName.node.getComponent(UITransform)?.setContentSize(300, 34);
+        detail.addChild(detailName.node);
+        const detailRole = this.makeLabel(
+            `${UPGRADE_PATH_LABELS[selected.path]}  ·  ${selected.role}`,
+            16,
+            new Color(selectedColor.r, selectedColor.g, selectedColor.b, 240),
+        );
+        detailRole.horizontalAlign = Label.HorizontalAlign.LEFT;
+        detailRole.node.setPosition(-58, 66);
+        detailRole.node.getComponent(UITransform)?.setContentSize(276, 24);
+        detail.addChild(detailRole.node);
+
+        const tierNames = ['一 重', '二 重', '三 重'] as const;
+        selected.descriptions.forEach((text, index) => {
+            const final = index === selected.descriptions.length - 1;
+            const row = this.makeRect(
+                520,
+                52,
+                new Color(selectedColor.r, selectedColor.g, selectedColor.b, final ? 34 : 14),
+                new Color(selectedColor.r, selectedColor.g, selectedColor.b, final ? 190 : 78),
+                12,
+                1,
+            );
+            row.setPosition(0, 12 - index * 60);
+            const tier = this.makeLabel(
+                final ? `${tierNames[index]} · 圆满` : tierNames[index],
+                16,
+                new Color(final ? '#F4D78B' : '#9FC7BB'),
+            );
+            tier.horizontalAlign = Label.HorizontalAlign.LEFT;
+            tier.node.setPosition(-206, 0);
+            tier.node.getComponent(UITransform)?.setContentSize(110, 24);
+            row.addChild(tier.node);
+            const body = this.makeLabel(text, 17, new Color(final ? '#FFF0C8' : '#DCEDE6'));
+            body.horizontalAlign = Label.HorizontalAlign.LEFT;
+            body.node.setPosition(40, 0);
+            body.node.getComponent(UITransform)?.setContentSize(380, 44);
+            row.addChild(body.node);
+            detail.addChild(row);
+        });
+
+        const close = this.makeActionButton('收 起', 'primary', gold, () => this.renderMenu(), 320, 60);
+        close.name = 'CodexClose';
+        close.setPosition(0, -510);
+        panel.addChild(close);
+    }
+
     private showSettingsPanel(origin: 'menu' | 'pause'): void {
         const preferences = this.settings.snapshot();
         this.clearOverlay();
@@ -1546,10 +1677,16 @@ export class GameBootstrap extends Component {
         settingsButton.name = 'MenuSettings';
         settingsButton.setPosition(this.visibleDesignWidth() / 2 - 62, 558);
         this.overlay.addChild(settingsButton);
+        // 道法谱是开局前理解"我能修什么"的唯一入口，与设置对称放在标题两侧。
+        const codexButton = this.makeCompactButton('道 法', () => this.showCultivationCodex(), 94, 40);
+        codexButton.name = 'MenuCultivationCodex';
+        codexButton.setPosition(-this.visibleDesignWidth() / 2 + 62, 558);
+        this.overlay.addChild(codexButton);
         if (this.hasLocalQaFlag('qaBalance=1')) {
             const balanceButton = this.makeCompactButton('平 衡', () => this.showBalanceReportPanel(), 94, 40, true);
             balanceButton.name = 'BalanceReportAction';
-            balanceButton.setPosition(-this.visibleDesignWidth() / 2 + 62, 558);
+            // 让出标题左侧给道法谱，验收入口下移一行。
+            balanceButton.setPosition(-this.visibleDesignWidth() / 2 + 62, 508);
             this.overlay.addChild(balanceButton);
         }
 
