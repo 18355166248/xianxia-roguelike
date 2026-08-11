@@ -48,7 +48,6 @@ import {
     WAVE_CREST_ASSET,
 } from './config/AssetCatalog';
 import {
-    type EnemyKind,
     type StageConfig,
     STAGES,
     UPGRADES,
@@ -122,7 +121,6 @@ import {
     PlayerActionRuntime,
     resolveTapMovePoint,
     resolveTapMoveStep,
-    resolveSwordGesture,
     shouldConfirmTapMove,
 } from './systems/PlayerActionRuntime';
 import { SpiritVeinRuntime } from './systems/SpiritVeinRuntime';
@@ -160,13 +158,11 @@ import {
     type FrostRouteGeometry,
 } from './systems/FrostRouteRuntime';
 import {
-    choiceBuildProgress,
     cultivationSeedPath,
     pickUpgradeChoices,
     pickBossCultivationChoices,
     summarizeUpgradePaths,
     upgradeRarityPresentation,
-    UPGRADE_PATH_DESCRIPTIONS,
     UPGRADE_PATH_LABELS,
     UPGRADE_PATH_ORDER,
 } from './systems/UpgradeChoiceRuntime';
@@ -175,6 +171,16 @@ import {
     combatImpactPresentationFor,
     type CombatImpactTier,
 } from './systems/CombatFlowRuntime';
+import { HitStopRuntime, type HitStopTier } from './systems/HitStopRuntime';
+import {
+    glowStrokeLayers,
+    impactExpansion,
+    impactFade,
+    impactShardLayout,
+    shardTravel,
+    trailSegmentWidths,
+    type ImpactShard,
+} from './systems/ImpactVfxRuntime';
 import {
     describeUpgradeDelta,
     previewUpgradeImpact,
@@ -289,6 +295,8 @@ const CASUAL_SEED_PRESENTATIONS: Readonly<Partial<Record<UpgradeId, CasualUpgrad
     'seed-vitality': { title: '护体', result: '护盾反震', accent: '#82D7AC' },
 };
 
+// 修为进入这一段后开始播报破境预警：留出约一次击杀的反应时间，形成"看着它来"的期待。
+const BREAKTHROUGH_WARNING_RATIO = 0.78;
 const STAGE_PROGRESS_STORAGE_KEY = 'xianxia-roguelike.stage-progress.v1';
 const GAME_SETTINGS_STORAGE_KEY = 'xianxia-roguelike.settings.v1';
 const BALANCE_TELEMETRY_STORAGE_KEY = 'xianxia-roguelike.balance-runs.v1';
@@ -361,7 +369,6 @@ export class GameBootstrap extends Component {
     private player!: Node;
     private playerVisual!: Node;
     private playerSprite?: Sprite;
-    private playerOpacity!: UIOpacity;
     private playerBaseScale = 1;
     private playerAuraNode?: Node;
     private playerAuraFrontNode?: Node;
@@ -387,13 +394,6 @@ export class GameBootstrap extends Component {
     private routeChoiceBacking!: Node;
     private chapterBranchMemoryTimer = 0;
     private waveRouteGraphics!: Graphics;
-    private buildLabel!: Label;
-    private buildSourceLabel!: Label;
-    private buildStatsLabel!: Label;
-    private buildPanel?: Node;
-    private buildRelicIcon?: Node;
-    private buildRelicPath?: UpgradePath;
-    private buildRelicTier = -1;
     private recentUpgradePanel?: Node;
     private recentUpgradeLabel?: Label;
     private recentUpgradeTimer = 0;
@@ -403,16 +403,15 @@ export class GameBootstrap extends Component {
     private cultivationChoiceHistory: UpgradeId[] = [];
     private upgradePreviewFx?: Node;
     private cultivationRelicVolley = 0;
-    private buildPathLabels = new Map<UpgradePath, Label>();
     private hpBar!: Graphics;
     private xpBar!: Graphics;
+    private breakthroughRing?: Graphics;
+    private breakthroughPulse = 0;
+    private breakthroughImminent = false;
     private bossHud!: Node;
     private bossHpBar!: Graphics;
     private bossHpLabel!: Label;
     private bossPhaseLabel!: Label;
-    private attackHud!: Graphics;
-    private attackHudLabel!: Label;
-    private attackIconOpacity!: UIOpacity;
     private dashHud!: SkillHud;
     private formationHud!: SkillHud;
     private tribulationHud!: SkillHud;
@@ -446,13 +445,10 @@ export class GameBootstrap extends Component {
 
     private hp = 100;
     private maxHp = 100;
-    private stageBaseMaxHp = 100;
     private moveSpeed = 235;
     private swordDamage = 18;
-    private stageBaseSwordDamage = 18;
     private swordCount = 1;
     private attackInterval = 0.72;
-    private stageBaseAttackInterval = 0.72;
     private attackTimer = 0;
     private level = 1;
     private xp = 0;
@@ -497,6 +493,8 @@ export class GameBootstrap extends Component {
         globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false,
     );
     private readonly combatFlow = new CombatFlowRuntime();
+    // 顿帧与破境预警都只读写自身状态，放在规则层便于回归测试覆盖时间轴换算。
+    private readonly hitStop = new HitStopRuntime();
     private readonly platformFeedback = new PlatformFeedbackService();
     private lastStageVictory?: StageVictoryResult;
     private mapEventModifierWaveIndex = -1;
@@ -509,9 +507,6 @@ export class GameBootstrap extends Component {
     private eliteEncounterCompletionShown = false;
     private touchGestureStartedAt = 0;
     private touchMaxDrag = 0;
-    private attackGestureOrigin?: Vec2;
-    private attackGestureCurrent?: Vec2;
-    private attackGestureStartedAt = 0;
     private cameraShakeTimer = 0;
     private cameraShakeStrength = 0;
     private stageEntryCameraOffsetY = 0;
@@ -575,9 +570,12 @@ export class GameBootstrap extends Component {
             this.orientationPausedByGuard = true;
             this.platformFeedback.setAmbiencePaused(true);
         }
+        // 顿帧只压缩战斗与特效的时间轴；镜头抖动、氛围和 UI 计时继续走真实时间，
+        // 这样"画面定住但还在震"的一瞬间才有重量，而不是整个界面卡住。
+        const combatDt = this.hitStop.consume(dt);
         this.elapsed += dt;
         this.updateAmbience(dt);
-        this.updateEffects(dt);
+        this.updateEffects(combatDt);
         this.updateCameraFeedback(dt);
         if (this.recentUpgradeTimer > 0) {
             this.recentUpgradeTimer = Math.max(0, this.recentUpgradeTimer - dt);
@@ -588,22 +586,29 @@ export class GameBootstrap extends Component {
         if (this.chapterBranchMemoryTimer > 0) {
             this.chapterBranchMemoryTimer = Math.max(0, this.chapterBranchMemoryTimer - dt);
         }
-        this.runStats.tick(dt);
-        this.combatFlow.tick(dt);
-        this.updatePlayer(dt);
-        this.updateFrostTide(dt);
-        this.updateSpiritVein(dt);
-        this.updateOpeningObjective(dt);
-        this.updateAbilities(dt);
-        this.updateCultivation(dt);
-        this.updateSpawning(dt);
-        this.updateEnemies(dt);
-        this.updateBossPulses(dt);
-        this.updateBossPincers(dt);
-        this.updateAttacks(dt);
-        this.updateProjectiles(dt);
+        this.updateBreakthroughPulse(dt);
+        if (combatDt <= 0) {
+            // 定格期间仍要刷新 HUD，否则血量与破境进度会在最有张力的半秒里停止响应。
+            this.updateHud();
+            return;
+        }
+        this.runStats.tick(combatDt);
+        // 波次已清但下一波尚未刷新时冻结剑势计时，换波不再必然打断连斩。
+        this.combatFlow.tick(combatDt, this.waveFinished);
+        this.updatePlayer(combatDt);
+        this.updateFrostTide(combatDt);
+        this.updateSpiritVein(combatDt);
+        this.updateOpeningObjective(combatDt);
+        this.updateAbilities(combatDt);
+        this.updateCultivation(combatDt);
+        this.updateSpawning(combatDt);
+        this.updateEnemies(combatDt);
+        this.updateBossPulses(combatDt);
+        this.updateBossPincers(combatDt);
+        this.updateAttacks(combatDt);
+        this.updateProjectiles(combatDt);
         this.updateHud();
-        this.checkStageProgress(dt);
+        this.checkStageProgress(combatDt);
     }
 
     private buildRuntimeScene(): void {
@@ -1162,9 +1167,9 @@ export class GameBootstrap extends Component {
         panel.addChild(intro.node);
 
         const steps: ReadonlyArray<readonly [string, string, string]> = [
-            ['壹 · 走 位', '滑动左侧摇杆，或点击战场移动', '避开红色预警 · 靠近阵眼获取增益'],
+            ['壹 · 走 位', '点击战场任意位置，角色自动走过去', '避开红色预警 · 靠近阵眼获取增益'],
             ['贰 · 御 剑', '飞剑会自动寻找最近的敌人', '解锁功法后，右侧按钮释放踏云与天劫'],
-            ['叁 · 破 境', '修为满时战斗暂停，三选一构筑道基', '奇遇会改变下一境和关底，请先看清代价'],
+            ['叁 · 破 境', '头像亮起金环即将破境，届时三选一', '奇遇会改变下一境和关底，请先看清代价'],
         ];
         steps.forEach(([number, action, detail], index) => {
             const card = this.makeThemedCard(548, 142, 'summary', new Color(index === 0 ? '#72DDE8' : index === 1 ? '#F0C879' : '#82D7AC'));
@@ -2295,14 +2300,11 @@ export class GameBootstrap extends Component {
         const metaBonuses = this.stageProgress.rewardBonuses();
         // 首破道印只在下一局初始化时应用，避免胜利结算瞬间修改本局战报中的气血与伤害。
         this.maxHp = 100 + metaBonuses.maxHp;
-        this.stageBaseMaxHp = this.maxHp;
         this.hp = this.maxHp;
         this.moveSpeed = 235 + metaBonuses.moveSpeed;
         this.swordDamage = 18 + metaBonuses.swordDamage;
-        this.stageBaseSwordDamage = this.swordDamage;
         this.swordCount = 1;
         this.attackInterval = 0.72;
-        this.stageBaseAttackInterval = this.attackInterval;
         // QA 的第二波直达入口也必须保留真实战斗行为；Infinity 会让
         // updateAttacks() 永远提前返回，表现为敌人贴身后仍不自动御剑。
         this.attackTimer = 0;
@@ -2376,6 +2378,9 @@ export class GameBootstrap extends Component {
         this.mapEventAdvanceAfterChoice = false;
         this.runStats.reset();
         this.actions.reset();
+        this.hitStop.reset();
+        this.breakthroughImminent = false;
+        this.breakthroughPulse = 0;
         this.spiritVein.reset();
         this.mapObstacles.reset();
         this.frostTide.reset();
@@ -2383,8 +2388,6 @@ export class GameBootstrap extends Component {
         this.frostTidePlayerHitCycle = -1;
         this.frostTideEnemyHitCycle = -1;
         this.frostTideEnemyHits.clear();
-        this.attackGestureOrigin = undefined;
-        this.attackGestureCurrent = undefined;
         this.cameraShakeTimer = 0;
         this.createPlayer();
         this.createMapObstacles();
@@ -2573,7 +2576,6 @@ export class GameBootstrap extends Component {
         const unit = this.attachUnitVisual(this.player, PLAYER_ASSET, 27);
         this.playerVisual = unit.visual;
         this.playerSprite = this.playerVisual.getComponent(Sprite) ?? undefined;
-        this.playerOpacity = unit.opacity;
         this.playerBaseScale = unit.baseScale;
         this.playerAnimationFrameIndex = -1;
         this.installPlayerAnimation();
@@ -3109,6 +3111,13 @@ export class GameBootstrap extends Component {
         backing.setPosition(0, 609);
         hud.addChild(backing);
 
+        // 破境预警环画在头像底下：临近破境时整个头像会开始呼吸，余光就能看见。
+        const breakthroughRingNode = new Node('BreakthroughRing');
+        breakthroughRingNode.layer = Layers.Enum.UI_2D;
+        breakthroughRingNode.setPosition(-252, 608);
+        this.breakthroughRing = breakthroughRingNode.addComponent(Graphics);
+        hud.addChild(breakthroughRingNode);
+
         const portrait = this.createResourceSprite(
             HUD_PORTRAIT_ASSET.resourcePath,
             96,
@@ -3116,29 +3125,38 @@ export class GameBootstrap extends Component {
         portrait.setPosition(-252, 608);
         hud.addChild(portrait);
 
+        // 修行卷入口挂在头像上：它在战场上边界之外，不会像旧的构筑面板那样吃掉点地移动。
+        const sheetEntry = new Node('CultivationSheetEntry');
+        sheetEntry.layer = Layers.Enum.UI_2D;
+        sheetEntry.addComponent(UITransform).setContentSize(112, 112);
+        sheetEntry.setPosition(-252, 608);
+        sheetEntry.on(Node.EventType.TOUCH_END, (event: EventTouch) => {
+            event.propagationStopped = true;
+            if (this.phase === 'playing') this.showCultivationSheet();
+        });
+        hud.addChild(sheetEntry);
+
         const hpBarNode = new Node('HpBar');
         hpBarNode.layer = Layers.Enum.UI_2D;
-        hpBarNode.setPosition(-118, 589);
+        hpBarNode.setPosition(-118, 597);
         this.hpBar = hpBarNode.addComponent(Graphics);
         hud.addChild(hpBarNode);
 
+        // 修为条是升级快感的期待载体，必须常驻可见：玩家要能看着它涨满。
         const xpBarNode = new Node('XpBar');
         xpBarNode.layer = Layers.Enum.UI_2D;
-        xpBarNode.setPosition(-118, 565);
+        xpBarNode.setPosition(-118, 572);
         this.xpBar = xpBarNode.addComponent(Graphics);
-        xpBarNode.active = false;
         hud.addChild(xpBarNode);
 
         this.hpLabel = this.makeLabel('', 22, new Color('#FFE3D5'));
         this.hpLabel.horizontalAlign = Label.HorizontalAlign.LEFT;
-        this.hpLabel.node.setPosition(-118, 620);
+        this.hpLabel.node.setPosition(-118, 624);
         this.hpLabel.node.getComponent(UITransform)?.setContentSize(232, 42);
         hud.addChild(this.hpLabel.node);
-        this.xpLabel = this.makeLabel('', 20, new Color('#A7F3D0'));
-        this.xpLabel.horizontalAlign = Label.HorizontalAlign.LEFT;
-        this.xpLabel.node.setPosition(-118, 568);
-        this.xpLabel.node.getComponent(UITransform)?.setContentSize(232, 32);
-        this.xpLabel.node.active = false;
+        this.xpLabel = this.makeLabel('', 16, new Color('#D9FBEC'));
+        this.xpLabel.node.setPosition(-118, 572);
+        this.xpLabel.node.getComponent(UITransform)?.setContentSize(232, 24);
         hud.addChild(this.xpLabel.node);
 
         const waveCrest = this.createResourceSprite(
@@ -3167,7 +3185,8 @@ export class GameBootstrap extends Component {
             2,
         );
         this.objectiveBacking.name = 'WaveObjective';
-        this.objectiveBacking.setPosition(0, 510);
+        // 目标条、道途条与连斩条现在会同时出现，纵向必须互不重叠地依次排布。
+        this.objectiveBacking.setPosition(0, 502);
         this.objectiveBacking.active = false;
         hud.addChild(this.objectiveBacking);
         this.objectiveLabel = this.makeLabel('', 20, new Color('#D8F3E9'));
@@ -3183,71 +3202,24 @@ export class GameBootstrap extends Component {
 
         this.routeChoiceBacking = this.makeRect(
             470,
-            40,
+            36,
             new Color(4, 23, 27, 218),
             new Color(this.currentStage.accent),
             12,
             1,
         );
         this.routeChoiceBacking.name = 'RouteChoiceStatus';
-        this.routeChoiceBacking.setPosition(0, 482);
+        this.routeChoiceBacking.setPosition(0, 452);
         this.routeChoiceBacking.active = false;
         this.routeChoiceLabel = this.makeLabel('', 18, new Color('#CDE9DF'));
-        this.routeChoiceLabel.node.getComponent(UITransform)?.setContentSize(450, 34);
+        this.routeChoiceLabel.node.getComponent(UITransform)?.setContentSize(450, 30);
         this.routeChoiceBacking.addChild(this.routeChoiceLabel.node);
         hud.addChild(this.routeChoiceBacking);
 
         const bottomBacking = this.makeRect(750, 236, new Color(3, 14, 18, 12));
         bottomBacking.setPosition(0, -551);
         hud.addChild(bottomBacking);
-        this.buildPanel = this.makeRect(
-            360,
-            154,
-            new Color(3, 18, 22, 232),
-            new Color(111, 202, 177, 132),
-            UI_THEME.radius.compact,
-            1,
-        );
-        this.buildPanel.name = 'CultivationBuild';
         const leftHudCenter = -Math.min(185, Math.max(0, visibleWidth / 2 - 180));
-        this.buildPanel.setPosition(leftHudCenter, -504);
-        this.buildPanel.active = false;
-        this.buildRelicPath = undefined;
-        this.buildRelicTier = -1;
-        this.buildRelicIcon = new Node('CultivationRelicIcon');
-        this.buildRelicIcon.layer = Layers.Enum.UI_2D;
-        this.buildRelicIcon.setPosition(-137, 38);
-        this.buildPanel.addChild(this.buildRelicIcon);
-        this.buildLabel = this.makeLabel('', 22, new Color('#F1E5C6'));
-        this.buildLabel.horizontalAlign = Label.HorizontalAlign.LEFT;
-        this.buildLabel.node.setPosition(35, 50);
-        this.buildLabel.node.getComponent(UITransform)?.setContentSize(252, 30);
-        this.buildPanel.addChild(this.buildLabel.node);
-        this.buildSourceLabel = this.makeLabel('', 19, new Color('#9FC7BB'));
-        this.buildSourceLabel.horizontalAlign = Label.HorizontalAlign.LEFT;
-        this.buildSourceLabel.node.setPosition(35, 18);
-        this.buildSourceLabel.node.getComponent(UITransform)?.setContentSize(252, 28);
-        this.buildPanel.addChild(this.buildSourceLabel.node);
-        this.buildStatsLabel = this.makeLabel('', 20, new Color('#DCEDE6'));
-        this.buildStatsLabel.horizontalAlign = Label.HorizontalAlign.LEFT;
-        this.buildStatsLabel.verticalAlign = Label.VerticalAlign.CENTER;
-        this.buildStatsLabel.lineHeight = 24;
-        this.buildStatsLabel.node.setPosition(0, -16);
-        this.buildStatsLabel.node.getComponent(UITransform)?.setContentSize(326, 28);
-        this.buildPanel.addChild(this.buildStatsLabel.node);
-        this.buildPathLabels.clear();
-        UPGRADE_PATH_ORDER.forEach((path, index) => {
-            const label = this.makeLabel('', 20, new Color(UPGRADE_PATH_COLORS[path]));
-            label.node.setPosition(-102 + index * 102, -52);
-            label.node.getComponent(UITransform)?.setContentSize(96, 24);
-            this.buildPanel?.addChild(label.node);
-            this.buildPathLabels.set(path, label);
-        });
-        this.buildPanel.on(Node.EventType.TOUCH_END, (event: EventTouch) => {
-            event.propagationStopped = true;
-            if (this.phase === 'playing') this.showCultivationSheet();
-        });
-        hud.addChild(this.buildPanel);
 
         this.recentUpgradePanel = this.makeRect(
             360,
@@ -3281,161 +3253,27 @@ export class GameBootstrap extends Component {
         );
         this.comboPanel.name = 'CombatFlow';
         // 连斩条右边缘不能超过 FIXED_HEIGHT 的真实可视宽度，否则窄长屏会只显示半句。
-        this.comboPanel.setPosition(Math.min(244, visibleWidth / 2 - 89), 470);
+        this.comboPanel.setPosition(Math.min(244, visibleWidth / 2 - 89), 404);
         this.comboPanel.active = false;
         this.comboLabel = this.makeLabel('', 18, new Color('#FFF0BE'));
         this.comboLabel.node.getComponent(UITransform)?.setContentSize(164, 38);
         this.comboPanel.addChild(this.comboLabel.node);
         hud.addChild(this.comboPanel);
 
-        this.createAttackHud(hud);
         this.createAbilityHud(hud);
         this.createBossHud(hud);
         this.updateHud();
     }
 
-    private createAttackHud(hud: Node): void {
-        const node = new Node('AttackHud');
-        node.layer = Layers.Enum.UI_2D;
-        node.addComponent(UITransform).setContentSize(166, 166);
-        node.setPosition(285, -525);
-        this.attackHud = node.addComponent(Graphics);
-        hud.addChild(node);
-        // 自动御剑承担基础输出，休闲模式不再常驻一个重复功能的攻击按钮。
-        node.active = false;
-        const sword = this.createResourceSprite('art/relics/xianxia-relics_00/spriteFrame', 80);
-        sword.setRotationFromEuler(0, 0, -8);
-        this.attackIconOpacity = sword.addComponent(UIOpacity);
-        sword.setPosition(0, 5);
-        node.addChild(sword);
-        this.attackHudLabel = this.makeLabel('', 21, new Color('#FFF0BE'));
-        this.attackHudLabel.node.setPosition(0, -63);
-        this.attackHudLabel.node.getComponent(UITransform)?.setContentSize(140, 30);
-        node.addChild(this.attackHudLabel.node);
-        node.on(Node.EventType.TOUCH_START, (event: EventTouch) => {
-            event.propagationStopped = true;
-            const point = event.getUILocation();
-            this.attackGestureOrigin = new Vec2(point.x, point.y);
-            this.attackGestureCurrent = this.attackGestureOrigin.clone();
-            this.attackGestureStartedAt = this.elapsed;
-            node.setScale(0.96, 0.96);
-        });
-        node.on(Node.EventType.TOUCH_MOVE, (event: EventTouch) => {
-            event.propagationStopped = true;
-            if (!this.attackGestureOrigin) return;
-            const point = event.getUILocation();
-            this.attackGestureCurrent?.set(point.x, point.y);
-        });
-        node.on(Node.EventType.TOUCH_END, (event: EventTouch) => {
-            event.propagationStopped = true;
-            node.setScale(1, 1);
-            this.releaseSwordGesture();
-        });
-        node.on(Node.EventType.TOUCH_CANCEL, () => {
-            node.setScale(1, 1);
-            this.cancelSwordGesture();
-        });
-    }
-
-    private releaseSwordGesture(): void {
-        if (!this.attackGestureOrigin || !this.attackGestureCurrent || this.phase !== 'playing') {
-            this.cancelSwordGesture();
-            return;
-        }
-        const delta = this.attackGestureCurrent.clone().subtract(this.attackGestureOrigin);
-        const holdSeconds = this.elapsed - this.attackGestureStartedAt;
-        const gesture = resolveSwordGesture(this.skills.getLevel('sword'), holdSeconds, delta.length());
-        const direction = delta.lengthSqr() > 4
-            ? delta.normalize()
-            : this.lastMoveDirection.clone().normalize();
-        this.cancelSwordGesture();
-
-        if (gesture === 'charged') {
-            this.performChargedSlash(direction);
-        } else if (gesture === 'aimed') {
-            this.performAimedVolley(direction);
-        } else {
-            this.performQuickStrike();
-        }
-    }
-
-    private cancelSwordGesture(): void {
-        this.attackGestureOrigin = undefined;
-        this.attackGestureCurrent = undefined;
-        this.attackGestureStartedAt = 0;
-    }
-
-    private performQuickStrike(): void {
-        const target = this.findNearestEnemy();
-        if (!target) return;
-        this.actions.enter('quickStrike', 0.28);
-        this.fireSword(target, 0);
-        this.attackTimer = Math.max(this.attackTimer, this.attackInterval * 0.45);
-    }
-
-    private performAimedVolley(direction: Readonly<Vec2>): void {
-        const target = this.findEnemyInDirection(direction) ?? this.findNearestEnemy();
-        if (!target) return;
-        this.actions.enter('aimedVolley', 0.42);
-        const amount = Math.max(2, this.skills.getLevel('sword'));
-        for (let index = 0; index < amount; index += 1) {
-            this.fireSword(target, (index - (amount - 1) / 2) * 0.11);
-        }
-        this.attackTimer = Math.max(this.attackTimer, this.attackInterval * 0.7);
-        this.createAbilityHint('御剑定向', new Color('#A5F3FC'));
-    }
-
-    private performChargedSlash(direction: Readonly<Vec2>): void {
-        const normalized = direction.lengthSqr() > 0.01
-            ? direction.clone().normalize()
-            : this.lastMoveDirection.clone().normalize();
-        this.actions.enter('chargedSlash', 0.72);
-        this.playerFacing = Math.abs(normalized.x) > 0.08
-            ? (normalized.x >= 0 ? 1 : -1)
-            : this.playerFacing;
-        const damage = this.currentSwordDamage() * 2.35;
-        const radius = 235;
-        for (const enemy of this.enemies) {
-            if (!enemy.node.isValid || enemy.dead) continue;
-            const offset = new Vec2(
-                enemy.node.position.x - this.player.position.x,
-                enemy.node.position.y - this.player.position.y,
-            );
-            const distance = offset.length();
-            if (distance > radius + enemy.radius || distance <= 0.01) continue;
-            if (offset.normalize().dot(normalized) < -0.1) continue;
-            this.dealSkillDamage(enemy, damage, new Color('#CFFAFE'), enemy.elite ? 62 : enemy.champion ? 54 : 46);
-        }
-        this.damageMapObstaclesInRadius(this.player.position, radius, damage * 0.9);
-        this.createChargedSlashEffect(normalized, radius);
-        this.attackTimer = Math.max(this.attackTimer, this.attackInterval);
-        this.playerInvulnerableTimer = Math.max(this.playerInvulnerableTimer, 0.22);
-        this.cameraShakeTimer = 0.24;
-        this.cameraShakeStrength = Math.max(this.cameraShakeStrength, 9);
-        this.createAbilityHint('蓄力斩', new Color('#E0F2FE'));
-    }
-
     private createAbilityHud(hud: Node): void {
-        const connector = new Node('SkillArc');
-        connector.layer = Layers.Enum.UI_2D;
-        const arc = connector.addComponent(Graphics);
-        arc.strokeColor = new Color(96, 224, 205, 30);
-        arc.lineWidth = 2;
-        arc.moveTo(285, -525);
-        arc.bezierCurveTo(242, -498, 198, -454, 285, -360);
-        arc.stroke();
-        arc.fillColor = new Color(105, 235, 214, 145);
-        arc.circle(240, -489, 4);
-        arc.fill();
-        arc.circle(212, -430, 4);
-        arc.fill();
-        hud.addChild(connector);
-        connector.active = false;
+        // 攻击盘移除后空出的拇指位交给天劫；三个按钮沿右下弧线排开，互不遮挡。
+        // 锚点随可视宽度收缩，避免 19.5:9 及更窄的机型把按钮推出屏幕。
+        const rightHudCenter = Math.min(272, this.visibleDesignWidth() / 2 - 62);
 
         this.dashHud = this.createSkillHud(
             hud,
             'DashHud',
-            new Vec3(180, -430),
+            new Vec3(rightHudCenter - 122, -444),
             48,
             '踏云',
             'art/relics/xianxia-relics_23/spriteFrame',
@@ -3444,7 +3282,7 @@ export class GameBootstrap extends Component {
         this.formationHud = this.createSkillHud(
             hud,
             'FormationHud',
-            new Vec3(285, -360),
+            new Vec3(rightHudCenter, -372),
             48,
             '剑阵',
             'art/relics/xianxia-relics_05/spriteFrame',
@@ -3457,7 +3295,7 @@ export class GameBootstrap extends Component {
         tribulationNode.layer = Layers.Enum.UI_2D;
         const tribulationRadius = 48;
         tribulationNode.addComponent(UITransform).setContentSize(tribulationRadius * 2 + 14, tribulationRadius * 2 + 14);
-        tribulationNode.setPosition(250, -548);
+        tribulationNode.setPosition(rightHudCenter, -516);
         const tribulationGraphics = tribulationNode.addComponent(Graphics);
         const tribulationIcon = this.createResourceSprite('art/relics/xianxia-relics_11/spriteFrame', 56);
         const tribulationIconOpacity = tribulationIcon.addComponent(UIOpacity);
@@ -4141,34 +3979,6 @@ export class GameBootstrap extends Component {
                 );
                 afterimage.setScale(afterimage.scale.x * 1.002, afterimage.scale.y * 1.002);
                 opacity.opacity = Math.round(150 * (1 - progress));
-            },
-        });
-    }
-
-    private createChargedSlashEffect(direction: Readonly<Vec2>, radius: number): void {
-        const slash = new Node('ChargedSwordSlash');
-        slash.layer = Layers.Enum.UI_2D;
-        slash.setPosition(this.player.position);
-        const opacity = slash.addComponent(UIOpacity);
-        const graphics = slash.addComponent(Graphics);
-        const angle = Math.atan2(direction.y, direction.x);
-        graphics.strokeColor = new Color(207, 250, 254, 225);
-        graphics.lineWidth = 22;
-        graphics.arc(0, 0, radius * 0.72, angle - 1.05, angle + 1.05, false);
-        graphics.stroke();
-        graphics.strokeColor = new Color(103, 232, 249, 115);
-        graphics.lineWidth = 42;
-        graphics.arc(0, 0, radius * 0.68, angle - 0.95, angle + 0.95, false);
-        graphics.stroke();
-        this.effectsLayer.addChild(slash);
-        this.effects.push({
-            node: slash,
-            elapsed: 0,
-            life: 0.42,
-            update: (progress) => {
-                opacity.opacity = Math.round(255 * (1 - progress));
-                const scale = 0.72 + progress * 0.38;
-                slash.setScale(scale, scale);
             },
         });
     }
@@ -5030,6 +4840,8 @@ export class GameBootstrap extends Component {
         this.cameraShakeStrength = Math.max(this.cameraShakeStrength, 8);
         this.createScreenFlash(new Color(190, 49, 45, 92), 0.18);
         this.createHitBurst(this.player.position, new Color('#FCA5A5'), 30, false);
+        // 挨打也要顿一下：连斩被打断的那一刻必须能被身体感知到，而不只是数字变少。
+        this.triggerHitStop('light');
         this.platformFeedback.playCue('player-hit');
         if (shieldBefore > 0 && this.cultivationShield <= 0) this.triggerCultivationShieldBurst();
 
@@ -5194,6 +5006,8 @@ export class GameBootstrap extends Component {
         );
         this.cameraShakeTimer = 0.48;
         this.cameraShakeStrength = Math.max(this.cameraShakeStrength, 15);
+        // 转相是一章的情绪拐点，用最重的一档停顿把"它变强了"钉在玩家眼前。
+        this.triggerHitStop('finisher');
         // 寒渊形态以环境机制作为转阶段招式，保留一秒预警给玩家滑出浪线。
         if (frozenBoss) this.frostTide.triggerWarning();
         // 终结演出视觉回归入口固定为单首领战，避免召援随机清怪时机让截图漂移；正式流程仍保留召援清场规则。
@@ -5709,6 +5523,8 @@ export class GameBootstrap extends Component {
         this.skills.addTribulationCharge(enemy.elite ? 0.22 : enemy.champion ? 0.14 : 0.08);
         this.cameraShakeTimer = enemy.elite ? 0.42 : enemy.champion ? 0.22 : 0.1;
         this.cameraShakeStrength = Math.max(this.cameraShakeStrength, enemy.elite ? 14 : enemy.champion ? 8 : 4);
+        // 斩杀顿帧按目标价值分档：杂兵只给一帧半，关底才配得上慢放收束。
+        this.triggerHitStop(enemy.elite ? 'finisher' : enemy.champion ? 'heavy' : 'light');
         this.tryStartBossFinish();
     }
 
@@ -5885,6 +5701,10 @@ export class GameBootstrap extends Component {
         this.phase = 'upgrade';
         this.cultivationResumeAfterUpgrade = resumeAfterUpgrade;
         this.releaseTribulationHold();
+        // 破境先把世界定住再开面板：选择界面是从静止里升起来的，不是把战斗生切掉。
+        this.triggerHitStop('breakthrough');
+        this.breakthroughImminent = false;
+        this.breakthroughPulse = 0;
         this.createScreenFlash(new Color(79, 209, 166, 38), 0.28);
         this.createDeathBurst(this.player.position, 48);
         if (this.upgradePreviewFx?.isValid) this.upgradePreviewFx.destroy();
@@ -6215,10 +6035,10 @@ export class GameBootstrap extends Component {
         });
         this.updateHud();
         this.showRecentUpgrade(impact);
-        if (this.buildPanel?.isValid) {
-            this.buildPanel.setScale(1.045, 1.045);
+        if (this.recentUpgradePanel?.isValid) {
+            this.recentUpgradePanel.setScale(1.045, 1.045);
             this.scheduleOnce(() => {
-                if (this.buildPanel?.isValid) this.buildPanel.setScale(1, 1);
+                if (this.recentUpgradePanel?.isValid) this.recentUpgradePanel.setScale(1, 1);
             }, 0.18);
         }
         this.scheduleOnce(() => {
@@ -7583,31 +7403,9 @@ export class GameBootstrap extends Component {
         }, undefined);
     }
 
-    private findEnemyInDirection(direction: Readonly<Vec2>): EnemyState | undefined {
-        const normalized = direction.lengthSqr() > 0.01 ? direction.clone().normalize() : new Vec2(0, 1);
-        let best: EnemyState | undefined;
-        let bestScore = -Infinity;
-        for (const enemy of this.enemies) {
-            if (!enemy.node.isValid || enemy.dead) continue;
-            const offset = new Vec2(
-                enemy.node.position.x - this.player.position.x,
-                enemy.node.position.y - this.player.position.y,
-            );
-            const distance = Math.max(offset.length(), 1);
-            const alignment = offset.normalize().dot(normalized);
-            // 拖动瞄准优先方向一致的目标，并用距离做轻微衰减，避免吸附到远处边缘敌人。
-            const score = alignment * 1.4 - distance / 1600;
-            if (alignment < 0.2 || score <= bestScore) continue;
-            best = enemy;
-            bestScore = score;
-        }
-        return best;
-    }
-
     private updateHud(): void {
         const wave = this.currentStage.waves[this.waveIndex];
         this.hpLabel.string = `${Math.ceil(this.hp)} / ${this.maxHp}`;
-        this.xpLabel.string = '';
         this.waveLabel.string = `第 ${this.waveIndex + 1} 波`;
         this.drawWaveRoute();
         if (this.objectiveLabel) {
@@ -7669,15 +7467,13 @@ export class GameBootstrap extends Component {
                         ? `${frostRoute ? `${describeFrostRouteGeometry(frostRoute)} · ` : ''}寒潮横渡`
                         : `${frostRoute ? `${describeFrostRouteGeometry(frostRoute)} · ` : ''}寒潮 ${Math.max(0, frostState.secondsToSurge).toFixed(1)}秒`
                     : '';
-                this.objectiveLabel.string = [
-                    wave?.objective ?? '肃清妖潮',
-                    qingshiStatus,
-                    obstacleStatus,
-                    tideStatus,
-                    veinStatus,
-                ]
-                    .filter(Boolean)
-                    .join('  ·  ');
+                // 目标条只保留主目标和当下最要命的一条状态：五段拼接会长到没人读。
+                // 优先级按"来不及反应的排前面"：寒潮 > 阵眼 > 竹障 > 青石路形。
+                const urgentStatus = [tideStatus, veinStatus, obstacleStatus, qingshiStatus]
+                    .find(Boolean) ?? '';
+                this.objectiveLabel.string = urgentStatus
+                    ? `${wave?.objective ?? '肃清妖潮'}  ·  ${urgentStatus}`
+                    : wave?.objective ?? '肃清妖潮';
                 this.objectiveLabel.color = new Color('#D8F3E9');
             }
         }
@@ -7691,12 +7487,7 @@ export class GameBootstrap extends Component {
             this.routeChoiceLabel.color = choice
                 ? new Color(MAP_EVENT_TONE_COLORS[choice.tone])
                 : new Color('#CDE9DF');
-            if (choice && this.objectiveLabel && this.routeChoiceLabel.string) {
-                this.objectiveLabel.string = `${this.routeChoiceLabel.string}  ·  ${this.objectiveLabel.string}`;
-            }
         }
-        const pathTotals = summarizeUpgradePaths((id) => this.skills.getLevel(id));
-        const build = resolveCultivationBuild((id) => this.skills.getLevel(id));
         const flow = this.combatFlow.snapshot();
         if (this.comboPanel && this.comboLabel) {
             this.comboPanel.active = flow.combo >= 2;
@@ -7707,86 +7498,6 @@ export class GameBootstrap extends Component {
                 flow.tier >= 3 ? '#FFF0A8' : flow.tier >= 2 ? '#F4D28A' : '#CDE8DE',
             );
         }
-        if (this.buildPanel) this.buildPanel.active = false;
-        this.refreshBuildRelicIcon(build);
-        this.buildLabel.string = build.relic
-            ? `${build.relic.name} · ${build.evolutionName}`
-            : '本命法宝 · 尚未觉醒';
-        this.buildLabel.color = new Color(build.relic ? '#F1E5C6' : '#AFC7BE');
-        this.buildSourceLabel.string = build.relic
-            ? `${build.tierName} · ${build.nextText}`
-            : '破境选择道种 · 装备本命法宝';
-        this.buildSourceLabel.lineHeight = 24;
-        this.buildSourceLabel.node.getComponent(UITransform)?.setContentSize(252, 28);
-        const swordDamage = this.currentSwordDamage();
-        const attackInterval = this.currentAttackInterval();
-        this.buildStatsLabel.string = `飞剑${this.swordCount} · ${Math.round(swordDamage)}伤 · ${attackInterval.toFixed(2)}秒 · 护体${Math.ceil(this.cultivationShield)}`;
-        UPGRADE_PATH_ORDER.forEach((path) => {
-            const label = this.buildPathLabels.get(path);
-            if (!label) return;
-            label.string = `${UPGRADE_PATH_LABELS[path]} ${pathTotals[path]}重`;
-            label.color = new Color(
-                pathTotals[path] > 0 ? UPGRADE_PATH_COLORS[path] : '#54716B',
-            );
-        });
-        const cooldownRatio = this.enemies.length === 0
-            ? 1
-            : 1 - Math.max(0, Math.min(1, this.attackTimer / this.currentAttackInterval()));
-        const swordLevel = this.skills.getLevel('sword');
-        const gestureHold = this.attackGestureOrigin ? this.elapsed - this.attackGestureStartedAt : 0;
-        const gestureDrag = this.attackGestureOrigin && this.attackGestureCurrent
-            ? Vec2.distance(this.attackGestureOrigin, this.attackGestureCurrent)
-            : 0;
-        if (this.attackGestureOrigin) {
-            this.attackHudLabel.string = swordLevel >= 3 && gestureHold >= 0.18
-                ? `蓄力 ${Math.min(100, Math.round(gestureHold / 0.55 * 100))}%`
-                : swordLevel >= 2 && gestureDrag >= 30
-                    ? '御剑定向'
-                    : '御剑';
-        } else {
-            this.attackHudLabel.string = cooldownRatio < 0.99
-                ? `${Math.max(0, this.attackTimer).toFixed(1)}`
-                : swordLevel >= 3
-                    ? '御剑·长按'
-                    : swordLevel >= 2
-                        ? '御剑·拖动'
-                        : '御剑·自动';
-        }
-        this.attackIconOpacity.opacity = 245;
-        this.attackHud.clear();
-        this.attackHud.fillColor = new Color(4, 28, 34, 238);
-        this.attackHud.circle(0, 0, 74);
-        this.attackHud.fill();
-        this.attackHud.strokeColor = new Color(241, 211, 134, 225);
-        this.attackHud.lineWidth = 6;
-        this.attackHud.arc(0, 0, 74, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * cooldownRatio, false);
-        this.attackHud.stroke();
-        this.attackHud.strokeColor = new Color(112, 231, 211, 125);
-        this.attackHud.lineWidth = 2.5;
-        this.attackHud.circle(0, 0, 62);
-        this.attackHud.stroke();
-        if (this.attackGestureOrigin && swordLevel >= 3) {
-            const chargeRatio = Math.min(1, gestureHold / 0.55);
-            this.attackHud.strokeColor = new Color(165, 243, 252, 235);
-            this.attackHud.lineWidth = 8;
-            this.attackHud.arc(
-                0,
-                0,
-                60,
-                -Math.PI / 2,
-                -Math.PI / 2 + Math.PI * 2 * chargeRatio,
-                false,
-            );
-            this.attackHud.stroke();
-        }
-        for (let index = 0; index < 3; index += 1) {
-            this.attackHud.fillColor = index < swordLevel
-                ? new Color(135, 238, 215, 235)
-                : new Color(45, 76, 74, 190);
-            this.attackHud.circle(-18 + index * 18, 80, 5.5);
-            this.attackHud.fill();
-        }
-
         const dashLevel = this.skills.getLevel('dash');
         const formationLevel = this.skills.getLevel('formation');
         drawSkillHud(
@@ -7818,19 +7529,14 @@ export class GameBootstrap extends Component {
         this.hpBar.roundRect(-116, -8, 232, 16, 8);
         this.hpBar.stroke();
 
-        const xpRatio = Math.max(0, Math.min(1, this.xp / this.xpNeed));
-        this.xpBar.clear();
-        this.xpBar.fillColor = new Color(2, 9, 12, 220);
-        this.xpBar.roundRect(-116, -5, 232, 10, 5);
-        this.xpBar.fill();
-        this.xpBar.fillColor = new Color('#4BC8A7');
-        this.xpBar.roundRect(-114, -3, 228 * xpRatio, 6, 3);
-        this.xpBar.fill();
+        this.drawBreakthroughProgress();
 
         const boss = this.enemies.find((enemy) => enemy.elite && enemy.node.isValid && !enemy.dead);
         this.bossHud.active = Boolean(boss);
-        this.objectiveBacking.active = false;
-        this.routeChoiceBacking.active = false;
+        // 目标条与道途条不再无条件隐藏：没有它们，玩家在局内既不知道要做什么，也看不到自己选过的路。
+        // 关底血条占用同一段纵向空间，也确实是此刻唯一的目标，因此登场时由它独占。
+        this.objectiveBacking.active = !boss && Boolean(this.objectiveLabel?.string);
+        this.routeChoiceBacking.active = !boss && Boolean(this.routeChoiceLabel?.string);
         if (boss) {
             const ratio = Math.max(0, boss.hp / boss.maxHp);
             const presentation = bossPhasePresentationFor(this.currentStage.mapId, boss.bossPhase);
@@ -7863,41 +7569,69 @@ export class GameBootstrap extends Component {
         }
     }
 
-    private refreshBuildRelicIcon(build: CultivationBuildSnapshot): void {
-        const host = this.buildRelicIcon;
-        if (!host?.isValid || (this.buildRelicPath === build.path && this.buildRelicTier === build.tier)) return;
-        host.children.slice().forEach((child) => child.destroy());
-        this.buildRelicPath = build.path;
-        this.buildRelicTier = build.tier;
-        if (!build.path || !build.relic) return;
-        const color = new Color(UPGRADE_PATH_COLORS[build.path]);
-        const ringNode = new Node('RelicTierRing');
-        ringNode.layer = Layers.Enum.UI_2D;
-        const ring = ringNode.addComponent(Graphics);
-        ring.fillColor = new Color(3, 18, 22, 238);
-        ring.circle(0, 0, 29);
-        ring.fill();
-        ring.strokeColor = new Color(color.r, color.g, color.b, 220);
-        ring.lineWidth = 2;
-        ring.circle(0, 0, 29);
-        ring.stroke();
-        for (let index = 0; index < 3; index += 1) {
-            const angle = -Math.PI / 2 + index * Math.PI * 2 / 3;
-            ring.fillColor = index < build.tier
-                ? new Color(color.r, color.g, color.b, 255)
-                : new Color(73, 100, 94, 180);
-            ring.circle(Math.cos(angle) * 35, Math.sin(angle) * 35, 3.5);
-            ring.fill();
+    /**
+     * 修为条与破境预警环共用同一份进度：条给准确读数，环给余光可见的紧迫感。
+     */
+    private drawBreakthroughProgress(): void {
+        const xpRatio = Math.max(0, Math.min(1, this.xp / Math.max(this.xpNeed, 1)));
+        const breathing = this.breakthroughImminent && !this.prefersReducedMotion
+            ? (Math.sin(this.breakthroughPulse) + 1) / 2
+            : 0;
+
+        this.xpBar.clear();
+        this.xpBar.fillColor = new Color(2, 9, 12, 220);
+        this.xpBar.roundRect(-116, -6, 232, 12, 6);
+        this.xpBar.fill();
+        const fillWidth = 228 * xpRatio;
+        if (fillWidth > 0.5) {
+            // 临近破境时填充色从灵气青偏向破境金，颜色本身就是"快到了"的信号。
+            this.xpBar.fillColor = this.breakthroughImminent
+                ? new Color(
+                    Math.round(75 + 180 * breathing),
+                    Math.round(200 + 40 * breathing),
+                    Math.round(167 - 20 * breathing),
+                    255,
+                )
+                : new Color('#4BC8A7');
+            this.xpBar.roundRect(-114, -4, fillWidth, 8, 4);
+            this.xpBar.fill();
         }
-        ringNode.addChild(this.createResourceSprite(build.relic.iconResourcePath, 42));
-        host.addChild(ringNode);
+        this.xpBar.strokeColor = new Color(
+            167,
+            243,
+            208,
+            Math.round(60 + 130 * breathing),
+        );
+        this.xpBar.lineWidth = 1.5;
+        this.xpBar.roundRect(-116, -6, 232, 12, 6);
+        this.xpBar.stroke();
+        this.xpLabel.string = this.breakthroughImminent
+            ? `破 境 在 即 · ${Math.round(xpRatio * 100)}%`
+            : `修为 ${Math.round(xpRatio * 100)}%`;
+        this.xpLabel.color = this.breakthroughImminent
+            ? new Color(255, 240, 190, 255)
+            : new Color(217, 251, 236, 205);
+
+        const ring = this.breakthroughRing;
+        if (!ring?.isValid) return;
+        ring.clear();
+        if (!this.breakthroughImminent) return;
+        const radius = 54 + breathing * 6;
+        ring.strokeColor = new Color(255, 226, 150, Math.round(70 + 165 * breathing));
+        ring.lineWidth = 3 + breathing * 3;
+        ring.circle(0, 0, radius);
+        ring.stroke();
+        ring.strokeColor = new Color(120, 240, 210, Math.round(40 + 90 * breathing));
+        ring.lineWidth = 1.5;
+        ring.circle(0, 0, radius + 7);
+        ring.stroke();
     }
+
 
     private showCultivationSheet(): void {
         if (this.phase !== 'playing') return;
         this.phase = 'cultivation-sheet';
         this.moveTarget = undefined;
-        this.cancelSwordGesture();
         this.clearOverlay();
         this.bringOverlayToFront();
 
@@ -8476,6 +8210,31 @@ export class GameBootstrap extends Component {
         }
     }
 
+    private triggerHitStop(tier: HitStopTier): void {
+        // 减少动态时保留极短定格：打击的"实心感"仍在，但不做慢放，避免眩晕与操作延迟感。
+        this.hitStop.trigger(tier, this.prefersReducedMotion);
+    }
+
+    /**
+     * 破境前的最后一段修为用呼吸环预告，让升级从"突然弹窗"变成"看着它来"。
+     */
+    private updateBreakthroughPulse(dt: number): void {
+        const ratio = Math.max(0, Math.min(1, this.xp / Math.max(this.xpNeed, 1)));
+        const imminent = ratio >= BREAKTHROUGH_WARNING_RATIO;
+        if (imminent && !this.breakthroughImminent) {
+            this.breakthroughPulse = 0;
+            this.platformFeedback.playBreakthroughWarning();
+        }
+        this.breakthroughImminent = imminent;
+        if (!imminent) {
+            this.breakthroughPulse = 0;
+            return;
+        }
+        // 越接近满修为，呼吸越快：不看数字也能从节奏判断还差多少。
+        const urgency = (ratio - BREAKTHROUGH_WARNING_RATIO) / Math.max(1 - BREAKTHROUGH_WARNING_RATIO, 0.01);
+        this.breakthroughPulse += dt * (5.2 + urgency * 6.4);
+    }
+
     private createScreenFlash(color: Color, life: number): void {
         const node = this.makeRect(this.designWidth, this.designHeight, color);
         node.name = 'DamageFlash';
@@ -8523,32 +8282,39 @@ export class GameBootstrap extends Component {
         node.layer = Layers.Enum.UI_2D;
         node.setPosition(position);
         node.angle = angle * 180 / Math.PI;
-        const opacity = node.addComponent(UIOpacity);
         const g = node.addComponent(Graphics);
-        g.strokeColor = new Color(visualTone.color.r, visualTone.color.g, visualTone.color.b, 205 + visualTone.tier * 12);
-        g.lineWidth = 4 + visualTone.tier;
+        const color = visualTone.color;
         const spread = 18 + visualTone.tier * 4;
         const reach = 48 + visualTone.tier * 8;
-        g.moveTo(8, -spread);
-        g.lineTo(reach, 0);
-        g.lineTo(8, spread);
-        g.stroke();
-        if (visualTone.tier >= 2) {
-            g.strokeColor = new Color(243, 231, 200, 145);
-            g.lineWidth = 2;
-            g.moveTo(16, -spread * 0.55);
-            g.lineTo(reach + 14, 0);
-            g.lineTo(16, spread * 0.55);
-            g.stroke();
-        }
+        // 起手的火星沿出剑方向喷出，让"剑从这里飞出去"有来源而不是凭空出现。
+        const sparks = impactShardLayout(this.vfxShardCount(4 + visualTone.tier), angle * 97.3, {
+            reach: reach * 0.7,
+            direction: 0,
+            spread: Math.PI * 0.42,
+        });
         this.effectsLayer.addChild(node);
         this.effects.push({
             node,
             elapsed: 0,
-            life: 0.2,
+            life: 0.22,
             update: (progress) => {
-                node.setScale(0.7 + progress * 0.75, 0.7 + progress * 0.75);
-                opacity.opacity = Math.round(255 * (1 - progress));
+                const expand = impactExpansion(progress);
+                const fade = impactFade(progress, 0.2);
+                g.clear();
+                if (fade <= 0) return;
+                const scale = 0.72 + expand * 0.7;
+                this.strokeWithGlow(
+                    g,
+                    color,
+                    (3.4 + visualTone.tier) * (1 - expand * 0.4),
+                    215 * fade,
+                    () => {
+                        g.moveTo(8 * scale, -spread * scale);
+                        g.lineTo(reach * scale, 0);
+                        g.lineTo(8 * scale, spread * scale);
+                    },
+                );
+                this.strokeShards(g, new Color(243, 231, 200), sparks, progress, fade * 0.8);
             },
         });
     }
@@ -8557,69 +8323,147 @@ export class GameBootstrap extends Component {
         const visualTone = this.cultivationVisualTone();
         const node = new Node('SwordTrail');
         node.layer = Layers.Enum.UI_2D;
-        const opacity = node.addComponent(UIOpacity);
         const g = node.addComponent(Graphics);
-        g.strokeColor = new Color(visualTone.color.r, visualTone.color.g, visualTone.color.b, 135 + visualTone.tier * 25);
-        g.lineWidth = 4 + visualTone.tier;
-        g.moveTo(from.x, from.y);
-        g.lineTo(to.x, to.y);
-        g.stroke();
-        if (visualTone.tier >= 3) {
-            const dx = to.x - from.x;
-            const dy = to.y - from.y;
-            const length = Math.max(1, Math.sqrt(dx * dx + dy * dy));
-            const ox = -dy / length * 5;
-            const oy = dx / length * 5;
-            g.strokeColor = new Color(243, 231, 200, 92);
-            g.lineWidth = 2;
-            g.moveTo(from.x + ox, from.y + oy);
-            g.lineTo(to.x + ox, to.y + oy);
-            g.stroke();
-        }
+        const color = visualTone.color;
+        // 拖尾切成逐段收窄的缎带：等宽直线读起来是一根棍子，收窄后才有掠过的速度感。
+        const segments = 5;
+        const widths = trailSegmentWidths(4 + visualTone.tier, segments);
         this.effectsLayer.addChild(node);
         this.effects.push({
             node,
             elapsed: 0,
-            life: 0.16,
+            life: 0.18,
             update: (progress) => {
-                opacity.opacity = Math.round(210 * (1 - progress));
+                const fade = impactFade(progress, 0.12);
+                g.clear();
+                if (fade <= 0) return;
+                for (let index = 0; index < segments; index += 1) {
+                    // 尾端随时间向剑锋收拢，剑光像被抽走而不是整体变淡。
+                    const headT = 1 - index / segments * progress * 0.85;
+                    const tailT = 1 - (index + 1) / segments;
+                    const hx = from.x + (to.x - from.x) * headT;
+                    const hy = from.y + (to.y - from.y) * headT;
+                    const tx = from.x + (to.x - from.x) * tailT;
+                    const ty = from.y + (to.y - from.y) * tailT;
+                    const alpha = Math.round((150 + visualTone.tier * 30) * fade * (1 - index / segments * 0.7));
+                    if (alpha <= 1) continue;
+                    g.strokeColor = new Color(color.r, color.g, color.b, alpha);
+                    g.lineWidth = widths[index];
+                    g.moveTo(tx, ty);
+                    g.lineTo(hx, hy);
+                    g.stroke();
+                }
+                // 三阶补一道近白的高光芯，把"圆满"直接画在剑光上。
+                if (visualTone.tier >= 3) {
+                    g.strokeColor = new Color(247, 252, 255, Math.round(180 * fade));
+                    g.lineWidth = 1.6;
+                    g.moveTo(from.x, from.y);
+                    g.lineTo(to.x, to.y);
+                    g.stroke();
+                }
             },
         });
+    }
+
+    /**
+     * 伪辉光与碎片都是逐帧重绘，绘制量高于"画一次再缩放"的旧做法。
+     * 减少动态时收掉光晕层和碎片数，既是无障碍选项，也是低端机的性能阀门。
+     */
+    private get vfxHaloCount(): number {
+        return this.prefersReducedMotion ? 0 : 2;
+    }
+
+    private vfxShardCount(count: number): number {
+        return this.prefersReducedMotion ? Math.max(2, Math.round(count * 0.45)) : count;
+    }
+
+    /**
+     * 沿给定路径反复描边，由宽而淡到窄而亮，在没有叠加混合的 2D 管线上伪造发光。
+     */
+    private strokeWithGlow(
+        g: Graphics,
+        color: Readonly<Color>,
+        coreWidth: number,
+        coreAlpha: number,
+        path: () => void,
+        haloCount = this.vfxHaloCount,
+    ): void {
+        for (const layer of glowStrokeLayers(coreWidth, coreAlpha, haloCount)) {
+            g.strokeColor = new Color(color.r, color.g, color.b, layer.alpha);
+            g.lineWidth = layer.width;
+            path();
+            g.stroke();
+        }
+    }
+
+    /** 按碎片布局绘制当前帧的飞散状态；碎片是"炸开"与"放大一张贴纸"的分界线。 */
+    private strokeShards(
+        g: Graphics,
+        color: Readonly<Color>,
+        shards: readonly ImpactShard[],
+        progress: number,
+        alphaScale: number,
+    ): void {
+        for (const shard of shards) {
+            const travel = shardTravel(progress, shard.delay);
+            if (travel <= 0) continue;
+            const eased = impactExpansion(travel);
+            const head = shard.distance * eased;
+            const tail = Math.max(0, head - shard.length * (1 - eased * 0.55));
+            const spin = shard.angle + shard.spin * eased * Math.PI / 180 * 0.02;
+            const alpha = Math.round(alphaScale * (1 - travel) * 235);
+            if (alpha <= 1) continue;
+            g.strokeColor = new Color(color.r, color.g, color.b, alpha);
+            g.lineWidth = shard.width;
+            g.moveTo(Math.cos(spin) * tail, Math.sin(spin) * tail);
+            g.lineTo(Math.cos(spin) * head, Math.sin(spin) * head);
+            g.stroke();
+        }
     }
 
     private createHitBurst(position: Readonly<Vec3>, color: Color, radius: number, slash: boolean): void {
         const node = new Node('HitBurst');
         node.layer = Layers.Enum.UI_2D;
         node.setPosition(position);
-        const opacity = node.addComponent(UIOpacity);
         const g = node.addComponent(Graphics);
-        g.strokeColor = color;
-        g.lineWidth = slash ? 5 : 4;
-        g.circle(0, 0, radius * 0.45);
-        g.stroke();
-        const rayCount = slash ? 6 : 4;
-        for (let index = 0; index < rayCount; index += 1) {
-            const angle = index * Math.PI * 2 / rayCount + (slash ? 0.35 : 0);
-            g.moveTo(Math.cos(angle) * radius * 0.38, Math.sin(angle) * radius * 0.38);
-            g.lineTo(Math.cos(angle) * radius, Math.sin(angle) * radius);
-            g.stroke();
-        }
-        if (slash) {
-            g.lineWidth = 7;
-            g.moveTo(-radius * 0.85, -radius * 0.38);
-            g.lineTo(radius * 0.9, radius * 0.42);
-            g.stroke();
-        }
+        const shards = impactShardLayout(
+            this.vfxShardCount(slash ? 7 : 5),
+            position.x * 7.1 + position.y * 3.3,
+            { reach: radius * 1.25 },
+        );
         this.effectsLayer.addChild(node);
         this.effects.push({
             node,
             elapsed: 0,
-            life: 0.24,
+            life: 0.28,
             update: (progress) => {
-                const scale = 0.55 + progress * 0.8;
-                node.setScale(scale, scale);
-                node.angle = progress * 18;
-                opacity.opacity = Math.round(255 * (1 - progress));
+                const expand = impactExpansion(progress);
+                const fade = impactFade(progress, 0.18);
+                g.clear();
+                if (fade <= 0) return;
+                // 冲击波环：起手瞬间就撑到接近最大，随后只剩变淡，读起来才"实"。
+                this.strokeWithGlow(
+                    g,
+                    color,
+                    (slash ? 4.5 : 3.4) * (1 - expand * 0.55),
+                    235 * fade,
+                    () => g.circle(0, 0, radius * (0.32 + expand * 0.78)),
+                );
+                this.strokeShards(g, color, shards, progress, fade);
+                if (slash) {
+                    // 斩击额外补一道偏心月牙，避免所有命中都是同一个对称星形。
+                    this.strokeWithGlow(
+                        g,
+                        new Color(245, 250, 255),
+                        6 * (1 - expand * 0.6),
+                        215 * fade,
+                        () => {
+                            g.moveTo(-radius * 0.9, -radius * 0.34);
+                            g.quadraticCurveTo(0, radius * 0.28 * (1 + expand), radius * 0.95, radius * 0.4);
+                        },
+                        this.prefersReducedMotion ? 0 : 1,
+                    );
+                }
             },
         });
     }
@@ -8628,29 +8472,40 @@ export class GameBootstrap extends Component {
         const node = new Node('DeathBurst');
         node.layer = Layers.Enum.UI_2D;
         node.setPosition(position);
-        const opacity = node.addComponent(UIOpacity);
         const g = node.addComponent(Graphics);
-        g.fillColor = new Color(91, 212, 170, 72);
-        g.circle(0, 0, radius * 0.55);
-        g.fill();
-        g.strokeColor = new Color(167, 243, 208, 205);
-        g.lineWidth = 4;
-        for (let index = 0; index < 10; index += 1) {
-            const angle = index * Math.PI * 0.2;
-            g.moveTo(Math.cos(angle) * radius * 0.25, Math.sin(angle) * radius * 0.25);
-            g.lineTo(Math.cos(angle) * radius, Math.sin(angle) * radius);
-            g.stroke();
-        }
+        const core = new Color(214, 255, 240);
+        const aura = new Color(110, 231, 183);
+        const shards = impactShardLayout(
+            this.vfxShardCount(11),
+            position.x * 2.7 + position.y * 5.9,
+            { reach: radius * 1.5 },
+        );
         this.effectsLayer.addChild(node);
         this.effects.push({
             node,
             elapsed: 0,
-            life: 0.48,
+            life: 0.52,
             update: (progress) => {
-                const scale = 0.4 + progress * 1.15;
-                node.setScale(scale, scale);
-                node.angle = progress * 42;
-                opacity.opacity = Math.round(255 * (1 - progress));
+                const expand = impactExpansion(progress);
+                const fade = impactFade(progress, 0.14);
+                g.clear();
+                if (fade <= 0) return;
+                // 亮芯只在最初两帧存在，负责"这一下打死了"的爆点。
+                const flash = Math.max(0, 1 - progress / 0.16);
+                if (flash > 0) {
+                    g.fillColor = new Color(core.r, core.g, core.b, Math.round(210 * flash));
+                    g.circle(0, 0, radius * (0.3 + 0.35 * (1 - flash)));
+                    g.fill();
+                }
+                // 外层是快速外扩、迅速变薄的冲击环。
+                this.strokeWithGlow(
+                    g,
+                    aura,
+                    5.5 * (1 - expand * 0.7),
+                    230 * fade,
+                    () => g.circle(0, 0, radius * (0.28 + expand * 1.15)),
+                );
+                this.strokeShards(g, core, shards, progress, fade);
             },
         });
     }
@@ -8663,26 +8518,33 @@ export class GameBootstrap extends Component {
         const node = new Node('GroundBurst');
         node.layer = Layers.Enum.UI_2D;
         node.setPosition(position);
-        const opacity = node.addComponent(UIOpacity);
         const g = node.addComponent(Graphics);
-        g.strokeColor = new Color(255, 190, 112, 205);
-        g.lineWidth = 8;
-        g.circle(0, 0, radius);
-        g.stroke();
-        for (let index = 0; index < 12; index += 1) {
-            const angle = index * Math.PI / 6;
-            g.moveTo(Math.cos(angle) * radius * 0.45, Math.sin(angle) * radius * 0.45);
-            g.lineTo(Math.cos(angle) * radius * 0.96, Math.sin(angle) * radius * 0.96);
-            g.stroke();
-        }
+        const ember = new Color(255, 190, 112);
+        const dust = impactShardLayout(this.vfxShardCount(13), position.x * 4.4 + position.y * 1.7, { reach: radius * 1.35 });
         this.effectsLayer.addChild(node);
         this.effects.push({
             node,
             elapsed: 0,
-            life: 0.34,
+            life: 0.42,
             update: (progress) => {
-                node.setScale(0.45 + progress * 0.75, 0.45 + progress * 0.75);
-                opacity.opacity = Math.round(255 * (1 - progress));
+                const expand = impactExpansion(progress);
+                const fade = impactFade(progress, 0.16);
+                g.clear();
+                if (fade <= 0) return;
+                // 地面冲击压扁成椭圆，保住俯视视角的透视，不再像悬空的正圆。
+                const rx = radius * (0.4 + expand * 0.92);
+                const ry = rx * 0.62;
+                this.strokeWithGlow(
+                    g,
+                    ember,
+                    9 * (1 - expand * 0.72),
+                    235 * fade,
+                    () => g.ellipse(0, 0, rx, ry),
+                );
+                g.fillColor = new Color(255, 214, 158, Math.round(46 * fade * (1 - expand)));
+                g.ellipse(0, 0, rx * 0.9, ry * 0.9);
+                g.fill();
+                this.strokeShards(g, ember, dust, progress, fade);
             },
         });
     }
@@ -9083,19 +8945,18 @@ export class GameBootstrap extends Component {
         this.playerAuraNode = undefined;
         this.playerAuraFrontNode = undefined;
         this.playerAuraSwords = [];
-        this.buildPanel = undefined;
-        this.buildRelicIcon = undefined;
-        this.buildRelicPath = undefined;
-        this.buildRelicTier = -1;
         this.recentUpgradePanel = undefined;
         this.recentUpgradeLabel = undefined;
         this.recentUpgradeTimer = 0;
         this.recentUpgradeText = '';
         this.comboPanel = undefined;
         this.comboLabel = undefined;
+        this.breakthroughRing = undefined;
+        this.breakthroughImminent = false;
+        this.breakthroughPulse = 0;
+        this.hitStop.reset();
         this.cultivationMomentum = undefined;
         this.cultivationMomentumTimer = 0;
-        this.buildPathLabels.clear();
         this.battleLayer.children.slice().forEach((child) => child.destroy());
         this.effectsLayer.children.slice().forEach((child) => child.destroy());
         this.screenFxLayer.children.slice().forEach((child) => child.destroy());
@@ -9114,23 +8975,6 @@ export class GameBootstrap extends Component {
         if (this.orientationGuard?.isValid) {
             this.orientationGuard.setSiblingIndex(this.canvas.children.length - 1);
         }
-    }
-
-    private makePanel(titleText: string, bodyText: string, width: number, height: number): Node {
-        const shadow = this.makeRect(width + 18, height + 18, new Color(2, 9, 12, 185), undefined, 28);
-        const panel = this.makeRect(width, height, new Color(13, 48, 47, 246), new Color('#B5D0C4'), 24, 3);
-        panel.addChild(shadow);
-        shadow.setSiblingIndex(0);
-        shadow.setPosition(0, -8);
-        const inner = this.makeRect(width - 22, height - 22, new Color(13, 48, 47, 0), new Color(230, 198, 121, 80), 20, 1);
-        panel.addChild(inner);
-        const title = this.makeLabel(titleText, 49, new Color('#FFE6A5'));
-        title.node.setPosition(0, 112);
-        panel.addChild(title.node);
-        const body = this.makeLabel(bodyText, 25, new Color('#D6E8E1'));
-        body.node.setPosition(0, 20);
-        panel.addChild(body.node);
-        return panel;
     }
 
     private makeButton(text: string, border: Color, onClick: () => void, width = 300, height = 82, fill = new Color('#214F48')): Node {
@@ -9233,123 +9077,6 @@ export class GameBootstrap extends Component {
             style.radius,
             style.lineWidth,
         );
-    }
-
-    private makeUpgradeButton(choice: UpgradeConfig, onClick: () => void): Node {
-        const pathColor = new Color(UPGRADE_PATH_COLORS[choice.path]);
-        const progress = choiceBuildProgress(choice, (id) => this.skills.getLevel(id));
-        const impact = previewUpgradeImpact(choice, (id) => this.skills.getLevel(id));
-        const isFormation = choice.offerKind === 'synergy' || choice.offerKind === 'ultimate';
-        const node = this.makeThemedCard(596, 112, isFormation ? 'reward' : 'choice', pathColor);
-        const iconBacking = new Node('UpgradeIconRing');
-        iconBacking.layer = Layers.Enum.UI_2D;
-        iconBacking.addComponent(UITransform).setContentSize(76, 76);
-        iconBacking.setPosition(-246, 0);
-        const iconRing = iconBacking.addComponent(Graphics);
-        iconRing.fillColor = new Color(2, 18, 23, 238);
-        iconRing.circle(0, 0, 36);
-        iconRing.fill();
-        iconRing.strokeColor = new Color(pathColor.r, pathColor.g, pathColor.b, 225);
-        iconRing.lineWidth = 2;
-        iconRing.circle(0, 0, 36);
-        iconRing.stroke();
-        node.addChild(iconBacking);
-
-        const icon = new Node(`UpgradeIcon-${choice.id}`);
-        icon.layer = Layers.Enum.UI_2D;
-        icon.addComponent(UITransform).setContentSize(56, 56);
-        const sprite = icon.addComponent(Sprite);
-        sprite.sizeMode = Sprite.SizeMode.CUSTOM;
-        iconBacking.addChild(icon);
-        // 图标是可选表现层；资源导入失败时保留带色边框，升级逻辑仍可继续。
-        const cachedIcon = this.spriteFrames.get(choice.iconResourcePath);
-        if (cachedIcon) {
-            sprite.spriteFrame = cachedIcon;
-        } else {
-            void loadSpriteFrame(choice.iconResourcePath)
-                .then((frame) => {
-                    this.spriteFrames.set(choice.iconResourcePath, frame);
-                    if (icon.isValid) sprite.spriteFrame = frame;
-                })
-                .catch((error: unknown) => console.warn(`[art] 升级图标补图失败: ${choice.iconResourcePath}`, error));
-        }
-
-        const title = this.makeLabel(choice.title, 24, new Color('#FFF5DC'));
-        title.horizontalAlign = Label.HorizontalAlign.LEFT;
-        title.node.setPosition(-55, 10);
-        title.node.getComponent(UITransform)?.setContentSize(290, 34);
-        node.addChild(title.node);
-        const role = this.makeLabel(`${UPGRADE_PATH_LABELS[choice.path]} · ${choice.role}`, 15, new Color(pathColor.r, pathColor.g, pathColor.b, 238));
-        role.horizontalAlign = Label.HorizontalAlign.LEFT;
-        role.node.setPosition(-55, 39);
-        role.node.getComponent(UITransform)?.setContentSize(290, 24);
-        node.addChild(role.node);
-        const nextLevel = Math.min(choice.maxLevel, this.skills.getLevel(choice.id) + 1);
-        const description = this.makeLabel(choice.descriptions[nextLevel - 1] ?? choice.combatRead ?? '', 17, new Color(203, 228, 218, 245));
-        description.horizontalAlign = Label.HorizontalAlign.LEFT;
-        description.node.setPosition(-35, -27);
-        description.node.getComponent(UITransform)?.setContentSize(330, 40);
-        node.addChild(description.node);
-        const pathLine = impact.after.relic && choice.offerKind === 'seed'
-            ? `装备 ${impact.after.relic.name}`
-            : progress.next > progress.current
-                ? `${UPGRADE_PATH_LABELS[choice.path]} ${progress.current} → ${progress.next}`
-                : choice.combatRead ?? UPGRADE_PATH_DESCRIPTIONS[choice.path];
-        const progressLabel = this.makeLabel(pathLine, 16, new Color(pathColor.r, pathColor.g, pathColor.b, 230));
-        progressLabel.horizontalAlign = Label.HorizontalAlign.RIGHT;
-        progressLabel.node.setPosition(214, 18);
-        progressLabel.node.getComponent(UITransform)?.setContentSize(146, 26);
-        node.addChild(progressLabel.node);
-        const milestone = this.makeLabel(
-            impact.milestone ?? progress.milestone ?? choice.combatRead ?? '',
-            14,
-            new Color(isFormation ? '#F4D78B' : '#8FAEA5'),
-        );
-        milestone.horizontalAlign = Label.HorizontalAlign.RIGHT;
-        milestone.node.setPosition(214, -20);
-        milestone.node.getComponent(UITransform)?.setContentSize(160, 36);
-        node.addChild(milestone.node);
-        node.on(Node.EventType.TOUCH_START, (event: EventTouch) => {
-            event.propagationStopped = true;
-            node.setScale(0.975, 0.975);
-        });
-        node.on(Node.EventType.TOUCH_CANCEL, () => node.setScale(1, 1));
-        node.on(Node.EventType.TOUCH_END, (event: EventTouch) => {
-            event.propagationStopped = true;
-            node.setScale(1, 1);
-            onClick();
-        });
-        return node;
-    }
-
-    private makeUpgradePathSummary(): Node {
-        const panel = this.makeRect(604, 58, new Color(4, 21, 26, 232), new Color(85, 129, 122, 145), 18, 1);
-        panel.setPosition(0, -382);
-        const totals = summarizeUpgradePaths((id) => this.skills.getLevel(id));
-        const heading = this.makeLabel('当前道基', 15, new Color('#AFC7BE'));
-        heading.horizontalAlign = Label.HorizontalAlign.LEFT;
-        heading.node.setPosition(-246, 0);
-        heading.node.getComponent(UITransform)?.setContentSize(110, 30);
-        panel.addChild(heading.node);
-        UPGRADE_PATH_ORDER.forEach((path, index) => {
-            const label = this.makeLabel(
-                `${UPGRADE_PATH_LABELS[path]} ${totals[path]}重`,
-                16,
-                new Color(UPGRADE_PATH_COLORS[path]),
-            );
-            label.node.setPosition(-88 + index * 132, 8);
-            label.node.getComponent(UITransform)?.setContentSize(120, 28);
-            panel.addChild(label.node);
-            const description = this.makeLabel(
-                UPGRADE_PATH_DESCRIPTIONS[path],
-                12,
-                new Color(134, 163, 157, 220),
-            );
-            description.node.setPosition(-88 + index * 132, -13);
-            description.node.getComponent(UITransform)?.setContentSize(120, 22);
-            panel.addChild(description.node);
-        });
-        return panel;
     }
 
     private makeRect(width: number, height: number, fill: Color, stroke?: Color, radius = 20, lineWidth = 4): Node {

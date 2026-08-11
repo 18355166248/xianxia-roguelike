@@ -112,6 +112,10 @@ export class PlatformFeedbackService {
         this.vibrate(tier >= 3 ? [28, 24, 54] : [24]);
     }
 
+    public playBreakthroughWarning(): void {
+        this.playCue('breakthrough-warning');
+    }
+
     public playComboMilestone(tier: number): void {
         const base = 520 + tier * 90;
         this.playNotes([base, base * 1.22], tier >= 3 ? 'sawtooth' : 'triangle', 0.14, 0.028);

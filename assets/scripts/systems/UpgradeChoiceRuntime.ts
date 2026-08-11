@@ -13,12 +13,6 @@ export const UPGRADE_PATH_LABELS: Readonly<Record<UpgradePath, string>> = {
     vitality: '守元',
 };
 
-export const UPGRADE_PATH_DESCRIPTIONS: Readonly<Record<UpgradePath, string>> = {
-    edge: '飞剑追击',
-    mystic: '功法循环',
-    vitality: '护体续战',
-};
-
 export const CULTIVATION_SEED_IDS: Readonly<Record<UpgradePath, UpgradeId>> = {
     edge: 'seed-edge',
     mystic: 'seed-mystic',
@@ -184,31 +178,4 @@ export function pickBossCultivationChoices(
     const result: UpgradeConfig[] = [];
     [...unlocked, ...fallback, ...otherFormations].forEach((choice) => pushUnique(result, choice));
     return result.slice(0, count);
-}
-
-export function choiceBuildProgress(
-    choice: UpgradeConfig,
-    getLevel: UpgradeLevelReader,
-): { current: number; next: number; milestone?: string; future: string } {
-    const totals = summarizeUpgradePaths(getLevel);
-    const contribution = choice.routeContribution ?? 0;
-    const current = totals[choice.path];
-    const next = current + contribution;
-    const milestone = current < 3 && next >= 3
-        ? choice.path === 'edge'
-            ? '将激活「剑痕」'
-            : choice.path === 'mystic'
-                ? '将激活「劫力」'
-                : '将激活「护体」'
-        : current < 5 && next >= 5
-            ? '将开启关底真诀'
-            : choice.offerKind === 'synergy' || choice.offerKind === 'ultimate'
-                ? '此选成诀'
-                : undefined;
-    const future = choice.path === 'edge'
-        ? `下一成形：万剑归宗 · ${Math.max(0, 5 - next)}重锋芒`
-        : choice.path === 'mystic'
-            ? `下一成形：九霄劫阵 · ${Math.max(0, 5 - next)}重玄术`
-            : `下一成形：不灭剑体 · ${Math.max(0, 5 - next)}重守元`;
-    return { current, next, milestone, future };
 }

@@ -68,8 +68,12 @@ export function combatImpactPresentationFor(
 
 const COMBO_WINDOW = 2.6;
 
+/**
+ * 三档阈值必须在真实关卡里够得着：一章的非首领敌人加权总数只有 25–28，
+ * 旧的 20 连斩要求全程零失误横跨三个波次，实战中几乎没有玩家见过最高档。
+ */
 function tierFor(combo: number): CombatFlowTier {
-    if (combo >= 20) return 3;
+    if (combo >= 16) return 3;
     if (combo >= 10) return 2;
     if (combo >= 5) return 1;
     return 0;
@@ -101,8 +105,12 @@ export class CombatFlowRuntime {
         this.peakTier = 0;
     }
 
-    public tick(dt: number): void {
-        if (this.combo <= 0) return;
+    /**
+     * @param sustained 波次间隙传 true：清完一波到下一波刷新之间没有可斩目标，
+     *                  让计时继续流逝等于用"没敌人"惩罚玩家，剑势会必然在换波处断掉。
+     */
+    public tick(dt: number, sustained = false): void {
+        if (this.combo <= 0 || sustained) return;
         this.timer = Math.max(0, this.timer - Math.max(0, dt));
         if (this.timer <= 0) this.breakFlow();
     }
@@ -136,7 +144,8 @@ export class CombatFlowRuntime {
             bestCombo: this.bestCombo,
             peakTier: this.peakTier,
             label: labelFor(this.tier),
-            damageMultiplier: 1 + this.tier * 0.05,
+            // 滚雪球要能被感知到才叫爽感；三档分别是 +7% / +14% / +21%。
+            damageMultiplier: 1 + this.tier * 0.07,
         };
     }
 }

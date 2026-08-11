@@ -1,5 +1,4 @@
 import {
-    choiceBuildProgress,
     cultivationSeedPath,
     pickBossCultivationChoices,
     pickUpgradeChoices,
@@ -46,9 +45,6 @@ assert(bossChoices.some((choice) => choice.id === 'thunder-swords'), 'eligible s
 const returning = afterSeed.find((choice) => choice.id === 'returning-sword');
 assert(Boolean(returning), 'deterministic deepen choice should be returning sword');
 if (returning) {
-    const progress = choiceBuildProgress(returning, (id) => edgeSeed[id] ?? 0);
-    assert(progress.current === 2 && progress.next === 3, 'card should show route progress');
-    assert(progress.milestone?.includes('剑痕') ?? false, '3 edge should announce sword-mark resonance');
     assert(
         upgradeRarityPresentation(returning, true).rarity === 'earth',
         'a choice that crosses resonance should be presented as a breakthrough rarity',

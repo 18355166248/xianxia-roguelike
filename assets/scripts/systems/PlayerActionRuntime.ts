@@ -2,36 +2,24 @@ export type PlayerAction =
     | 'idle'
     | 'move'
     | 'autoAttack'
-    | 'quickStrike'
     | 'aimedVolley'
-    | 'chargedSlash'
     | 'dash'
     | 'formation'
     | 'tribulation'
     | 'hit'
     | 'defeat';
 
-export type SwordGesture = 'tap' | 'aimed' | 'charged';
-
 const ACTION_PRIORITY: Record<PlayerAction, number> = {
     idle: 0,
     move: 0,
     autoAttack: 1,
-    quickStrike: 2,
     aimedVolley: 3,
-    chargedSlash: 4,
     dash: 5,
     formation: 5,
     tribulation: 6,
     hit: 7,
     defeat: 9,
 };
-
-export function resolveSwordGesture(level: number, holdSeconds: number, dragDistance: number): SwordGesture {
-    if (level >= 3 && holdSeconds >= 0.55) return 'charged';
-    if (level >= 2 && dragDistance >= 30) return 'aimed';
-    return 'tap';
-}
 
 export function shouldConfirmTapMove(holdSeconds: number, dragDistance: number): boolean {
     return holdSeconds <= 0.65 && dragDistance <= 26;

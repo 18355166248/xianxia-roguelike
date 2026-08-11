@@ -9,6 +9,7 @@ export type GameAudioCue =
     | 'player-hit'
     | 'boss-cast'
     | 'boss-phase'
+    | 'breakthrough-warning'
     | 'victory'
     | 'defeat'
     | 'journey-complete';
@@ -52,6 +53,8 @@ const CUES: Readonly<Record<GameAudioCue, AudioCueSpec>> = {
     'player-hit': { notes: [note(92, 0, 0.18, 0.035, 'sawtooth')], vibration: 24, cooldownMs: 260 },
     'boss-cast': { notes: [note(73, 0, 0.36, 0.04, 'sawtooth'), note(110, 0.12, 0.28, 0.025, 'triangle')], vibration: [14, 30, 20], cooldownMs: 650 },
     'boss-phase': { notes: [note(82, 0, 0.6, 0.045, 'sawtooth'), note(123, 0.12, 0.65, 0.035), note(246, 0.3, 0.7, 0.026)], vibration: [30, 35, 55], cooldownMs: 1200 },
+    // 破境预警是"还差一点"的提示音，必须比命中亮、比破境本身轻，且不与战斗音打架。
+    'breakthrough-warning': { notes: [note(659, 0, 0.16, 0.016, 'triangle'), note(988, 0.075, 0.2, 0.012, 'triangle')], vibration: 12, cooldownMs: 1500 },
     victory: { notes: [note(262, 0, 0.34, 0.03), note(330, 0.1, 0.38, 0.03), note(392, 0.2, 0.48, 0.034), note(523, 0.34, 0.65, 0.03)], vibration: [18, 26, 42], cooldownMs: 1600 },
     defeat: { notes: [note(196, 0, 0.4, 0.03, 'triangle'), note(147, 0.17, 0.5, 0.027), note(98, 0.34, 0.68, 0.025)], vibration: 35, cooldownMs: 1600 },
     'journey-complete': { notes: [note(196, 0, 0.45, 0.028), note(294, 0.12, 0.5, 0.03), note(392, 0.24, 0.58, 0.032), note(587, 0.4, 0.8, 0.035)], vibration: [22, 24, 22, 24, 58], cooldownMs: 2200 },

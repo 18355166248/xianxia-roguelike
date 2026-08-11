@@ -38,6 +38,8 @@
     "assets/scripts/systems/BalanceTelemetryRuntime.ts",
     "assets/scripts/systems/DevicePresentationRuntime.ts",
     "assets/scripts/systems/SkillRuntime.ts",
+    "assets/scripts/systems/HitStopRuntime.ts",
+    "assets/scripts/systems/ImpactVfxRuntime.ts",
     "assets/scripts/ui/SkillHudRenderer.ts",
     "assets/scripts/GameBootstrap.ts"
   ]
