@@ -73,6 +73,37 @@ export const WAVE_CREST_ASSET: SpriteAssetSpec = {
     fallbackStroke: '#78CDBB',
 };
 
+// 首页重构资源保持独立命名，便于后续继续迭代其他页面时按版本替换，不影响战斗场景素材。
+export const HOME_UI_ASSETS = {
+    background: 'art/ui/home-redesign-v1/home-journey-bg-v1/spriteFrame',
+    title: 'art/ui/home-redesign-v1/title-calligraphy-transparent-v1/spriteFrame',
+    infoPanel: 'art/ui/home-redesign-v1/home-info-panel-v1/spriteFrame',
+    // 三章共用同一张透明圆章底图，章名与选中态由运行时绘制，
+    // 不再依赖各自带背景的切图，任何机型比例都不会与山水底图错位。
+    chapterMedallion: 'art/ui/home-redesign-v1/chapter-selected-halo-compact-v1/spriteFrame',
+    codexMedallion: 'art/ui/home-redesign-v1/top-codex-medallion-transparent-v2/spriteFrame',
+    settingsMedallion: 'art/ui/home-redesign-v1/top-settings-medallion-transparent-v2/spriteFrame',
+} as const;
+
+// 首页三枚机制徽记统一使用同系列法宝资源，避免把带大面积透明边缘的战斗立绘缩进圆章后显得又小又偏。
+export const HOME_STAGE_FEATURE_ICONS: Record<StageMapId, readonly [string, string, string]> = {
+    'qingshi-road': [
+        'art/relics/xianxia-relics_00/spriteFrame',
+        'art/relics/xianxia-relics_19/spriteFrame',
+        'art/relics/xianxia-relics_04/spriteFrame',
+    ],
+    'bamboo-ambush': [
+        'art/relics/xianxia-relics_11/spriteFrame',
+        'art/relics/xianxia-relics_23/spriteFrame',
+        'art/relics/xianxia-relics_21/spriteFrame',
+    ],
+    'frozen-ruins': [
+        'art/relics/xianxia-relics_05/spriteFrame',
+        'art/relics/xianxia-relics_04/spriteFrame',
+        'art/relics/xianxia-relics_20/spriteFrame',
+    ],
+};
+
 export const BOSS_ANIMATION_ASSET: SpriteAnimationAssetSpec = {
     resourcePath: 'art/bosses/shanxiao-actions/spriteFrame',
     displayHeight: 164,
@@ -177,6 +208,13 @@ export const PRELOAD_SPRITE_PATHS = [
     PLAYER_ANIMATION_ASSET.resourcePath,
     HUD_PORTRAIT_ASSET.resourcePath,
     WAVE_CREST_ASSET.resourcePath,
+    HOME_UI_ASSETS.background,
+    HOME_UI_ASSETS.title,
+    HOME_UI_ASSETS.infoPanel,
+    HOME_UI_ASSETS.chapterMedallion,
+    HOME_UI_ASSETS.codexMedallion,
+    HOME_UI_ASSETS.settingsMedallion,
+    ...Object.values(HOME_STAGE_FEATURE_ICONS).flat(),
     BOSS_ANIMATION_ASSET.resourcePath,
     FROZEN_BOSS_ANIMATION_ASSET.resourcePath,
     FROST_IMPACT_ANIMATION_ASSET.resourcePath,

@@ -131,6 +131,74 @@
 
 final result: passed
 
+## 2026-08-12 首页三枚章节机制图标可读性优化
+
+### 本轮问题与修正
+
+- P1：原首领图标直接使用带大面积透明边缘的战斗立绘，按原始画布缩放后可见主体不足圆章直径的一半；现改为与前两项一致的法宝徽记体系，并为三章分别配置青石兽纹、竹心灵印和寒潭冰晶。
+- P1：原坐标 `[-78, 64, 203] × -88` 是按视觉估值落位，较底板真实圆心统一偏右上；现按 1000×820 原始面板中三枚圆环圆心换算为 `[-90, 49, 190] × -95`。
+- P2：原图标高度仅 46 / 50 设计像素，缩至手机后难以辨认；现三枚徽记统一为 58 设计像素，保留足够圆环留白并提高主体辨识度。
+- P2：标签统一使用 17 号宋体、暖白色、132×28 居中文字框，并与按钮保留独立间距；三项不再出现偏色、偏移或文字压住按钮的情况。
+
+### 同视口视觉证据
+
+- 用户问题截图：`/var/folders/7w/hsspqlq52mj2vrwmmpdjptsh0000gn/T/codex-clipboard-18359c2b-a44e-4343-bda2-2507b36bd913.png`。
+- 第一章：`docs/design/audit-2026-08-12/05-feature-icons-chapter1.png`。
+- 第二章：`docs/design/audit-2026-08-12/06-feature-icons-chapter2.png`。
+- 第三章：`docs/design/audit-2026-08-12/07-feature-icons-chapter3.png`。
+- 第三章问题态 / 修复态并排：`docs/design/audit-2026-08-12/08-feature-icons-comparison.png`。
+- 430×860 竖屏下，三章共九枚图标均位于底板圆环中心，标签无截断、无重叠，主按钮文字保持居中。
+
+### 工程与交互验证
+
+- `npx tsc -p tsconfig.check.json --noEmit`：通过。
+- Web Mobile 正式构建通过，日志包含 `build Task (web-mobile) Finished`。
+- 浏览器依次切换第一、二、三章，图标、标签、关卡说明和主按钮均正确更新。
+- 浏览器运行日志：0 error / 0 warning。
+- 无剩余 P0 / P1 / P2。
+
+final result: passed
+
+## 2026-08-11 首页重构（仙途劫 · 青石山道）
+
+### Source visual truth 与实现证据
+
+- 目标设计稿：`/Users/xmly/.codex/generated_images/019ff0ce-c640-76b1-afa0-e07ae65b7c51/exec-9f02706a-12b6-4b4b-840f-8243dfdb5ef8.png`，852×1846。
+- 最终实机：`/private/tmp/xianxia-home-qa/implementation-390x844.png`，390×844，device scale factor 1。
+- 全屏同图比较：`/private/tmp/xianxia-home-qa/compare-390x844.png`；目标稿等比归一为 390×844 后与实机并排。
+- 聚焦比较：`/private/tmp/xianxia-home-qa/compare-focused-title-panel.png`，覆盖标题区、章节路线和任务面板。
+- 用户标注视口修复实机：`/private/tmp/xianxia-home-qa/implementation-347x606-final.png`，347×606，device scale factor 1。
+- 验收状态：默认首页、第一章选中、进度 0/6、真形 0/3、渡劫 0。
+
+### Comparison history
+
+1. 第一轮实现存在 P1：标题使用普通 Label，书法笔触、横向张力与目标稿差异明显；改为独立透明书法标题切图后重新构建。
+2. 第一轮存在 P2：顶部道法 / 设置图章带矩形底色；重新提取透明图章资源后消除边缘接缝。
+3. 第一轮存在 P2：章节圆章可见矩形裁切边界且第一章选中态偏弱；加入椭圆 Mask 和独立金色选中光环后修复。
+4. 最终 390×844 同图比较中，标题、人物、三章路径、第一章选中态和底部任务面板的主要视觉重心一致；未发现剩余 P0 / P1 / P2。
+5. 用户在 347×606 宽比例视口发现 P2：章节节点仍沿用标准竖屏固定坐标，第一章切图自带菱形与选中光环重复，CTA 文字按图片几何中心而非金色按钮视觉中心定位。
+6. 修复后章节节点统一使用 852×1846 原画坐标和背景 cover 缩放矩阵；章节圆章在椭圆 Mask 内重新取圆心，只保留光环的选中标记；CTA 触控区与文字共同上移到金色按钮视觉中心。347×606 复测无重叠或偏心，未发现剩余 P0 / P1 / P2。
+
+### Required fidelity surfaces
+
+- 字体与层级：主标题使用真实书法切图；副标题、进度、章节名、目标和 CTA 保持清晰层级，没有截断或互相覆盖。
+- 间距与布局：顶部双入口和底部任务面板按 750×1625 逻辑设计坐标布局；三章纵向路径跟随背景原画坐标与 cover 矩阵缩放，宽比例屏幕不再与山路脱节，同时不改变交互关系。
+- 色彩与视觉令牌：沿用目标稿的宣纸灰、墨青、旧金与暖白；选中态只使用金色光环强调，没有增加新的高饱和色。
+- 图像质量与资产：背景、标题、任务面板、章节圆章、选中光环和顶部入口均为独立位图资源；没有把整张设计稿直接作为不可交互页面，也没有字符图标或代码绘图占位。
+- 文案与内容：青石山道、山门初试、试炼目标、三项机制与 CTA 均为运行时节点，随章节状态动态更新。
+
+### 响应式、交互与工程验证
+
+- 冷启动检查 347×606、360×780、390×844、430×780 四档竖屏：背景保持 cover，核心内容居中，面板和按钮无裁切、溢出或横向硬边。
+- 已验证第二章切换、路线预览、道法入口、设置入口和“踏入青石山道”主 CTA；这些控件使用独立触控节点，不依赖整图热区。
+- 浏览器控制台：0 error / 0 warning。
+- `npx tsc -p tsconfig.check.json --noEmit`：通过。
+- `node scripts/run-skill-tests.cjs`：通过。
+- Web Mobile 正式构建通过，构建日志包含 `build Task (web-mobile) Finished`。
+- 本地视觉与功能验收完成；仓库图片预算 / CDN 登记仍需用户明确授权将本轮首页切图上传至喜马拉雅 CDN 后收口。
+
+final result: passed
+
 ## 2026-08-03 修行卷方案 3（设计稿保真落地）
 
 ### Source visual truth 与验收状态
@@ -570,6 +638,37 @@ final result: passed
 - `npm run test:skills`：20 个系统测试通过。
 - `npx tsc -p tsconfig.check.json --noEmit`：通过。
 - `git diff --check`：通过（仅仓库既有 LF/CRLF 提示）。
+- 无剩余 P0 / P1 / P2。
+
+final result: passed
+
+## 2026-08-12 首页章节选中态与底部信息区优化（当前）
+
+### 本轮问题与修正
+
+- P1：选中章节曾把同一张金环切图叠加两次，形成明显的双圆圈和局部错位；现删除重复光晕层，仅保留一层真实金环资源，并用尺寸、明度和章名字号区分选中态。
+- P1：底部三枚图标实际是“机关 / 奇遇 / 首领”的章节情报，却被实现成首页路线选择器，导致点击反馈与信息语义不一致；现恢复为静态机制预告，真正路线抉择仍保留在入境后的奇遇流程。
+- P2：底部中间项遗留“可选”和单项暖金高亮，仍会制造可点击错觉；现移除“可选”后缀，三项统一文案颜色与展示层级。
+- 三个章节节点均保留完整触控区、按压缩放和切换确认音效；切换只更新当前章节、关卡说明、机制预告与主按钮文案，不会直接开战。
+
+### 同视口视觉证据
+
+- 用户问题截图：`/var/folders/7w/hsspqlq52mj2vrwmmpdjptsh0000gn/T/codex-clipboard-fb0d7e38-9c8f-43bf-8cd1-6d86b2ef3123.png`。
+- 第一章选中：`docs/design/audit-2026-08-12/01-chapter1-selected.png`。
+- 第二章选中：`docs/design/audit-2026-08-12/02-chapter2-selected.png`。
+- 第三章选中：`docs/design/audit-2026-08-12/03-chapter3-selected.png`。
+- 用户反馈与最终实现并排：`docs/design/audit-2026-08-12/04-feedback-comparison.png`。
+- 三个选中态均只出现一套金环切图；未选章节降权稳定，章名保持居中。
+- 底部三枚机制图标在三个章节中均无选中态、无“可选”标识，主按钮文字保持水平与垂直居中。
+
+### 工程与交互验证
+
+- `npx tsc -p tsconfig.check.json --noEmit`：通过。
+- `node scripts/run-skill-tests.cjs`：全部通过。
+- Web Mobile 正式构建通过，日志包含 `build Task (web-mobile) Finished`。
+- 430×860 竖屏视口中依次点击第一、二、三章，章节详情和按钮文案均正确更新。
+- 浏览器运行日志：0 error / 0 warning。
+- `git diff --check`：通过。
 - 无剩余 P0 / P1 / P2。
 
 final result: passed

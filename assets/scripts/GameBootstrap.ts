@@ -38,6 +38,8 @@ import {
     FROST_IMPACT_ANIMATION_ASSET,
     FROST_SEAL_COMMIT_ANIMATION_ASSET,
     FROST_TIDE_COMMIT_ANIMATION_ASSET,
+    HOME_STAGE_FEATURE_ICONS,
+    HOME_UI_ASSETS,
     HUD_PORTRAIT_ASSET,
     PLAYER_ANIMATION_ASSET,
     PLAYER_ASSET,
@@ -313,6 +315,14 @@ const CULTIVATION_TRAIT_SOURCES: Readonly<Record<CultivationTrait, UpgradeId>> =
 const STAGE_PROGRESS_STORAGE_KEY = 'xianxia-roguelike.stage-progress.v1';
 const GAME_SETTINGS_STORAGE_KEY = 'xianxia-roguelike.settings.v1';
 const BALANCE_TELEMETRY_STORAGE_KEY = 'xianxia-roguelike.balance-runs.v1';
+// 圆章素材 512×512，金环实际圆心在 (255, 317)，即图片中心下方约 11.5% 边长。
+const CHAPTER_MEDALLION_RING_OFFSET = 0.115;
+
+interface ChapterMedallionPlacement {
+    x: number;
+    y: number;
+    size: number;
+}
 
 interface SpiritVeinVisual {
     node: Node;
@@ -1641,173 +1651,231 @@ export class GameBootstrap extends Component {
         this.clearOverlay();
         this.applyStageVisual(true);
         this.bringOverlayToFront();
-        const shade = this.makeRect(this.visibleDesignWidth(), 1334, new Color(3, 13, 16, 146));
-        this.overlay.addChild(shade);
+        const viewportWidth = this.visibleDesignWidth();
+        // 首页背景按 cover 铺满宽屏，但核心交互仍限制在 616 设计宽度内，窄屏与平板不会裁掉按钮。
+        const backgroundHeight = Math.max(this.designHeight, viewportWidth * 1846 / 852);
+        const background = this.createResourceSprite(HOME_UI_ASSETS.background, backgroundHeight);
+        background.name = 'HomeJourneyBackground';
+        this.overlay.addChild(background);
 
-        const title = this.makeLabel('仙 途 劫', 62, new Color('#FFF0BE'));
-        title.node.setPosition(0, 558);
-        this.overlay.addChild(title.node);
-        const titleRule = new Node('TitleRule');
-        titleRule.layer = Layers.Enum.UI_2D;
-        titleRule.setPosition(0, 510);
-        const rule = titleRule.addComponent(Graphics);
-        rule.strokeColor = new Color(239, 202, 118, 175);
-        rule.lineWidth = 2;
-        rule.moveTo(-206, 0);
-        rule.lineTo(-42, 0);
-        rule.moveTo(42, 0);
-        rule.lineTo(206, 0);
-        rule.stroke();
-        rule.fillColor = new Color(239, 202, 118, 220);
-        rule.circle(0, 0, 4);
-        rule.fill();
-        this.overlay.addChild(titleRule);
-
-        const subtitle = this.makeLabel('御 剑 破 劫  ·  三 境 问 道', 18, new Color('#CFE5DB'));
-        subtitle.node.setPosition(0, 478);
+        const title = this.createResourceSpriteSized(HOME_UI_ASSETS.title, 360, 124);
+        title.name = 'HomeCalligraphyTitle';
+        title.setPosition(0, 574);
+        this.overlay.addChild(title);
+        const subtitle = this.makeLabel('御剑破劫 · 三境问道', 20, new Color('#6B5534'));
+        subtitle.fontFamily = 'Songti SC';
+        subtitle.node.setPosition(0, 506);
         this.overlay.addChild(subtitle.node);
 
         const archive = this.stageProgress.cultivationArchive();
-        const journey = this.stageProgress.journeyCompletion();
-        const archivePill = this.makeRect(
-            410,
-            38,
-            new Color(3, 18, 22, 206),
-            new Color('#9B8150'),
-            13,
-            1,
-        );
-        archivePill.setPosition(0, 438);
         const archiveLabel = this.makeLabel(
-            journey.allStagesCleared
-                ? `三境归一 · 道途 ${archive.discoveredRoutes}/6 · 真形 ${archive.masteredPaths.length}/3`
-                : `道藏 · 道途 ${archive.discoveredRoutes}/6 · 真形 ${archive.masteredPaths.length}/3 · 渡劫 ${archive.totalClears}`,
-            16,
-            new Color('#EBD9A7'),
+            `道藏 ${archive.discoveredRoutes}/6 · 真形 ${archive.masteredPaths.length}/3 · 渡劫 ${archive.totalClears}`,
+            14,
+            new Color(84, 74, 54, 205),
         );
-        archiveLabel.node.getComponent(UITransform)?.setContentSize(390, 28);
-        archivePill.addChild(archiveLabel.node);
-        if (journey.allStagesCleared) {
-            archivePill.on(Node.EventType.TOUCH_END, (event: EventTouch) => {
-                event.propagationStopped = true;
-                this.showJourneyEpilogue();
-            });
-        }
-        this.overlay.addChild(archivePill);
+        archiveLabel.node.setPosition(0, 472);
+        this.overlay.addChild(archiveLabel.node);
 
-        const settingsButton = this.makeCompactButton('设 置', () => this.showSettingsPanel('menu'), 94, 40);
-        settingsButton.name = 'MenuSettings';
-        settingsButton.setPosition(this.visibleDesignWidth() / 2 - 62, 558);
-        this.overlay.addChild(settingsButton);
-        // 道法谱是开局前理解"我能修什么"的唯一入口，与设置对称放在标题两侧。
-        const codexButton = this.makeCompactButton('道 法', () => this.showCultivationCodex(), 94, 40);
+        const medallionX = Math.min(258, viewportWidth / 2 - 48);
+        const codexButton = this.createResourceSpriteSized(HOME_UI_ASSETS.codexMedallion, 86, 186);
         codexButton.name = 'MenuCultivationCodex';
-        codexButton.setPosition(-this.visibleDesignWidth() / 2 + 62, 558);
+        codexButton.setPosition(-medallionX, 574);
+        codexButton.on(Node.EventType.TOUCH_START, () => codexButton.setScale(0.96, 0.96));
+        codexButton.on(Node.EventType.TOUCH_CANCEL, () => codexButton.setScale(1, 1));
+        codexButton.on(Node.EventType.TOUCH_END, (event: EventTouch) => {
+            event.propagationStopped = true;
+            codexButton.setScale(1, 1);
+            this.showCultivationCodex();
+        });
         this.overlay.addChild(codexButton);
+        const settingsButton = this.createResourceSpriteSized(HOME_UI_ASSETS.settingsMedallion, 86, 186);
+        settingsButton.name = 'MenuSettings';
+        settingsButton.setPosition(medallionX, 574);
+        settingsButton.on(Node.EventType.TOUCH_START, () => settingsButton.setScale(0.96, 0.96));
+        settingsButton.on(Node.EventType.TOUCH_CANCEL, () => settingsButton.setScale(1, 1));
+        settingsButton.on(Node.EventType.TOUCH_END, (event: EventTouch) => {
+            event.propagationStopped = true;
+            settingsButton.setScale(1, 1);
+            this.showSettingsPanel('menu');
+        });
+        this.overlay.addChild(settingsButton);
         if (this.hasLocalQaFlag('qaBalance=1')) {
             const balanceButton = this.makeCompactButton('平 衡', () => this.showBalanceReportPanel(), 94, 40, true);
             balanceButton.name = 'BalanceReportAction';
-            // 让出标题左侧给道法谱，验收入口下移一行。
-            balanceButton.setPosition(-this.visibleDesignWidth() / 2 + 62, 508);
+            balanceButton.setPosition(-medallionX, 448);
             this.overlay.addChild(balanceButton);
         }
-
-        const heroGlow = new Node('HeroGlow');
-        heroGlow.layer = Layers.Enum.UI_2D;
-        heroGlow.setPosition(0, 365);
-        const glow = heroGlow.addComponent(Graphics);
-        glow.fillColor = new Color(76, 190, 167, 28);
-        glow.circle(0, 0, 96);
-        glow.fill();
-        glow.strokeColor = new Color(126, 224, 197, 62);
-        glow.lineWidth = 2;
-        glow.circle(0, 0, 82);
-        glow.stroke();
-        this.overlay.addChild(heroGlow);
-        const hero = this.createResourceSprite(PLAYER_ASSET.resourcePath, 176);
-        hero.setPosition(0, 356);
-        this.overlay.addChild(hero);
-
-        const routeTitle = this.makeLabel('三 境 试 炼', 24, new Color('#F2DEAA'));
-        routeTitle.node.setPosition(0, 252);
-        this.overlay.addChild(routeTitle.node);
-        this.overlay.addChild(this.makeChapterRoute());
-        this.overlay.addChild(this.makeStagePreview(this.currentStage));
+        this.overlay.addChild(this.makeChapterRoute(viewportWidth));
+        this.overlay.addChild(this.makeJourneyStagePreview(this.currentStage));
     }
 
-    private makeChapterRoute(): Node {
+    private makeChapterRoute(viewportWidth: number): Node {
         const route = new Node('ChapterRoute');
         route.layer = Layers.Enum.UI_2D;
-        route.setPosition(0, 154);
-        const graphics = route.addComponent(Graphics);
-        graphics.strokeColor = new Color(95, 153, 139, 145);
-        graphics.lineWidth = 3;
-        graphics.moveTo(-218, 0);
-        graphics.lineTo(218, 0);
-        graphics.stroke();
-
+        // 旧实现把圆章钉在 852×1846 原画像素上，背景按 cover 裁切后必然与山路脱节。
+        // 改为在标题与任务面板之间的安全区内做相对布局：三章自下而上排成一条上山折线，
+        // 只依赖可视宽度收敛，任何机型比例都不会错位或出屏。
+        const anchorX = Math.min(viewportWidth / 2 - 120, 224);
+        const placements = [
+            { x: anchorX - 96, y: -10, size: 174 },
+            { x: anchorX - 18, y: 156, size: 152 },
+            { x: anchorX + 34, y: 306, size: 134 },
+        ] as const;
         STAGES.forEach((stage, index) => {
-            const selected = index === this.selectedStageIndex;
-            const stageRecord = this.stageProgress.recordFor(stage.mapId);
-            const cleared = stageRecord.clears > 0;
-            const accent = new Color(stage.accent);
-            const x = (index - 1) * 218;
-            const backing = this.makeRect(
-                selected ? 126 : 106,
-                selected ? 126 : 106,
-                new Color(4, 20, 24, selected ? 252 : 238),
-                accent,
-                selected ? 30 : 25,
-                selected ? 3 : 1.5,
-            );
-            backing.name = `ChapterNode-${index + 1}`;
-            backing.setPosition(x, 0);
-            const thumbnail = this.createResourceSprite(
-                BACKGROUND_ASSETS[stage.mapId].resourcePath,
-                selected ? 104 : 86,
-            );
-            backing.addChild(thumbnail);
-            const chapter = this.makeLabel(
-                stage.chapter,
-                selected ? 20 : 18,
-                new Color(accent.r, accent.g, accent.b, selected ? 255 : 210),
-            );
-            chapter.node.setPosition(0, selected ? -80 : -69);
-            chapter.node.getComponent(UITransform)?.setContentSize(128, 30);
-            backing.addChild(chapter.node);
-            if (selected || cleared) {
-                const markerText = selected && cleared ? '已破 · 当前' : cleared ? '已破' : '当前';
-                const markerWidth = selected && cleared ? 94 : 60;
-                const marker = this.makeRect(
-                    markerWidth,
-                    24,
-                    new Color(cleared ? 65 : 19, cleared ? 50 : 55, cleared ? 27 : 50, 238),
-                    new Color(accent.r, accent.g, accent.b, 175),
-                    9,
-                    1,
-                );
-                marker.setPosition(0, selected ? 78 : 65);
-                const markerLabel = this.makeLabel(markerText, 18, new Color(cleared ? '#FFF0BE' : '#D5EEE3'));
-                markerLabel.node.getComponent(UITransform)?.setContentSize(markerWidth - 6, 20);
-                marker.addChild(markerLabel.node);
-                backing.addChild(marker);
-            }
-            backing.on(Node.EventType.TOUCH_START, (event: EventTouch) => {
-                event.propagationStopped = true;
-                backing.setScale(0.96, 0.96);
-            });
-            backing.on(Node.EventType.TOUCH_CANCEL, () => backing.setScale(1, 1));
-            backing.on(Node.EventType.TOUCH_END, (event: EventTouch) => {
-                event.propagationStopped = true;
-                backing.setScale(1, 1);
-                if (this.selectedStageIndex === index) return;
-                // 路线节点只切换预览，必须由底部主按钮确认入场，避免玩家误触直接开战。
-                this.selectedStageIndex = index;
-                this.showMenu();
-            });
-            route.addChild(backing);
+            route.addChild(this.makeChapterMedallion(stage, index, placements[index]));
         });
         return route;
+    }
+
+    private makeChapterMedallion(
+        stage: StageConfig,
+        index: number,
+        placement: ChapterMedallionPlacement,
+    ): Node {
+        const selected = index === this.selectedStageIndex;
+        const size = placement.size;
+        const backing = new Node(`ChapterNode-${index + 1}`);
+        backing.layer = Layers.Enum.UI_2D;
+        backing.addComponent(UITransform).setContentSize(size, size);
+        backing.setPosition(placement.x, placement.y);
+
+        // 圆章素材上方自带定位菱形，环心在图片中心偏下约 11.5%；
+        // 统一按该偏移回正，章名才会落在金环正中。
+        const ringOffsetY = size * CHAPTER_MEDALLION_RING_OFFSET;
+        const disc = new Node('ChapterMedallionDisc');
+        disc.layer = Layers.Enum.UI_2D;
+        disc.addComponent(UITransform).setContentSize(size, size);
+        const discGraphics = disc.addComponent(Graphics);
+        discGraphics.fillColor = selected ? new Color(16, 34, 31, 216) : new Color(12, 22, 22, 168);
+        discGraphics.circle(0, 0, size * (selected ? 0.315 : 0.29));
+        discGraphics.fill();
+        backing.addChild(disc);
+
+        // 选中态只使用一层真实金环资源，通过尺寸与明度表达层级，避免同图叠加形成双圆圈。
+        const ringScale = selected ? 1.1 : 1;
+        const ring = this.createResourceSpriteSized(
+            HOME_UI_ASSETS.chapterMedallion,
+            size * ringScale,
+            size * ringScale,
+        );
+        ring.name = 'ChapterMedallionRing';
+        ring.setPosition(0, ringOffsetY * ringScale);
+        (ring.getComponent(UIOpacity) ?? ring.addComponent(UIOpacity)).opacity = selected ? 255 : 118;
+        backing.addChild(ring);
+
+        const title = this.makeLabel(
+            stage.chapter,
+            selected ? 27 : 23,
+            selected ? new Color('#FFE9AE') : new Color(214, 216, 198, 224),
+        );
+        title.fontFamily = 'STKaiti';
+        title.node.getComponent(UITransform)?.setContentSize(size * 0.5, size * 0.4);
+        // 圆章内孔本身略偏上，楷体字形在行框内又偏下，按边长与字号各回补一档才会落在金环正中。
+        title.node.setPosition(0, size * 0.05 + title.fontSize * 0.25);
+        backing.addChild(title.node);
+
+        backing.on(Node.EventType.TOUCH_START, (event: EventTouch) => {
+            event.propagationStopped = true;
+            backing.setScale(0.92, 0.92);
+        });
+        backing.on(Node.EventType.TOUCH_CANCEL, () => backing.setScale(1, 1));
+        backing.on(Node.EventType.TOUCH_END, (event: EventTouch) => {
+            event.propagationStopped = true;
+            backing.setScale(1, 1);
+            if (this.selectedStageIndex === index) return;
+            // 路线节点只切换预览，必须由底部主按钮确认入场，避免玩家误触直接开战。
+            this.selectedStageIndex = index;
+            this.platformFeedback.playCue('ui-confirm', index);
+            this.showMenu();
+        });
+        return backing;
+    }
+
+    private makeJourneyStagePreview(stage: StageConfig): Node {
+        const panel = new Node('StagePreview');
+        panel.layer = Layers.Enum.UI_2D;
+        panel.addComponent(UITransform).setContentSize(600, 530);
+        panel.setPosition(0, -398);
+        panel.addChild(this.createResourceSpriteSized(HOME_UI_ASSETS.infoPanel, 600, 530));
+
+        const accent = new Color(stage.accent);
+        // 面板切图 1000×820 在此按 600×530 呈现；右侧文案区位于圆形插图右缘（面板 -87）
+        // 与右内边距（面板 273）之间，视觉中心为 93，不能沿用早期的 78。
+        const textColumnX = 93;
+        const chapter = this.makeLabel(stage.chapter, 17, new Color(accent.r, accent.g, accent.b, 245));
+        chapter.fontFamily = 'Songti SC';
+        chapter.node.setPosition(textColumnX, 206);
+        panel.addChild(chapter.node);
+        const name = this.makeLabel(stage.stageName, 38, new Color('#FFF0C4'));
+        name.fontFamily = 'STKaiti';
+        name.node.setPosition(textColumnX, 166);
+        name.node.getComponent(UITransform)?.setContentSize(330, 52);
+        panel.addChild(name.node);
+        const tagline = this.makeLabel(stage.tagline, 18, new Color(204, 218, 196, 240));
+        tagline.node.setPosition(textColumnX, 128);
+        tagline.node.getComponent(UITransform)?.setContentSize(330, 30);
+        panel.addChild(tagline.node);
+
+        // 首页只预告本章机制，路线抉择留在入境后的奇遇流程，避免把情报图标伪装成选择器。
+        const goalTitle = this.makeLabel('试炼目标', 19, new Color('#D7C18C'));
+        goalTitle.horizontalAlign = Label.HorizontalAlign.LEFT;
+        goalTitle.node.setPosition(-3, 82);
+        goalTitle.node.getComponent(UITransform)?.setContentSize(150, 28);
+        panel.addChild(goalTitle.node);
+        const goal = this.makeLabel(stage.goal, 18, new Color('#EEF0DF'));
+        goal.horizontalAlign = Label.HorizontalAlign.LEFT;
+        goal.node.setPosition(102, 48);
+        goal.node.getComponent(UITransform)?.setContentSize(360, 30);
+        panel.addChild(goal.node);
+
+        const iconPaths = HOME_STAGE_FEATURE_ICONS[stage.mapId];
+        const roles = [stage.routePreview.mechanic, stage.routePreview.encounter, stage.routePreview.boss] as const;
+        // 以 1000×820 面板切图中三枚圆环的实际圆心 (350, 582, 817) × 557 换算，
+        // 不能按图标素材自身画布估算，否则在手机端会统一偏右上。
+        const iconXs = [-90, 49, 190] as const;
+        roles.forEach((role, index) => {
+            const item = new Node(`JourneyFeature-${index}`);
+            item.layer = Layers.Enum.UI_2D;
+            item.addComponent(UITransform).setContentSize(132, 120);
+            item.setPosition(iconXs[index], -95);
+            const icon = this.createResourceSprite(iconPaths[index], 58);
+            item.addChild(icon);
+            // 章节首页只做机制预告，不保留“可选”或单项高亮，避免三枚情报图标继续产生切换器错觉。
+            const roleLabel = this.makeLabel(role.replace(/\s*·\s*可选/g, ''), 17, new Color('#F2E6C7'));
+            roleLabel.fontFamily = 'Songti SC';
+            roleLabel.horizontalAlign = Label.HorizontalAlign.CENTER;
+            roleLabel.verticalAlign = Label.VerticalAlign.CENTER;
+            roleLabel.node.setPosition(0, -38);
+            roleLabel.node.getComponent(UITransform)?.setContentSize(132, 28);
+            item.addChild(roleLabel.node);
+            panel.addChild(item);
+        });
+
+        const enter = new Node('StagePrimaryAction');
+        enter.layer = Layers.Enum.UI_2D;
+        // 金色按钮在面板切图中的实体范围是 x 79~919、y 631~767，中心 (499, 699)；
+        // 换算到 600×530 呈现尺寸即中心 (0, -187)、尺寸 504×88，文字与触控区统一挂在该中心。
+        enter.addComponent(UITransform).setContentSize(486, 76);
+        enter.setPosition(0, -187);
+        const enterLabel = this.makeLabel(`踏入${stage.stageName}`, 31, new Color('#17201D'));
+        enterLabel.fontFamily = 'STKaiti';
+        enterLabel.node.getComponent(UITransform)?.setContentSize(470, 56);
+        enterLabel.horizontalAlign = Label.HorizontalAlign.CENTER;
+        enterLabel.verticalAlign = Label.VerticalAlign.CENTER;
+        enterLabel.node.setPosition(0, 0);
+        enter.addChild(enterLabel.node);
+        enter.on(Node.EventType.TOUCH_START, (event: EventTouch) => {
+            event.propagationStopped = true;
+            enter.setScale(0.97, 0.97);
+        });
+        enter.on(Node.EventType.TOUCH_CANCEL, () => enter.setScale(1, 1));
+        enter.on(Node.EventType.TOUCH_END, (event: EventTouch) => {
+            event.propagationStopped = true;
+            enter.setScale(1, 1);
+            this.startStage(this.selectedStageIndex);
+        });
+        panel.addChild(enter);
+        return panel;
     }
 
     private makeStagePreview(stage: StageConfig): Node {
@@ -9183,6 +9251,33 @@ export class GameBootstrap extends Component {
             g.lineWidth = lineWidth;
             g.roundRect(-width / 2, -height / 2, width, height, radius);
             g.stroke();
+        }
+        return node;
+    }
+
+    private createResourceSpriteSized(resourcePath: string, width: number, height: number): Node {
+        const node = new Node('ResourceSprite');
+        node.layer = Layers.Enum.UI_2D;
+        const transform = node.addComponent(UITransform);
+        transform.setContentSize(width, height);
+        const assign = (frame: SpriteFrame): void => {
+            if (!node.isValid) return;
+            const sprite = node.getComponent(Sprite) ?? node.addComponent(Sprite);
+            sprite.spriteFrame = frame;
+            sprite.sizeMode = Sprite.SizeMode.CUSTOM;
+            transform.setContentSize(width, height);
+        };
+        const cached = this.spriteFrames.get(resourcePath);
+        if (cached) {
+            assign(cached);
+        } else {
+            // 首页装饰先保留确定的触控尺寸，图片异步补齐后不触发布局跳动。
+            void loadSpriteFrame(resourcePath)
+                .then((frame) => {
+                    this.spriteFrames.set(resourcePath, frame);
+                    assign(frame);
+                })
+                .catch((error: unknown) => console.warn(`[art] UI 补图失败: ${resourcePath}`, error));
         }
         return node;
     }
