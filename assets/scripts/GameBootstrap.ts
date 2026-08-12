@@ -10,6 +10,7 @@ import {
     Input,
     KeyCode,
     Label,
+    LabelOutline,
     Layers,
     Node,
     Rect,
@@ -1662,17 +1663,24 @@ export class GameBootstrap extends Component {
         title.name = 'HomeCalligraphyTitle';
         title.setPosition(0, 574);
         this.overlay.addChild(title);
-        const subtitle = this.makeLabel('御剑破劫 · 三境问道', 20, new Color('#6B5534'));
+        const subtitle = this.makeLabel('御剑破劫 · 三境问道', 21, new Color('#594323'));
         subtitle.fontFamily = 'Songti SC';
+        const subtitleOutline = subtitle.node.addComponent(LabelOutline);
+        subtitleOutline.color = new Color(239, 232, 211, 235);
+        subtitleOutline.width = 4;
         subtitle.node.setPosition(0, 506);
         this.overlay.addChild(subtitle.node);
 
         const archive = this.stageProgress.cultivationArchive();
         const archiveLabel = this.makeLabel(
             `道藏 ${archive.discoveredRoutes}/6 · 真形 ${archive.masteredPaths.length}/3 · 渡劫 ${archive.totalClears}`,
-            14,
-            new Color(84, 74, 54, 205),
+            18,
+            new Color('#3D3529'),
         );
+        archiveLabel.fontFamily = 'Songti SC';
+        const archiveOutline = archiveLabel.node.addComponent(LabelOutline);
+        archiveOutline.color = new Color(239, 232, 211, 228);
+        archiveOutline.width = 3;
         archiveLabel.node.setPosition(0, 472);
         this.overlay.addChild(archiveLabel.node);
 
