@@ -1677,7 +1677,7 @@ export class GameBootstrap extends Component {
         this.overlay.addChild(archiveLabel.node);
 
         const medallionX = Math.min(258, viewportWidth / 2 - 48);
-        const codexButton = this.createResourceSpriteSized(HOME_UI_ASSETS.codexMedallion, 86, 186);
+        const codexButton = this.makeHomeMedallionButton(HOME_UI_ASSETS.codexMedallion);
         codexButton.name = 'MenuCultivationCodex';
         codexButton.setPosition(-medallionX, 574);
         codexButton.on(Node.EventType.TOUCH_START, () => codexButton.setScale(0.96, 0.96));
@@ -1688,7 +1688,7 @@ export class GameBootstrap extends Component {
             this.showCultivationCodex();
         });
         this.overlay.addChild(codexButton);
-        const settingsButton = this.createResourceSpriteSized(HOME_UI_ASSETS.settingsMedallion, 86, 186);
+        const settingsButton = this.makeHomeMedallionButton(HOME_UI_ASSETS.settingsMedallion);
         settingsButton.name = 'MenuSettings';
         settingsButton.setPosition(medallionX, 574);
         settingsButton.on(Node.EventType.TOUCH_START, () => settingsButton.setScale(0.96, 0.96));
@@ -1707,6 +1707,21 @@ export class GameBootstrap extends Component {
         }
         this.overlay.addChild(this.makeChapterRoute(viewportWidth));
         this.overlay.addChild(this.makeJourneyStagePreview(this.currentStage));
+    }
+
+    private makeHomeMedallionButton(resourcePath: string): Node {
+        const button = new Node('HomeMedallionButton');
+        button.layer = Layers.Enum.UI_2D;
+        button.addComponent(UITransform).setContentSize(86, 186);
+
+        // 早期切图的圆章主体在透明画布内被压扁；视觉层单独做纵向比例校正，
+        // 触控层仍保持稳定尺寸，避免修图后按钮热区随吊绳一起变窄。
+        const visual = new Node('HomeMedallionVisual');
+        visual.layer = Layers.Enum.UI_2D;
+        visual.setScale(0.78, 1);
+        visual.addChild(this.createResourceSprite(resourcePath, 292));
+        button.addChild(visual);
+        return button;
     }
 
     private makeChapterRoute(viewportWidth: number): Node {
