@@ -34,6 +34,7 @@ import {
     BAMBOO_BURN_COMMIT_ANIMATION_ASSET,
     BAMBOO_SHADOW_COMMIT_ANIMATION_ASSET,
     BOSS_ANIMATION_ASSET,
+    CODEX_UI_ASSETS,
     ENEMY_ASSETS,
     FROZEN_BOSS_ANIMATION_ASSET,
     FROST_IMPACT_ANIMATION_ASSET,
@@ -1282,62 +1283,107 @@ export class GameBootstrap extends Component {
     private showCultivationCodex(selectedId: UpgradeId = UPGRADES[0].id): void {
         this.clearOverlay();
         this.bringOverlayToFront();
-        this.overlay.addChild(this.makeRect(
-            this.visibleDesignWidth(),
+        const viewportWidth = this.visibleDesignWidth();
+        const contentWidth = Math.min(720, viewportWidth - 20);
+        const columnGap = Math.min(214, (contentWidth - 54) / 3);
+        const columnX = [-columnGap, 0, columnGap];
+        // 三条路径切图的三个圆环并非严格等距；节点必须跟随切图的真实圆心，否则选中光环会越往上偏得越明显。
+        const pathRingCenters: Readonly<Record<UpgradePath, readonly number[]>> = {
+            edge: [292, 124, -42],
+            mystic: [298, 126, -40],
+            vitality: [292, 124, -40],
+        };
+        const codexTextColors: Readonly<Record<UpgradePath, Color>> = {
+            edge: new Color('#8A5B1D'),
+            mystic: new Color('#1F6E73'),
+            vitality: new Color('#2F704F'),
+        };
+
+        // 背景只做 cover 裁切，所有可点击内容独立拼装；宽屏不拉伸圆环，窄屏只收列距。
+        const backgroundWidth = Math.max(viewportWidth, this.designHeight * 898 / 1564);
+        this.overlay.addChild(this.createResourceSpriteSized(
+            CODEX_UI_ASSETS.background,
+            backgroundWidth,
             this.designHeight,
-            new Color(2, 10, 14, 238),
         ));
-        const gold = new Color('#D8B86B');
-        const panel = this.makeThemedCard(600, 1150, 'chapter', gold);
+
+        const panel = new Node('CultivationCodex');
+        panel.layer = Layers.Enum.UI_2D;
+        panel.addComponent(UITransform).setContentSize(viewportWidth, this.designHeight);
         panel.name = 'CultivationCodex';
         this.overlay.addChild(panel);
 
-        const title = this.makeLabel('道 法 谱', 46, new Color('#FFF0BE'));
-        title.node.setPosition(0, 500);
-        panel.addChild(title.node);
-        const subtitle = this.makeLabel('九 式 道 法  ·  每 式 三 重  ·  破 境 时 三 选 一', 17, new Color('#BBD6CC'));
-        subtitle.node.setPosition(0, 456);
-        subtitle.node.getComponent(UITransform)?.setContentSize(556, 28);
+        const title = this.createResourceSpriteSized(CODEX_UI_ASSETS.title, 348, 110);
+        title.setPosition(0, 576);
+        panel.addChild(title);
+        const subtitle = this.makeLabel('九式道法 · 每式三重 · 破境时三选一', 21, new Color('#273633'));
+        subtitle.node.setPosition(0, 510);
+        subtitle.node.getComponent(UITransform)?.setContentSize(contentWidth - 28, 30);
         panel.addChild(subtitle.node);
         // 把身上光效的读法直接写出来，玩家才能把战场上看到的东西和这一页对上。
-        const rule = this.makeLabel('每 修 一 重 · 身 上 多 一 柄 剑 气 　 同 系 满 三 重 · 脚 下 法 阵 显 化 真 形', 14, new Color('#8FB3A8'));
-        rule.node.setPosition(0, 430);
-        rule.node.getComponent(UITransform)?.setContentSize(556, 24);
+        const rule = this.makeLabel('每修一重 · 身上多一柄剑气　同系满三重 · 脚下法阵显化真形', 19, new Color('#36463F'));
+        rule.node.setPosition(0, 478);
+        rule.node.getComponent(UITransform)?.setContentSize(contentWidth - 30, 26);
         panel.addChild(rule.node);
 
-        const columnX = [-186, 0, 186];
         UPGRADE_PATH_ORDER.forEach((path, columnIndex) => {
-            const pathColor = new Color(UPGRADE_PATH_COLORS[path]);
-            const header = this.makeLabel(UPGRADE_PATH_LABELS[path], 22, pathColor);
-            header.node.setPosition(columnX[columnIndex], 400);
-            header.node.getComponent(UITransform)?.setContentSize(172, 30);
+            const pathColor = codexTextColors[path];
+            const headerBrush = this.createResourceSpriteSized(CODEX_UI_ASSETS.headers[path], 178, 54);
+            headerBrush.setPosition(columnX[columnIndex], 440);
+            panel.addChild(headerBrush);
+            const header = this.makeLabel(UPGRADE_PATH_LABELS[path], 30, new Color('#FFF0C7'));
+            header.node.setPosition(columnX[columnIndex], 440);
+            header.node.getComponent(UITransform)?.setContentSize(170, 42);
             panel.addChild(header.node);
 
-            UPGRADES.filter((art) => art.path === path).forEach((art, rowIndex) => {
+            const pathUpgrades = UPGRADES.filter((art) => art.path === path);
+            pathUpgrades.forEach((art, rowIndex) => {
                 const chosen = art.id === selectedId;
-                const cell = this.makeRect(
-                    172,
-                    150,
-                    new Color(pathColor.r, pathColor.g, pathColor.b, chosen ? 46 : 20),
-                    new Color(pathColor.r, pathColor.g, pathColor.b, chosen ? 245 : 120),
-                    16,
-                    chosen ? 3 : 1,
-                );
+                const cell = new Node(`CodexArt-${art.id}`);
+                cell.layer = Layers.Enum.UI_2D;
+                cell.addComponent(UITransform).setContentSize(172, 168);
                 cell.name = `CodexArt-${art.id}`;
-                cell.setPosition(columnX[columnIndex], 296 - rowIndex * 160);
-                const icon = this.createResourceSprite(art.iconResourcePath, 62);
-                icon.setPosition(0, 26);
+                const ringY = pathRingCenters[path][rowIndex];
+                cell.setPosition(columnX[columnIndex], ringY);
+                if (chosen) {
+                    // 选中圈直接绑定节点圆心，避免不同切片透明画布尺寸造成拉伸和错位。
+                    const selectionRing = new Node('CodexSelectionRing');
+                    selectionRing.layer = Layers.Enum.UI_2D;
+                    selectionRing.addComponent(UITransform).setContentSize(158, 158);
+                    const ring = selectionRing.addComponent(Graphics);
+                    ring.strokeColor = new Color(255, 221, 143, 90);
+                    ring.lineWidth = 10;
+                    ring.circle(0, 0, 72);
+                    ring.stroke();
+                    ring.strokeColor = new Color('#FFD77A');
+                    ring.lineWidth = 4;
+                    ring.circle(0, 0, 68);
+                    ring.stroke();
+                    ring.strokeColor = new Color(255, 247, 213, 210);
+                    ring.lineWidth = 2;
+                    ring.circle(0, 0, 62);
+                    ring.stroke();
+                    cell.addChild(selectionRing);
+                    const marker = this.createResourceSpriteSized(CODEX_UI_ASSETS.selectedMarker, 48, 40);
+                    marker.setPosition(0, 78);
+                    cell.addChild(marker);
+                }
+                const icon = this.createResourceSprite(art.iconResourcePath, chosen ? 70 : 62);
+                icon.setPosition(0, 28);
                 cell.addChild(icon);
-                const name = this.makeLabel(art.title, 20, new Color(chosen ? '#FFF0C8' : '#DCEDE6'));
+                const name = this.makeLabel(art.title, 24, new Color('#17201E'));
                 name.node.setPosition(0, -30);
-                name.node.getComponent(UITransform)?.setContentSize(160, 28);
+                name.node.getComponent(UITransform)?.setContentSize(164, 30);
                 cell.addChild(name.node);
-                const role = this.makeLabel(art.role, 14, new Color(pathColor.r, pathColor.g, pathColor.b, 225));
-                role.node.setPosition(0, -54);
-                role.node.getComponent(UITransform)?.setContentSize(160, 22);
+                const role = this.makeLabel(art.role, 20, new Color(pathColor.r, pathColor.g, pathColor.b, 255));
+                role.node.setPosition(0, -57);
+                role.node.getComponent(UITransform)?.setContentSize(164, 24);
                 cell.addChild(role.node);
+                cell.on(Node.EventType.TOUCH_START, () => cell.setScale(0.96, 0.96));
+                cell.on(Node.EventType.TOUCH_CANCEL, () => cell.setScale(1, 1));
                 cell.on(Node.EventType.TOUCH_END, (event: EventTouch) => {
                     event.propagationStopped = true;
+                    cell.setScale(1, 1);
                     this.showCultivationCodex(art.id);
                 });
                 panel.addChild(cell);
@@ -1345,83 +1391,96 @@ export class GameBootstrap extends Component {
         });
 
         const selected = UPGRADES.find((art) => art.id === selectedId) ?? UPGRADES[0];
+        // 详情卡位于深色墨底，沿用纸面节点的深色字会丢失对比度，因此恢复流派高亮色。
         const selectedColor = new Color(UPGRADE_PATH_COLORS[selected.path]);
-        const detail = this.makeRect(
-            556,
-            286,
-            new Color(2, 16, 20, 232),
-            new Color(selectedColor.r, selectedColor.g, selectedColor.b, 168),
-            18,
-            2,
-        );
+        const detailWidth = Math.min(714, viewportWidth - 14);
+        const detail = new Node('CodexDetail');
+        detail.layer = Layers.Enum.UI_2D;
+        detail.addComponent(UITransform).setContentSize(detailWidth, 352);
         detail.name = 'CodexDetail';
-        detail.setPosition(0, -324);
+        detail.setPosition(0, -352);
+        detail.addChild(this.createResourceSpriteSized(CODEX_UI_ASSETS.detailPanel, detailWidth, 352));
         panel.addChild(detail);
 
-        const detailIcon = this.createResourceSprite(selected.iconResourcePath, 74);
-        detailIcon.setPosition(-222, 84);
+        const detailIcon = this.createResourceSprite(selected.iconResourcePath, 72);
+        detailIcon.setPosition(-detailWidth / 2 + 84, 118);
         detail.addChild(detailIcon);
-        const detailName = this.makeLabel(selected.title, 28, new Color('#FFF0C8'));
+        const detailTextStart = -detailWidth / 2 + 132;
+        const detailTextWidth = detailWidth - 176;
+        const detailName = this.makeLabel(selected.title, 29, new Color('#FFF0C8'));
         detailName.horizontalAlign = Label.HorizontalAlign.LEFT;
-        detailName.node.setPosition(-46, 96);
-        detailName.node.getComponent(UITransform)?.setContentSize(300, 34);
+        // 标题、流派说明和三重正文共享同一条文字起始线，宽屏与窄屏都不再靠视觉补偿。
+        detailName.node.setPosition(detailTextStart + detailTextWidth / 2, 128);
+        detailName.node.getComponent(UITransform)?.setContentSize(detailTextWidth, 38);
         detail.addChild(detailName.node);
         const detailRole = this.makeLabel(
             `${UPGRADE_PATH_LABELS[selected.path]}  ·  ${selected.role}`,
-            16,
+            20,
             new Color(selectedColor.r, selectedColor.g, selectedColor.b, 240),
         );
         detailRole.horizontalAlign = Label.HorizontalAlign.LEFT;
-        detailRole.node.setPosition(-58, 66);
-        detailRole.node.getComponent(UITransform)?.setContentSize(276, 24);
+        detailRole.node.setPosition(detailTextStart + detailTextWidth / 2, 92);
+        detailRole.node.getComponent(UITransform)?.setContentSize(detailTextWidth, 28);
         detail.addChild(detailRole.node);
 
         const tierNames = ['一 重', '二 重', '三 重'] as const;
         selected.descriptions.forEach((text, index) => {
             const final = index === selected.descriptions.length - 1;
-            const row = this.makeRect(
-                520,
-                52,
-                new Color(selectedColor.r, selectedColor.g, selectedColor.b, final ? 34 : 14),
-                new Color(selectedColor.r, selectedColor.g, selectedColor.b, final ? 190 : 78),
-                12,
-                1,
-            );
-            row.setPosition(0, 12 - index * 60);
+            const rowWidth = detailWidth - 84;
+            const row = new Node(`CodexTier-${index + 1}`);
+            row.layer = Layers.Enum.UI_2D;
+            row.addComponent(UITransform).setContentSize(rowWidth, 58);
+            row.addChild(this.createResourceSpriteSized(CODEX_UI_ASSETS.tierRow, rowWidth, 58));
+            row.setPosition(0, 36 - index * 68);
             const tier = this.makeLabel(
                 final ? `${tierNames[index]} · 圆满` : tierNames[index],
-                16,
+                19,
                 new Color(final ? '#F4D78B' : '#9FC7BB'),
             );
             tier.horizontalAlign = Label.HorizontalAlign.LEFT;
-            tier.node.setPosition(-206, 0);
+            tier.node.setPosition(-rowWidth / 2 + 62, 0);
             tier.node.getComponent(UITransform)?.setContentSize(110, 24);
             row.addChild(tier.node);
-            const body = this.makeLabel(text, 17, new Color(final ? '#FFF0C8' : '#DCEDE6'));
+            const body = this.makeLabel(text, 20, new Color(final ? '#FFF0C8' : '#DCEDE6'));
             body.horizontalAlign = Label.HorizontalAlign.LEFT;
-            body.node.setPosition(30, 0);
-            body.node.getComponent(UITransform)?.setContentSize(340, 44);
+            body.node.setPosition(12, 0);
+            body.node.getComponent(UITransform)?.setContentSize(rowWidth - 210, 44);
             row.addChild(body.node);
             // 行末用剑气菱形标出修到这一重时身上累计挂几柄，和战场表现一一对应。
-            const marks = row.getComponent(Graphics);
-            if (marks) {
-                for (let slot = 0; slot <= index; slot += 1) {
-                    const x = 214 + slot * 15;
-                    marks.fillColor = new Color(selectedColor.r, selectedColor.g, selectedColor.b, final ? 250 : 200);
-                    marks.moveTo(x, 9);
-                    marks.lineTo(x + 5, 0);
-                    marks.lineTo(x, -9);
-                    marks.lineTo(x - 5, 0);
-                    marks.close();
-                    marks.fill();
-                }
+            const marksNode = new Node('TierMarks');
+            marksNode.layer = Layers.Enum.UI_2D;
+            marksNode.addComponent(UITransform).setContentSize(rowWidth, 58);
+            const marks = marksNode.addComponent(Graphics);
+            for (let slot = 0; slot <= index; slot += 1) {
+                const x = rowWidth / 2 - 42 - slot * 17;
+                marks.fillColor = new Color(selectedColor.r, selectedColor.g, selectedColor.b, final ? 250 : 200);
+                marks.moveTo(x, 9);
+                marks.lineTo(x + 5, 0);
+                marks.lineTo(x, -9);
+                marks.lineTo(x - 5, 0);
+                marks.close();
+                marks.fill();
             }
+            row.addChild(marksNode);
             detail.addChild(row);
         });
 
-        const close = this.makeActionButton('收 起', 'primary', gold, () => this.renderMenu(), 320, 60);
+        const close = new Node('CodexClose');
+        close.layer = Layers.Enum.UI_2D;
+        close.addComponent(UITransform).setContentSize(360, 78);
+        close.addChild(this.createResourceSpriteSized(CODEX_UI_ASSETS.closeButton, 360, 78));
+        const closeLabel = this.makeLabel('收 起', 34, new Color('#15211F'));
+        closeLabel.node.getComponent(UITransform)?.setContentSize(340, 60);
+        close.addChild(closeLabel.node);
         close.name = 'CodexClose';
-        close.setPosition(0, -510);
+        close.setPosition(0, -606);
+        close.on(Node.EventType.TOUCH_START, () => close.setScale(0.97, 0.97));
+        close.on(Node.EventType.TOUCH_CANCEL, () => close.setScale(1, 1));
+        close.on(Node.EventType.TOUCH_END, (event: EventTouch) => {
+            event.propagationStopped = true;
+            close.setScale(1, 1);
+            this.renderMenu();
+        });
         panel.addChild(close);
     }
 

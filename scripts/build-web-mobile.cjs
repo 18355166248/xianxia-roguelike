@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-const { existsSync, readdirSync, readFileSync, statSync } = require('fs');
+const { existsSync, readdirSync, readFileSync, statSync, writeFileSync } = require('fs');
 const { join, resolve } = require('path');
 const { spawnSync } = require('child_process');
 
@@ -48,6 +48,16 @@ if (!finished) {
   console.error(`[build:web] 构建未完成（Creator exit ${result.status ?? 'unknown'}）。`);
   if (latestLog) console.error(`[build:web] 日志：${latestLog.path}`);
   process.exit(result.status && result.status !== 36 ? result.status : 1);
+}
+
+// 浏览器滚动条会改变 Cocos FIXED_HEIGHT 的有效视口，导致宽屏竖屏下 UI 横纵坐标同时漂移。
+// 构建后固定裁掉文档溢出，画布仍由引擎根据真实 viewport 计算尺寸。
+const webStylePath = join(projectRoot, 'build', 'web-mobile', 'style.css');
+if (existsSync(webStylePath)) {
+  const style = readFileSync(webStylePath, 'utf8');
+  if (!style.includes('overflow: hidden;')) {
+    writeFileSync(webStylePath, `${style}\nhtml, body { overflow: hidden; overscroll-behavior: none; }\n`);
+  }
 }
 
 console.log(`[build:web] 正式 Web Mobile 构建通过：${latestLog.path}`);

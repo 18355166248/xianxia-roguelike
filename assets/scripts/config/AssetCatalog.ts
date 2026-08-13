@@ -85,6 +85,22 @@ export const HOME_UI_ASSETS = {
     settingsMedallion: 'art/ui/home-redesign-v1/top-settings-medallion-transparent-v2/spriteFrame',
 } as const;
 
+// 道法谱采用细切拼装：背景独立 cover，节点图文和选中态独立布局，详情框和行底纹可按设备宽度拉伸。
+// 这样既能复刻水墨设计稿，也避免把动态文案、法宝图标和点击区域烘焙进一张整页大图。
+export const CODEX_UI_ASSETS = {
+    background: 'art/ui/codex-redesign-v1/codex-ink-bg-v1/spriteFrame',
+    title: 'art/ui/codex-redesign-v1/title-calligraphy-v1/spriteFrame',
+    headers: {
+        edge: 'art/ui/codex-redesign-v1/header-edge-v1/spriteFrame',
+        mystic: 'art/ui/codex-redesign-v1/header-mystic-v1/spriteFrame',
+        vitality: 'art/ui/codex-redesign-v1/header-vitality-v1/spriteFrame',
+    },
+    selectedMarker: 'art/ui/codex-redesign-v1/selected-marker-v1/spriteFrame',
+    detailPanel: 'art/ui/codex-redesign-v1/detail-panel-v1/spriteFrame',
+    tierRow: 'art/ui/codex-redesign-v1/tier-row-v1/spriteFrame',
+    closeButton: 'art/ui/codex-redesign-v1/close-button-v1/spriteFrame',
+} as const;
+
 // 首页三枚机制徽记统一使用同系列法宝资源，避免把带大面积透明边缘的战斗立绘缩进圆章后显得又小又偏。
 export const HOME_STAGE_FEATURE_ICONS: Record<StageMapId, readonly [string, string, string]> = {
     'qingshi-road': [
@@ -214,6 +230,13 @@ export const PRELOAD_SPRITE_PATHS = [
     HOME_UI_ASSETS.chapterMedallion,
     HOME_UI_ASSETS.codexMedallion,
     HOME_UI_ASSETS.settingsMedallion,
+    CODEX_UI_ASSETS.background,
+    CODEX_UI_ASSETS.title,
+    ...Object.values(CODEX_UI_ASSETS.headers),
+    CODEX_UI_ASSETS.selectedMarker,
+    CODEX_UI_ASSETS.detailPanel,
+    CODEX_UI_ASSETS.tierRow,
+    CODEX_UI_ASSETS.closeButton,
     ...Object.values(HOME_STAGE_FEATURE_ICONS).flat(),
     BOSS_ANIMATION_ASSET.resourcePath,
     FROZEN_BOSS_ANIMATION_ASSET.resourcePath,

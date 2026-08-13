@@ -24,8 +24,9 @@ function loadLocalSpriteFrame(resourcePath: string): Promise<SpriteFrame> {
 function loadRemoteSpriteFrame(resourcePath: string, url: string): Promise<SpriteFrame> {
     return new Promise((resolve, reject) => {
         // CDN URL 带扩展名，同时显式指定 ext，避免中间跳转导致 Cocos 选错下载器。
+        const extension = /\.(jpe?g|webp)(?:\?|$)/i.exec(url)?.[0].split('?')[0] ?? '.png';
         assetManager.loadRemote<ImageAsset>(url, {
-            ext: '.png',
+            ext: extension,
             maxRetryCount: 2,
             xhrTimeout: 15_000,
         }, (error, image) => {

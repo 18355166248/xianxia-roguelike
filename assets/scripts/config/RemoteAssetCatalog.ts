@@ -3,6 +3,14 @@
  * 逻辑仍使用 resources 路径作为稳定 key，避免 CDN 迁移波及业务配置。
  */
 export const REMOTE_SPRITE_URLS: Readonly<Record<string, string>> = {
+    'art/ui/codex-redesign-v1/codex-ink-bg-v1/spriteFrame': 'https://audiopaytest.cos.tx.xmcdn.com/storages/12c1-audiotest/05/4B/GAqSoUUOUhoIAAMlEgACEWa8.jpg',
+    'art/ui/codex-redesign-v1/title-calligraphy-v1/spriteFrame': 'https://audiopaytest.cos.tx.xmcdn.com/storages/f813-audiotest/4A/B9/GAqSpGcOUhoJAACgHwACEWa_.png',
+    'art/ui/codex-redesign-v1/header-edge-v1/spriteFrame': 'https://audiopaytest.cos.tx.xmcdn.com/storages/2c3a-audiotest/35/33/GAqSpGcOUhoKAABgAQACEWbB.png',
+    'art/ui/codex-redesign-v1/header-mystic-v1/spriteFrame': 'https://audiopaytest.cos.tx.xmcdn.com/storages/ec00-audiotest/C4/E5/GAqSoUUOUhoMAABS-gACEWbH.png',
+    'art/ui/codex-redesign-v1/header-vitality-v1/spriteFrame': 'https://audiopaytest.cos.tx.xmcdn.com/storages/57af-audiotest/31/73/GAqSoUUOUhoLAABSTgACEWbF.png',
+    'art/ui/codex-redesign-v1/detail-panel-v1/spriteFrame': 'https://audiopaytest.cos.tx.xmcdn.com/storages/5a2f-audiotest/C3/91/GAqSoUUOUhoLAAR-0wACEWbD.png',
+    'art/ui/codex-redesign-v1/tier-row-v1/spriteFrame': 'https://audiopaytest.cos.tx.xmcdn.com/storages/5aa9-audiotest/1A/3E/GAqSpGcOUhoJAADvggACEWa9.png',
+    'art/ui/codex-redesign-v1/close-button-v1/spriteFrame': 'https://audiopaytest.cos.tx.xmcdn.com/storages/6616-audiotest/42/C6/GAqSoUUOUhoKAADErwACEWbC.png',
     'art/bosses/shanxiao/spriteFrame': 'https://audiopaytest.cos.tx.xmcdn.com/storages/33e1-audiotest/87/4A/GAqSpGcORnNLAABApgACEGbx.png',
     'art/characters/qinglan/spriteFrame': 'https://audiopaytest.cos.tx.xmcdn.com/storages/6be9-audiotest/C6/DE/GAqSoUUORnNLAAAp8QACEGby.png',
     'art/enemies/fox-spirit/spriteFrame': 'https://audiopaytest.cos.tx.xmcdn.com/storages/9e46-audiotest/87/0C/GAqSpGcORnNMAAAiwwACEGb1.png',
