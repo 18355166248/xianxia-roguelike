@@ -1174,57 +1174,115 @@ export class GameBootstrap extends Component {
         this.phase = 'tutorial';
         this.clearOverlay();
         this.bringOverlayToFront();
-        this.overlay.addChild(this.makeRect(this.visibleDesignWidth(), this.designHeight, new Color(2, 10, 14, 238)));
-        const panel = this.makeThemedCard(620, 930, 'chapter', new Color('#7DD3B8'));
+        const viewportWidth = this.visibleDesignWidth();
+        const contentWidth = Math.min(700, viewportWidth - 20);
+        const backgroundWidth = Math.max(viewportWidth, this.designHeight * 898 / 1564);
+        this.overlay.addChild(this.createResourceSpriteSized(
+            CODEX_UI_ASSETS.background,
+            backgroundWidth,
+            this.designHeight,
+        ));
+
+        const panel = new Node('FirstRunTutorial');
+        panel.layer = Layers.Enum.UI_2D;
+        panel.addComponent(UITransform).setContentSize(viewportWidth, this.designHeight);
         panel.name = 'FirstRunTutorial';
 
-        const eyebrow = this.makeLabel('初 入 仙 途', 18, new Color('#7DD3B8'));
-        eyebrow.node.setPosition(0, 388);
+        const eyebrow = this.makeLabel('新 手 入 境', 18, new Color('#50665E'));
+        eyebrow.node.setPosition(0, 554);
         panel.addChild(eyebrow.node);
-        const title = this.makeLabel('三步即可开战', 42, new Color('#FFF0BE'));
-        title.node.setPosition(0, 338);
+        const title = this.makeLabel('初 入 仙 途', 50, new Color('#15211F'));
+        title.node.setPosition(0, 500);
+        title.node.getComponent(UITransform)?.setContentSize(contentWidth - 40, 66);
         panel.addChild(title.node);
-        const intro = this.makeLabel('战斗会自动御剑，你只需走位、破境与应对机关', 18, new Color('#C9E2D9'));
-        intro.node.setPosition(0, 294);
-        intro.node.getComponent(UITransform)?.setContentSize(550, 34);
+        const intro = this.makeLabel('御剑自寻敌 · 三诀定仙途', 20, new Color('#5E5545'));
+        intro.node.setPosition(0, 442);
+        intro.node.getComponent(UITransform)?.setContentSize(contentWidth - 40, 34);
         panel.addChild(intro.node);
 
-        const steps: ReadonlyArray<readonly [string, string, string]> = [
-            ['壹 · 走 位', '点击战场任意位置，角色自动走过去', '避开红色预警 · 靠近阵眼获取增益'],
-            ['贰 · 御 剑', '飞剑会自动寻找最近的敌人', '解锁功法后，右侧按钮释放踏云与天劫'],
-            ['叁 · 破 境', '头像亮起金环即将破境，届时三选一', '奇遇会改变下一境和关底，请先看清代价'],
+        const bodyHeight = 812;
+        const body = new Node('TutorialBody');
+        body.layer = Layers.Enum.UI_2D;
+        body.addComponent(UITransform).setContentSize(contentWidth, bodyHeight);
+        body.addChild(this.createResourceSpriteSized(CODEX_UI_ASSETS.detailPanel, contentWidth, bodyHeight));
+        body.setPosition(0, -42);
+        panel.addChild(body);
+
+        const guideTitle = this.makeLabel('三 诀 入 门', 29, new Color('#FFF0C8'));
+        guideTitle.node.setPosition(0, 330);
+        guideTitle.node.getComponent(UITransform)?.setContentSize(contentWidth - 80, 42);
+        body.addChild(guideTitle.node);
+        const guideIntro = this.makeLabel('战斗自动御剑，专注走位、功法与破境抉择', 16, new Color('#B8CEC5'));
+        guideIntro.node.setPosition(0, 290);
+        guideIntro.node.getComponent(UITransform)?.setContentSize(contentWidth - 80, 28);
+        body.addChild(guideIntro.node);
+
+        const steps: ReadonlyArray<readonly [string, string, string, string]> = [
+            ['壹', '走 位', '点击战场，角色自动前往', '避开红色预警 · 靠近阵眼获取增益'],
+            ['贰', '御 剑', '飞剑自动追击最近的敌人', '解锁功法后，右侧按钮释放踏云与天劫'],
+            ['叁', '破 境', '头像亮起金环时进行三选一', '奇遇改变后续路线，请先看清代价'],
         ];
-        steps.forEach(([number, action, detail], index) => {
-            const card = this.makeThemedCard(548, 142, 'summary', new Color(index === 0 ? '#72DDE8' : index === 1 ? '#F0C879' : '#82D7AC'));
-            card.setPosition(0, 178 - index * 158);
-            const stepTitle = this.makeLabel(number, 21, new Color(index === 0 ? '#72DDE8' : index === 1 ? '#F0C879' : '#82D7AC'));
+        steps.forEach(([number, stepName, action, detail], index) => {
+            const accent = new Color(index === 1 ? '#D9B86C' : '#83C7B2');
+            const rowWidth = contentWidth - 52;
+            const card = new Node(`TutorialStep-${index + 1}`);
+            card.layer = Layers.Enum.UI_2D;
+            card.addComponent(UITransform).setContentSize(rowWidth, 142);
+            card.addChild(this.createResourceSpriteSized(CODEX_UI_ASSETS.tierRow, rowWidth, 142));
+            card.setPosition(0, 188 - index * 154);
+
+            // 序号印章承担三步扫读锚点，颜色只区分功法步，避免整卡出现霓虹色块。
+            const seal = this.makeRect(72, 72, new Color(8, 30, 31, 245), accent, 36, 3);
+            seal.setPosition(-rowWidth / 2 + 62, 0);
+            const sealLabel = this.makeLabel(number, 27, accent);
+            sealLabel.node.getComponent(UITransform)?.setContentSize(60, 42);
+            seal.addChild(sealLabel.node);
+            card.addChild(seal);
+
+            const stepTitle = this.makeLabel(stepName, 23, new Color('#FFF0C8'));
             stepTitle.horizontalAlign = Label.HorizontalAlign.LEFT;
-            stepTitle.node.setPosition(-150, 38);
-            stepTitle.node.getComponent(UITransform)?.setContentSize(220, 30);
+            stepTitle.node.setPosition(-rowWidth / 2 + 170, 36);
+            stepTitle.node.getComponent(UITransform)?.setContentSize(190, 32);
             card.addChild(stepTitle.node);
-            const actionLabel = this.makeLabel(action, 19, new Color('#F3E8CB'));
+            const actionLabel = this.makeLabel(action, 18, new Color('#E8DDC4'));
             actionLabel.horizontalAlign = Label.HorizontalAlign.LEFT;
-            actionLabel.node.setPosition(0, 2);
-            actionLabel.node.getComponent(UITransform)?.setContentSize(490, 30);
+            actionLabel.node.setPosition(48, 0);
+            actionLabel.node.getComponent(UITransform)?.setContentSize(rowWidth - 150, 28);
             card.addChild(actionLabel.node);
-            const detailLabel = this.makeLabel(detail, 16, new Color('#AFCBC1'));
+            const detailLabel = this.makeLabel(detail, 15, new Color('#AFC7BE'));
             detailLabel.horizontalAlign = Label.HorizontalAlign.LEFT;
-            detailLabel.node.setPosition(0, -34);
-            detailLabel.node.getComponent(UITransform)?.setContentSize(490, 28);
+            detailLabel.node.setPosition(48, -36);
+            detailLabel.node.getComponent(UITransform)?.setContentSize(rowWidth - 150, 26);
             card.addChild(detailLabel.node);
-            panel.addChild(card);
+            body.addChild(card);
         });
 
-        const start = this.makeActionButton('明 白 · 开 始 试 炼', 'primary', new Color('#F0C879'), () => {
+        const footnote = this.makeLabel('点击战场移动 · 功法按钮在右侧 · 破境时三选一', 15, new Color('#9DB7AE'));
+        footnote.node.setPosition(0, -294);
+        footnote.node.getComponent(UITransform)?.setContentSize(contentWidth - 80, 26);
+        body.addChild(footnote.node);
+
+        const startWidth = contentWidth - 100;
+        const start = new Node('TutorialStart');
+        start.layer = Layers.Enum.UI_2D;
+        start.addComponent(UITransform).setContentSize(startWidth, 82);
+        start.addChild(this.createResourceSpriteSized(CODEX_UI_ASSETS.closeButton, startWidth, 82));
+        const startLabel = this.makeLabel('明 白 · 开 始 试 炼', 29, new Color('#15211F'));
+        startLabel.node.getComponent(UITransform)?.setContentSize(startWidth - 30, 58);
+        start.addChild(startLabel.node);
+        start.on(Node.EventType.TOUCH_START, () => start.setScale(0.97, 0.97));
+        start.on(Node.EventType.TOUCH_CANCEL, () => start.setScale(1, 1));
+        start.on(Node.EventType.TOUCH_END, (event: EventTouch) => {
+            event.propagationStopped = true;
+            start.setScale(1, 1);
             this.settings.completeTutorial();
             this.persistSettings();
             this.phase = 'stage-entry';
             this.clearOverlay();
             this.showStageEntry();
-        }, 500, 66);
-        start.name = 'TutorialStart';
-        start.setPosition(0, -380);
-        panel.addChild(start);
+        });
+        start.setPosition(0, -358);
+        body.addChild(start);
         this.overlay.addChild(panel);
     }
 
@@ -1236,44 +1294,45 @@ export class GameBootstrap extends Component {
         this.onTouchCancel();
         this.clearOverlay();
         this.bringOverlayToFront();
-        this.overlay.addChild(this.makeRect(this.visibleDesignWidth(), this.designHeight, new Color(2, 10, 14, 214)));
-        const panel = this.makeThemedCard(560, 620, 'chapter', new Color(this.currentStage.accent));
+        this.overlay.addChild(this.makeRect(this.visibleDesignWidth(), this.designHeight, new Color(2, 10, 14, 218)));
+        const panel = this.makeCutoutSurface(604, 650);
         panel.name = 'PausePanel';
         const eyebrow = this.makeLabel('暂 止 行 功', 18, new Color(this.currentStage.accent));
-        eyebrow.node.setPosition(0, 236);
+        eyebrow.node.setPosition(0, 246);
         panel.addChild(eyebrow.node);
         const title = this.makeLabel(reason, 42, new Color('#FFF0BE'));
-        title.node.setPosition(0, 180);
+        title.node.setPosition(0, 190);
         panel.addChild(title.node);
         const detail = this.makeLabel('计时、敌人、寒潮与功法冷却均已冻结', 18, new Color('#BDD7CD'));
-        detail.node.setPosition(0, 132);
+        detail.node.setPosition(0, 142);
         detail.node.getComponent(UITransform)?.setContentSize(500, 32);
         panel.addChild(detail.node);
 
-        const resume = this.makeActionButton('继 续 试 炼', 'primary', new Color(this.currentStage.accent), () => {
+        const resume = this.makeCutoutButton('继 续 试 炼', 'gold', () => {
             this.clearOverlay();
             this.phase = 'playing';
             this.platformFeedback.setAmbiencePaused(false);
-        }, 430, 64);
+        }, 458, 76, 28);
         resume.name = 'PauseResume';
-        resume.setPosition(0, 54);
+        resume.setPosition(0, 64);
         panel.addChild(resume);
-        const settings = this.makeActionButton('声 音 与 画 面', 'secondary', new Color('#8AB9A7'), () => {
+        const settings = this.makeCutoutButton('声 音 与 画 面', 'jade', () => {
             this.showSettingsPanel('pause');
-        }, 430, 60);
-        settings.setPosition(0, -30);
+        }, 458, 68, 25);
+        settings.setPosition(0, -26);
         panel.addChild(settings);
-        const restart = this.makeActionButton('重 新 开 始', 'quiet', new Color('#B9A269'), () => {
+        const restart = this.makeCutoutButton('重 新 开 始', 'jade', () => {
             this.startStage(this.selectedStageIndex);
-        }, 206, 58);
-        restart.setPosition(-112, -116);
+        }, 218, 64, 23);
+        restart.setPosition(-120, -112);
         panel.addChild(restart);
-        const exit = this.makeActionButton('返 回 试 炼 图', 'quiet', new Color('#A6786F'), () => this.showMenu(), 206, 58);
-        exit.setPosition(112, -116);
+        const exit = this.makeCutoutButton('返 回 试 炼 图', 'jade', () => this.showMenu(), 218, 64, 22);
+        exit.setPosition(120, -112);
         panel.addChild(exit);
         const note = this.makeLabel('返回试炼图不会记录本局战绩', 15, new Color('#8FAFA5'));
-        note.node.setPosition(0, -198);
+        note.node.setPosition(0, -204);
         panel.addChild(note.node);
+        panel.setPosition(0, -36);
         this.overlay.addChild(panel);
     }
 
@@ -1626,7 +1685,7 @@ export class GameBootstrap extends Component {
         this.clearOverlay();
         this.bringOverlayToFront();
         this.overlay.addChild(this.makeRect(this.visibleDesignWidth(), this.designHeight, new Color(1, 9, 13, 242)));
-        const panel = this.makeThemedCard(620, 920, 'reward', new Color('#E3C06F'));
+        const panel = this.makeCutoutSurface(620, 920);
         panel.name = 'JourneyEpilogue';
         const eyebrow = this.makeLabel('仙 途 劫 · 道 藏 终 卷', 18, new Color('#E3C06F'));
         eyebrow.node.setPosition(0, 386);
@@ -1651,7 +1710,7 @@ export class GameBootstrap extends Component {
             ['真形', `${journey.masteredPaths}/3`],
             ['连斩', `${journey.bestCombo}`],
         ] as const;
-        const statStrip = this.makeThemedCard(548, 98, 'summary');
+        const statStrip = this.makeCutoutSurface(548, 98, true);
         statStrip.setPosition(0, 22);
         stats.forEach(([label, value], index) => {
             const item = this.makeResultStat(label, value, new Color('#E3C06F'));
@@ -1660,7 +1719,7 @@ export class GameBootstrap extends Component {
         });
         panel.addChild(statStrip);
 
-        const rewards = this.makeThemedCard(548, 174, 'summary');
+        const rewards = this.makeCutoutSurface(548, 174, true);
         rewards.setPosition(0, -130);
         const rewardTitle = this.makeLabel('三 枚 道 印 已 齐 聚', 17, new Color('#E3C06F'));
         rewardTitle.node.setPosition(0, 56);
@@ -1675,7 +1734,7 @@ export class GameBootstrap extends Component {
         next.node.setPosition(0, -252);
         next.node.getComponent(UITransform)?.setContentSize(540, 32);
         panel.addChild(next.node);
-        const close = this.makeActionButton('返 回 三 境 试 炼', 'primary', new Color('#E3C06F'), () => this.showMenu(), 480, 66);
+        const close = this.makeCutoutButton('返 回 三 境 试 炼', 'gold', () => this.showMenu(), 480, 70, 25);
         close.name = 'JourneyContinue';
         close.setPosition(0, -350);
         panel.addChild(close);
@@ -1686,7 +1745,7 @@ export class GameBootstrap extends Component {
         this.clearOverlay();
         this.bringOverlayToFront();
         this.overlay.addChild(this.makeRect(this.visibleDesignWidth(), this.designHeight, new Color(2, 10, 14, 236)));
-        const panel = this.makeThemedCard(590, 720, 'chapter', new Color('#72DDE8'));
+        const panel = this.makeCutoutSurface(590, 720);
         panel.name = 'BalanceReportPanel';
         const eyebrow = this.makeLabel('P3 · 数 值 验 收', 17, new Color('#72DDE8'));
         eyebrow.node.setPosition(0, 288);
@@ -1701,7 +1760,7 @@ export class GameBootstrap extends Component {
 
         STAGES.forEach((stage, index) => {
             const report = this.balanceTelemetry.reportFor(stage.mapId);
-            const row = this.makeThemedCard(520, 118, 'summary', new Color(stage.accent));
+            const row = this.makeCutoutSurface(520, 118, true);
             row.setPosition(0, 100 - index * 136);
             const stageName = this.makeLabel(`${stage.chapter} · ${stage.stageName}`, 20, new Color(stage.accent));
             stageName.horizontalAlign = Label.HorizontalAlign.LEFT;
@@ -1729,7 +1788,7 @@ export class GameBootstrap extends Component {
         exportStatus.node.setPosition(0, -240);
         exportStatus.node.getComponent(UITransform)?.setContentSize(500, 24);
         panel.addChild(exportStatus.node);
-        const copy = this.makeActionButton('复 制 样 本', 'secondary', new Color('#72DDE8'), () => {
+        const copy = this.makeCutoutButton('复 制 样 本', 'jade', () => {
             const clipboard = globalThis.navigator?.clipboard;
             if (!clipboard) {
                 exportStatus.string = '当前宿主不支持剪贴板 · 请在本地浏览器打开报告';
@@ -1742,11 +1801,11 @@ export class GameBootstrap extends Component {
                 .catch(() => {
                     if (exportStatus.node.isValid) exportStatus.string = '复制失败 · 请允许浏览器剪贴板权限后重试';
                 });
-        }, 244, 62);
+        }, 244, 62, 22);
         copy.name = 'BalanceExportAction';
         copy.setPosition(-132, -294);
         panel.addChild(copy);
-        const close = this.makeActionButton('返 回 试 炼 图', 'primary', new Color('#72DDE8'), () => this.showMenu(), 244, 62);
+        const close = this.makeCutoutButton('返 回 试 炼 图', 'gold', () => this.showMenu(), 244, 62, 22);
         close.setPosition(132, -294);
         panel.addChild(close);
         this.overlay.addChild(panel);
@@ -5342,14 +5401,7 @@ export class GameBootstrap extends Component {
         }
         reveal.addChild(aura);
 
-        const card = this.makeRect(
-            540,
-            124,
-            new Color(12, 7, 10, 232),
-            new Color(presentation.tone),
-            18,
-            3,
-        );
+        const card = this.makeCutoutSurface(540, 124, true);
         card.name = 'BossPhaseCard';
         card.setPosition(0, 205);
         const opacity = card.addComponent(UIOpacity);
@@ -5866,14 +5918,7 @@ export class GameBootstrap extends Component {
         burstNode.setScale(burstScale, burstScale);
         reveal.addChild(burstNode);
 
-        const panel = this.makeRect(
-            468,
-            112,
-            new Color(4, 19, 23, 232),
-            new Color(accent.r, accent.g, accent.b, 220),
-            22,
-            2,
-        );
+        const panel = this.makeCutoutSurface(468, 112, true);
         panel.setPosition(0, 222);
         const panelOpacity = panel.addComponent(UIOpacity);
         panelOpacity.opacity = 0;
@@ -5996,14 +6041,7 @@ export class GameBootstrap extends Component {
         }
         const allowDraftActions = !bossReward;
 
-        const panel = this.makeRect(
-            596,
-            allowDraftActions ? 580 : 530,
-            new Color(3, 17, 22, 252),
-            new Color('#9B8150'),
-            22,
-            2,
-        );
+        const panel = this.makeCutoutSurface(620, allowDraftActions ? 592 : 542);
         panel.name = 'CultivationDecisionSheet';
         // 去掉二次确认后收短面板，卡片本身就是唯一操作，给上半屏战场留出更多空间。
         panel.setPosition(0, allowDraftActions ? -376 : -401);
@@ -6039,17 +6077,17 @@ export class GameBootstrap extends Component {
         });
         if (allowDraftActions && this.cultivationRerolls > 0) {
             // 观星是唯一的抽牌调节手段，居中放大，不再和炼化挤在一行里被忽略。
-            const reroll = this.makeActionButton(
+            const reroll = this.makeCutoutButton(
                 `观 星 换 一 批 · 剩 ${this.cultivationRerolls} 次`,
-                'secondary',
-                new Color('#72DDE8'),
+                'gold',
                 () => {
                     if (this.cultivationRerolls <= 0) return;
                     this.cultivationRerolls -= 1;
                     this.showUpgrade(undefined, false, resumeAfterUpgrade);
                 },
-                332,
-                52,
+                354,
+                58,
+                22,
             );
             reroll.setPosition(0, -248);
             panel.addChild(reroll);
@@ -6074,37 +6112,16 @@ export class GameBootstrap extends Component {
         const currentLevel = this.skills.getLevel(choice.id);
         const nextLevel = Math.min(choice.maxLevel, currentLevel + 1);
         const accent = new Color(presentation.accent);
-        const node = this.makeRect(
-            172,
-            344,
-            new Color(accent.r, accent.g, accent.b, anticipation.milestone ? 40 : 24),
-            new Color(accent.r, accent.g, accent.b, anticipation.milestone ? 245 : 175),
-            20,
-            anticipation.milestone ? 4 : 2,
-        );
+        const node = this.makeCutoutSurface(176, 350, true);
         node.name = `CasualUpgrade-${choice.id}`;
 
-        const iconBacking = this.makeRect(
-            142,
-            196,
-            new Color(2, 16, 20, 224),
-            new Color(accent.r, accent.g, accent.b, 128),
-            18,
-            1,
-        );
+        const iconBacking = this.makeCutoutSurface(144, 196, true);
         iconBacking.setPosition(0, 53);
         iconBacking.addChild(this.createResourceSprite(choice.iconResourcePath, 108));
         node.addChild(iconBacking);
 
         // 玩家真正需要判断的是"这张我修到第几级了"，而不是品级星数。
-        const levelBadge = this.makeRect(
-            134,
-            28,
-            new Color(accent.r, accent.g, accent.b, nextLevel >= choice.maxLevel ? 82 : 42),
-            new Color(accent.r, accent.g, accent.b, 190),
-            10,
-            1,
-        );
+        const levelBadge = this.makeCutoutSurface(138, 30, true);
         levelBadge.setPosition(0, 154);
         const levelLabel = this.makeLabel(
             currentLevel <= 0
@@ -6225,23 +6242,15 @@ export class GameBootstrap extends Component {
                 resolveUpgradeShowcase(choice, impact.after).tier,
             );
         }
-        const panel = this.makeThemedCard(574, 248, 'reward', pathColor);
+        const panel = this.makeCutoutSurface(584, 258);
         panel.name = 'UpgradeCommit';
         panel.setPosition(0, 160);
         const opacity = panel.addComponent(UIOpacity);
         opacity.opacity = 0;
         panel.setScale(0.94, 0.94);
-        const iconBacking = new Node('UpgradeCommitIcon');
-        iconBacking.layer = Layers.Enum.UI_2D;
+        const iconBacking = this.makeCutoutSurface(92, 92, true);
+        iconBacking.name = 'UpgradeCommitIcon';
         iconBacking.setPosition(-214, 10);
-        const ring = iconBacking.addComponent(Graphics);
-        ring.fillColor = new Color(3, 18, 22, 242);
-        ring.circle(0, 0, 43);
-        ring.fill();
-        ring.strokeColor = new Color(pathColor.r, pathColor.g, pathColor.b, 235);
-        ring.lineWidth = 2;
-        ring.circle(0, 0, 43);
-        ring.stroke();
         iconBacking.addChild(this.createResourceSprite(choice.iconResourcePath, 64));
         panel.addChild(iconBacking);
         const eyebrow = this.makeLabel(
@@ -6368,14 +6377,7 @@ export class GameBootstrap extends Component {
         const veil = this.makeRect(this.designWidth, this.designHeight, new Color(2, 10, 14, 132));
         veil.name = 'MapEventVeil';
         this.overlay.addChild(veil);
-        const panel = this.makeRect(
-            626,
-            490,
-            new Color(UI_THEME.colors.surface),
-            new Color(accent.r, accent.g, accent.b, 132),
-            UI_THEME.radius.panel,
-            1.5,
-        );
+        const panel = this.makeCutoutSurface(632, 502);
         // 临时选择浮层停在固定操作区上方；显示与消失都不推动摇杆或技能簇。
         panel.setPosition(0, -180);
         this.overlay.addChild(panel);
@@ -6427,14 +6429,7 @@ export class GameBootstrap extends Component {
                 : false,
             bursts: this.createRouteCommitBursts(choice, reveal),
         }));
-        const panel = this.makeRect(
-            570,
-            92,
-            new Color(4, 25, 29, 238),
-            new Color(accent.r, accent.g, accent.b, 205),
-            22,
-            2,
-        );
+        const panel = this.makeCutoutSurface(570, 92, true);
         panel.setPosition(0, 382);
         const eyebrow = this.makeLabel('分 岔 将 现', 14, accent);
         eyebrow.node.setPosition(0, 22);
@@ -6504,15 +6499,8 @@ export class GameBootstrap extends Component {
 
     private makeMapEventChoice(choice: MapEventChoice, onClick: () => void): Node {
         const accent = new Color(MAP_EVENT_TONE_COLORS[choice.tone]);
-        const node = this.makeThemedCard(560, 132, 'choice', accent);
-        const iconBacking = this.makeRect(
-            82,
-            82,
-            new Color(2, 16, 20, 205),
-            new Color(accent.r, accent.g, accent.b, 120),
-            UI_THEME.radius.compact,
-            1,
-        );
+        const node = this.makeCutoutSurface(566, 138, true);
+        const iconBacking = this.makeCutoutSurface(86, 86, true);
         iconBacking.setPosition(-224, 0);
         const icon = this.createResourceSprite(choice.iconResourcePath, 62);
         iconBacking.addChild(icon);
@@ -6703,26 +6691,12 @@ export class GameBootstrap extends Component {
             ? this.isCalmRouteCommitEffect(choice.commitEffect)
             : false;
 
-        const panel = this.makeRect(
-            604,
-            278,
-            new Color(4, 26, 29, 246),
-            new Color(accent.r, accent.g, accent.b, 220),
-            24,
-            2,
-        );
+        const panel = this.makeCutoutSurface(604, 278);
         panel.setPosition(0, 70);
         const panelOpacity = panel.addComponent(UIOpacity);
         reveal.addChild(panel);
 
-        const iconBacking = this.makeRect(
-            104,
-            104,
-            new Color(2, 15, 18, 248),
-            new Color(accent.r, accent.g, accent.b, 190),
-            25,
-            1.5,
-        );
+        const iconBacking = this.makeCutoutSurface(104, 104, true);
         iconBacking.setPosition(-218, 4);
         iconBacking.addChild(this.createResourceSprite(choice.iconResourcePath, 82));
         panel.addChild(iconBacking);
@@ -6745,14 +6719,7 @@ export class GameBootstrap extends Component {
         commitment.node.getComponent(UITransform)?.setContentSize(400, 32);
         panel.addChild(commitment.node);
 
-        const outcome = this.makeRect(
-            398,
-            42,
-            new Color(accent.r, accent.g, accent.b, 22),
-            new Color(accent.r, accent.g, accent.b, 94),
-            12,
-            1,
-        );
+        const outcome = this.makeCutoutSurface(398, 42, true);
         outcome.setPosition(64, -68);
         const outcomeLabel = this.makeLabel(`${choice.title}  ·  ${choice.outcome}`, 15, accent);
         outcomeLabel.node.getComponent(UITransform)?.setContentSize(378, 30);
@@ -6946,10 +6913,10 @@ export class GameBootstrap extends Component {
     private makeResultPanel(victory: boolean): Node {
         const stagePresentation = resultStagePresentationFor(this.currentStage.mapId);
         const accent = new Color(victory ? stagePresentation.accent : '#E29A7F');
-        const panel = this.makeThemedCard(620, 980, 'chapter', accent);
+        const panel = this.makeCutoutSurface(620, 980);
         this.addResultStageWatermark(panel, victory);
 
-        const portraitBacking = this.makeRect(116, 124, new Color(2, 14, 18, 245), accent, 24, 2);
+        const portraitBacking = this.makeCutoutSurface(116, 124, true);
         portraitBacking.setPosition(-218, 326);
         const portrait = this.createResourceSprite(PLAYER_ASSET.resourcePath, 112);
         portrait.setPosition(0, -4);
@@ -6996,7 +6963,7 @@ export class GameBootstrap extends Component {
             ['总伤', `${Math.round(stats.damageDealt)}`],
             ['连斩', `${stats.bestCombo}`],
         ];
-        const statsStrip = this.makeThemedCard(548, 88, 'summary');
+        const statsStrip = this.makeCutoutSurface(548, 88, true);
         statsStrip.setPosition(0, 153);
         statItems.forEach(([label, value], index) => {
             const tile = this.makeResultStat(label, value, accent);
@@ -7027,14 +6994,7 @@ export class GameBootstrap extends Component {
             alternateRouteName: alternateRoute?.geometryPreview ?? alternateRoute?.title,
             failureCause: stats.lastDamageCause,
         });
-        const guidanceCard = this.makeRect(
-            548,
-            62,
-            new Color(victory ? 73 : 96, victory ? 64 : 43, victory ? 30 : 38, 64),
-            new Color(victory ? '#BFA45B' : '#C87865'),
-            14,
-            1,
-        );
+        const guidanceCard = this.makeCutoutSurface(548, 62, true);
         guidanceCard.setPosition(0, -321);
         const guidanceTitle = this.makeLabel(
             `${guidance.eyebrow}  ·  ${guidance.title}`,
@@ -7056,13 +7016,15 @@ export class GameBootstrap extends Component {
         guidanceCard.addChild(guidanceDetail.node);
         panel.addChild(guidanceCard);
 
-        const actionBar = this.makeRect(560, 88, new Color(3, 17, 21, 128), undefined, UI_THEME.radius.compact);
+        const actionBar = new Node('ResultActionBar');
+        actionBar.layer = Layers.Enum.UI_2D;
+        actionBar.addComponent(UITransform).setContentSize(560, 88);
         actionBar.setPosition(0, -405);
         const continueToNextStage = victory
             && !journeyCompletedThisRun
             && this.lastStageVictory?.firstClear
             && nextStageIndex !== undefined;
-        const button = this.makeActionButton(
+        const button = this.makeCutoutButton(
             journeyCompletedThisRun
                 ? '见 证 三 境 归 一'
                 : continueToNextStage
@@ -7072,8 +7034,7 @@ export class GameBootstrap extends Component {
                     : victory
                         ? '再 战 本 章'
                         : '重 整 道 心',
-            'primary',
-            accent,
+            'gold',
             () => {
                 if (journeyCompletedThisRun) {
                     this.showJourneyEpilogue();
@@ -7086,16 +7047,17 @@ export class GameBootstrap extends Component {
             },
             300,
             68,
+            23,
         );
         button.setPosition(-116, 0);
         actionBar.addChild(button);
-        const routeButton = this.makeActionButton(
+        const routeButton = this.makeCutoutButton(
             '返 回 试 炼 图',
-            'secondary',
-            new Color('#8AB9A7'),
+            'jade',
             () => this.showMenu(),
             220,
             68,
+            21,
         );
         routeButton.setPosition(154, 0);
         actionBar.addChild(routeButton);
@@ -7158,12 +7120,7 @@ export class GameBootstrap extends Component {
             this.stageProgress.recordFor(this.currentStage.mapId),
             formatRunDuration,
         );
-        const panel = this.makeThemedCard(
-            548,
-            124,
-            milestone.kind === 'first-clear' ? 'reward' : 'summary',
-            milestone.kind === 'first-clear' ? undefined : accent,
-        );
+        const panel = this.makeCutoutSurface(548, 124, true);
         panel.name = 'ResultRewardHero';
         panel.setPosition(0, -226);
 
@@ -7191,14 +7148,7 @@ export class GameBootstrap extends Component {
             });
         }
 
-        const iconBacking = this.makeRect(
-            68,
-            68,
-            new Color(2, 15, 18, 245),
-            new Color(accent.r, accent.g, accent.b, 190),
-            18,
-            1.5,
-        );
+        const iconBacking = this.makeCutoutSurface(68, 68, true);
         iconBacking.setPosition(-214, 0);
         iconBacking.addChild(this.createResourceSprite(reward.iconResourcePath, 52));
         panel.addChild(iconBacking);
@@ -7252,7 +7202,7 @@ export class GameBootstrap extends Component {
     }
 
     private makeResultJourneySummary(stats: Readonly<RunStatsSnapshot>, accent: Color): Node {
-        const panel = this.makeThemedCard(548, 126, 'summary', accent);
+        const panel = this.makeCutoutSurface(548, 126, true);
         panel.setPosition(0, 38);
         const achievementLabel = this.makeLabel('地图功绩', 15, new Color(accent.r, accent.g, accent.b, 235));
         achievementLabel.horizontalAlign = Label.HorizontalAlign.LEFT;
@@ -7288,14 +7238,7 @@ export class GameBootstrap extends Component {
         const event = stats.mapEvent;
         if (event) {
             const eventAccent = new Color(MAP_EVENT_TONE_COLORS[event.tone]);
-            const iconBacking = this.makeRect(
-                48,
-                48,
-                new Color(2, 16, 20, 245),
-                new Color(eventAccent.r, eventAccent.g, eventAccent.b, 155),
-                14,
-                1,
-            );
+            const iconBacking = this.makeCutoutSurface(48, 48, true);
             iconBacking.setPosition(-220, -36);
             iconBacking.addChild(this.createResourceSprite(event.iconResourcePath, 36));
             panel.addChild(iconBacking);
@@ -7310,14 +7253,7 @@ export class GameBootstrap extends Component {
             eventValue.node.getComponent(UITransform)?.setContentSize(310, 28);
             panel.addChild(eventValue.node);
 
-            const replayButton = this.makeRect(
-                88,
-                34,
-                new Color(eventAccent.r, eventAccent.g, eventAccent.b, 28),
-                new Color(eventAccent.r, eventAccent.g, eventAccent.b, 150),
-                11,
-                1,
-            );
+            const replayButton = this.makeCutoutSurface(88, 34, true);
             replayButton.name = 'RouteReplayButton';
             replayButton.setPosition(216, -35);
             const replayLabel = this.makeLabel('回 放', 12, eventAccent);
@@ -7365,14 +7301,7 @@ export class GameBootstrap extends Component {
         });
         replay.addChild(shade);
 
-        const panel = this.makeRect(
-            642,
-            1130,
-            new Color(4, 23, 28, 252),
-            new Color(stageAccent.r, stageAccent.g, stageAccent.b, 210),
-            30,
-            2.5,
-        );
+        const panel = this.makeCutoutSurface(642, 1130);
         replay.addChild(panel);
         const inner = this.makeRect(
             616,
@@ -7405,14 +7334,7 @@ export class GameBootstrap extends Component {
         subtitle.node.getComponent(UITransform)?.setContentSize(500, 30);
         panel.addChild(subtitle.node);
 
-        const mapBacking = this.makeRect(
-            560,
-            430,
-            new Color(2, 14, 19, 248),
-            new Color(eventAccent.r, eventAccent.g, eventAccent.b, 145),
-            24,
-            1.5,
-        );
+        const mapBacking = this.makeCutoutSurface(560, 430);
         mapBacking.setPosition(0, 132);
         const background = this.createResourceSprite(
             BACKGROUND_ASSETS[this.currentStage.mapId].resourcePath,
@@ -7477,14 +7399,7 @@ export class GameBootstrap extends Component {
             }
         }
 
-        const commitment = this.makeRect(
-            500,
-            42,
-            new Color(2, 17, 21, 225),
-            new Color(eventAccent.r, eventAccent.g, eventAccent.b, 98),
-            13,
-            1,
-        );
+        const commitment = this.makeCutoutSurface(500, 42, true);
         commitment.setPosition(0, -172);
         const commitmentLabel = this.makeLabel(event.commitLine, 14, new Color('#D8ECE5'));
         commitmentLabel.node.getComponent(UITransform)?.setContentSize(482, 30);
@@ -7494,19 +7409,7 @@ export class GameBootstrap extends Component {
 
         const steps = describeRouteReplaySteps(stats);
         steps.forEach((step, index) => {
-            const card = this.makeRect(
-                168,
-                112,
-                new Color(5, 31, 34, 246),
-                new Color(
-                    index === 2 ? eventAccent.r : stageAccent.r,
-                    index === 2 ? eventAccent.g : stageAccent.g,
-                    index === 2 ? eventAccent.b : stageAccent.b,
-                    125,
-                ),
-                18,
-                1.25,
-            );
+            const card = this.makeCutoutSurface(168, 112, true);
             card.setPosition(-180 + index * 180, -178);
             const stepLabel = this.makeLabel(
                 `${index + 1}  ${step.label}`,
@@ -7527,14 +7430,7 @@ export class GameBootstrap extends Component {
             panel.addChild(card);
         });
 
-        const resultStrip = this.makeRect(
-            548,
-            66,
-            new Color(eventAccent.r, eventAccent.g, eventAccent.b, 20),
-            new Color(eventAccent.r, eventAccent.g, eventAccent.b, 100),
-            17,
-            1,
-        );
+        const resultStrip = this.makeCutoutSurface(548, 66, true);
         resultStrip.setPosition(0, -326);
         const resultTitle = this.makeLabel(
             `本局印证  ·  ${describeMapAchievement(this.currentStage.mapId, stats)}`,
@@ -7554,13 +7450,13 @@ export class GameBootstrap extends Component {
         resultStrip.addChild(resultDetail.node);
         panel.addChild(resultStrip);
 
-        const close = this.makeButton(
+        const close = this.makeCutoutButton(
             '收 起 回 放',
-            stageAccent,
+            'gold',
             () => replay.destroy(),
             330,
             66,
-            new Color(14, 58, 54, 245),
+            23,
         );
         close.setPosition(0, -462);
         panel.addChild(close);
@@ -7583,7 +7479,7 @@ export class GameBootstrap extends Component {
     }
 
     private makeResultBuildSummary(): Node {
-        const panel = this.makeThemedCard(548, 132, 'summary');
+        const panel = this.makeCutoutSurface(548, 132, true);
         panel.setPosition(0, -96);
         const totals = summarizeUpgradePaths((id) => this.skills.getLevel(id));
         const dominantPath = UPGRADE_PATH_ORDER.reduce((best, path) => (
@@ -7927,18 +7823,11 @@ export class GameBootstrap extends Component {
         buildCaption.node.setPosition(12, sheetTop - 42);
         buildCaption.node.getComponent(UITransform)?.setContentSize(150, 28);
         sheet.addChild(buildCaption.node);
-        const close = this.makeActionButton('收起', 'quiet', gold, closeSheet, 112, 48);
+        const close = this.makeCutoutButton('收 起', 'gold', closeSheet, 112, 48, 19);
         close.setPosition(222, sheetTop - 42);
         sheet.addChild(close);
 
-        const relicCard = this.makeRect(
-            548,
-            132,
-            new Color(6, 29, 34, 238),
-            new Color(gold.r, gold.g, gold.b, 88),
-            UI_THEME.radius.compact,
-            1,
-        );
+        const relicCard = this.makeCutoutSurface(548, 132, true);
         relicCard.setPosition(0, sheetTop - 135);
         sheet.addChild(relicCard);
         const relicIcon = new Node('CultivationSheetRelic');
@@ -7976,14 +7865,7 @@ export class GameBootstrap extends Component {
         relicNext.node.getComponent(UITransform)?.setContentSize(292, 30);
         relicCard.addChild(relicNext.node);
 
-        const pathSeal = this.makeRect(
-            96,
-            110,
-            new Color(4, 26, 31, 248),
-            new Color(accent.r, accent.g, accent.b, 180),
-            38,
-            2,
-        );
+        const pathSeal = this.makeCutoutSurface(96, 110, true);
         pathSeal.setPosition(216, 0);
         relicCard.addChild(pathSeal);
         const pathSealText = build.path
@@ -8005,14 +7887,7 @@ export class GameBootstrap extends Component {
         sheet.addChild(sectionTitle.node);
 
         const listHeight = layoutRowCount * 68;
-        const listPanel = this.makeRect(
-            528,
-            listHeight,
-            new Color(5, 25, 30, 216),
-            new Color(gold.r, gold.g, gold.b, 90),
-            16,
-            1,
-        );
+        const listPanel = this.makeCutoutSurface(528, listHeight, true);
         listPanel.setPosition(8, rowStartY - (layoutRowCount - 1) * 34);
         sheet.addChild(listPanel);
 
@@ -8088,14 +7963,7 @@ export class GameBootstrap extends Component {
 
         const swordDamage = this.currentSwordDamage();
         const attackInterval = this.currentAttackInterval();
-        const stats = this.makeRect(
-            548,
-            84,
-            new Color(2, 15, 19, 246),
-            new Color(gold.r, gold.g, gold.b, 125),
-            14,
-            1,
-        );
+        const stats = this.makeCutoutSurface(548, 84, true);
         stats.setPosition(0, statsY);
         sheet.addChild(stats);
         [-40, 136].forEach((x) => {
@@ -8991,14 +8859,7 @@ export class GameBootstrap extends Component {
         const routeOpacity = route.node.addComponent(UIOpacity);
         root.addChild(route.node);
 
-        const objectiveGroup = this.makeRect(
-            474,
-            54,
-            new Color(3, 18, 22, 218),
-            new Color(presentation.accent),
-            14,
-            2,
-        );
+        const objectiveGroup = this.makeCutoutSurface(474, 54, true);
         objectiveGroup.setPosition(0, -404);
         const objectiveOpacity = objectiveGroup.addComponent(UIOpacity);
         const objective = this.makeLabel(presentation.objective, 17, new Color('#ECF7F2'));
@@ -9075,13 +8936,10 @@ export class GameBootstrap extends Component {
         const eliteTrial = this.eliteEncounter.snapshot().active;
         const dangerous = eliteTrial || wave.danger === 'elite' || wave.danger === 'boss';
         const bossWave = wave.danger === 'boss';
-        const banner = this.makeRect(
+        const banner = this.makeCutoutSurface(
             bossWave ? 620 : dangerous ? 548 : 500,
             bossWave ? 202 : dangerous ? 122 : 94,
-            new Color(3, 18, 22, dangerous ? 232 : 185),
-            new Color(dangerous ? '#E9B55E' : '#7DD4B6'),
-            16,
-            dangerous ? 3 : 2,
+            true,
         );
         if (dangerous) {
             const warning = this.makeLabel(
@@ -9168,14 +9026,7 @@ export class GameBootstrap extends Component {
     private showWaveClearedAnnouncement(): void {
         const nextWave = this.currentStage.waves[this.waveIndex + 1];
         const routeIncoming = this.mapEvent.shouldTriggerAfterWave(this.waveIndex);
-        const banner = this.makeRect(
-            456,
-            76,
-            new Color(3, 18, 22, 205),
-            new Color('#7DD4B6'),
-            15,
-            2,
-        );
+        const banner = this.makeCutoutSurface(456, 76, true);
         banner.name = 'WaveClearedAnnouncement';
         banner.setPosition(0, 350);
         const title = this.makeLabel(`第 ${this.waveIndex + 1} 境 已 清`, 25, new Color('#D1FAE5'));
@@ -9417,6 +9268,85 @@ export class GameBootstrap extends Component {
                 })
                 .catch((error: unknown) => console.warn(`[art] UI 补图失败: ${resourcePath}`, error));
         }
+        return node;
+    }
+
+    /**
+     * 墨玉面板与金线条使用九宫格切片：四角保持原始纹样，中段只延展纯纹理，
+     * 避免不同高度的弹窗把云纹、描边和笔触一起压扁。
+     */
+    private createSlicedResourceSprite(resourcePath: string, width: number, height: number): Node {
+        const node = new Node('SlicedResourceSprite');
+        node.layer = Layers.Enum.UI_2D;
+        const transform = node.addComponent(UITransform);
+        transform.setContentSize(width, height);
+        const assign = (frame: SpriteFrame): void => {
+            if (!node.isValid) return;
+            const sprite = node.getComponent(Sprite) ?? node.addComponent(Sprite);
+            sprite.spriteFrame = frame;
+            sprite.type = Sprite.Type.SLICED;
+            sprite.sizeMode = Sprite.SizeMode.CUSTOM;
+            transform.setContentSize(width, height);
+        };
+        const cached = this.spriteFrames.get(resourcePath);
+        if (cached) {
+            assign(cached);
+        } else {
+            void loadSpriteFrame(resourcePath)
+                .then((frame) => {
+                    this.spriteFrames.set(resourcePath, frame);
+                    assign(frame);
+                })
+                .catch((error: unknown) => console.warn(`[art] 九宫格切图加载失败: ${resourcePath}`, error));
+        }
+        return node;
+    }
+
+    private makeCutoutSurface(width: number, height: number, row = false): Node {
+        const node = new Node(row ? 'InkTierRow' : 'InkDetailPanel');
+        node.layer = Layers.Enum.UI_2D;
+        node.addComponent(UITransform).setContentSize(width, height);
+        node.addChild(this.createSlicedResourceSprite(
+            row ? CODEX_UI_ASSETS.tierRow : CODEX_UI_ASSETS.detailPanel,
+            width,
+            height,
+        ));
+        return node;
+    }
+
+    private makeCutoutButton(
+        text: string,
+        kind: 'gold' | 'jade',
+        onClick: () => void,
+        width: number,
+        height: number,
+        fontSize = 27,
+    ): Node {
+        const node = new Node(`CutoutButton-${kind}`);
+        node.layer = Layers.Enum.UI_2D;
+        node.addComponent(UITransform).setContentSize(width, height);
+        node.addChild(this.createSlicedResourceSprite(
+            kind === 'gold' ? CODEX_UI_ASSETS.closeButton : CODEX_UI_ASSETS.tierRow,
+            width,
+            height,
+        ));
+        const label = this.makeLabel(
+            text,
+            fontSize,
+            new Color(kind === 'gold' ? '#173B36' : '#E8F2E8'),
+        );
+        label.node.getComponent(UITransform)?.setContentSize(width - 32, height - 8);
+        node.addChild(label.node);
+        node.on(Node.EventType.TOUCH_START, (event: EventTouch) => {
+            event.propagationStopped = true;
+            node.setScale(0.97, 0.97);
+        });
+        node.on(Node.EventType.TOUCH_CANCEL, () => node.setScale(1, 1));
+        node.on(Node.EventType.TOUCH_END, (event: EventTouch) => {
+            event.propagationStopped = true;
+            node.setScale(1, 1);
+            onClick();
+        });
         return node;
     }
 

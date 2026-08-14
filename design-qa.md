@@ -1,92 +1,64 @@
-# 道法谱设计还原验收
+# 游戏内弹窗设计 QA
 
-- Source visual truth: `/Users/xmly/.codex/generated_images/019ff0ce-c640-76b1-afa0-e07ae65b7c51/exec-f36f8ce4-3db3-4cb4-b131-8f43f2bd5254.png`
-- Implementation screenshot: `/private/tmp/codex-selected-ring-final.png`
-- Viewport: 390 × 844 CSS px, device scale factor 1
-- Source pixels: 950 × 1655; implementation pixels: 390 × 844
-- Normalization: both evaluated as full-height portrait compositions; source aspect ratio is wider, so implementation intentionally uses responsive column spacing and horizontal background crop rather than non-uniform scaling.
-- State: “枯木逢春” selected, detail tier descriptions visible.
+## 对比目标
 
-**Full-view comparison evidence**
+- 参考视觉：用户提供的进化选择、奇遇抉择、进化确认、暂停菜单、普通/危险波次截图。
+- 实现截图：
+  - `/private/tmp/xianxia-popup-upgrade.png`
+  - `/private/tmp/xianxia-popup-event.png`
+  - `/private/tmp/xianxia-popup-commit.png`
+  - `/private/tmp/xianxia-popup-pause.png`
+  - `/private/tmp/xianxia-popup-wave-elite.png`
+- 同屏对比证据：`/private/tmp/xianxia-popup-design-qa.png`
+- 实现视口：354 × 745 CSS px，deviceScaleFactor 1。
+- 实现截图像素：均为 354 × 745。
+- 参考截图像素：进化选择 454 × 467、奇遇 487 × 437、进化确认 456 × 429、暂停 460 × 678、危险波次 499 × 249。
+- 密度归一：参考图为组件/局部截图，未强制拉伸到整屏；同屏对比中按等宽容器等比缩放，重点比较弹窗本体的层级、密度、纹样和文案完整性。
+- 状态：青石山道；进化三选一、残碑问剑、御剑诀 2 阶确认、暂停菜单、第二波危险横幅。
 
-- Information hierarchy matches the source: calligraphy title and two rule lines, three colored cultivation paths with nine techniques, one selected halo, integrated dark detail panel, and centered gold close button.
-- The responsive implementation keeps all persistent controls visible at 390 × 844 and does not stretch circular paths, icons, selection halo, or button.
-- The source's painted visual language is preserved using real sliced raster assets; dynamic text and existing relic icons remain runtime content.
+## 全视图与局部对比
 
-**Focused region comparison evidence**
+- 全视图：五组状态均在同一 354 × 745 竖屏实现中检查，弹窗未超出安全区，战场背景仍能提供情境但不会抢夺焦点。
+- 局部：同屏对比图逐组并排放置参考组件与实现全屏；标题、图标、动态数值、操作按钮均足够清晰，因此不再额外放大裁切。
 
-- Selection region: selected halo and diamond move with the chosen technique; tested from “御剑诀” to “踏云步”.
-- Detail region: selected icon, name, path/effect, three tier rows, and one/two/three progress diamonds update together.
-- Button region: “收起” remains centered inside the independent painted-gold backing.
+## 必检表面
 
-**Required fidelity surfaces**
+- 字体与排版：标题、眉题、正文和结果色形成四级层次；354px 窄屏下没有截断或换行破坏。字体沿用项目现有中文字体，字重比参考稿略轻，但不影响辨识。
+- 间距与布局：暂停按钮间距、奇遇双选项、进化三列和波次横幅均保持独立触控区域；没有组件互相覆盖。
+- 色彩与视觉令牌：墨玉、暖金、青绿三色与现有首页/道法谱一致；危险波次用暖金标题，普通信息保留青绿语义。
+- 图片质量与切图：主面板、信息行、主按钮均使用项目真实 PNG；主面板与长条通过九宫格保持角纹和描边，不再整体纵向压缩。法宝与奇遇图标沿用现有资源，无占位图、代码绘图或 SVG 替代。
+- 文案与内容：参考稿中的动态标题、收益、风险、路线及暂停说明均保留；没有把运行时文案烘焙进切图。
+- 交互：验证了进化卡点击并出现确认浮层、奇遇选项可点击区域、暂停入口与按钮、危险波次自动出现；浏览器控制台无 error/warning。
+- 可访问性：主要按钮高度 58–76 设计像素，竖屏缩放后仍保持可点击；遮罩对战场降噪，文字对比度充足。键盘语义不属于 Cocos Canvas 当前输入模型，本轮未扩展。
 
-- Fonts and typography: display title uses an isolated calligraphy raster asset; runtime copy keeps clear hierarchy and does not clip at the tested viewport.
-- Spacing and layout rhythm: three columns are centered and evenly distributed; detail panel width follows the safe viewport; persistent button remains visible.
-- Colors and visual tokens: ochre/cyan/jade path colors, warm selected gold, rice-paper ink landscape, and pine-black detail surface align with the selected design.
-- Image quality and asset fidelity: background, path ornaments, selected halo, detail frame, tier row, header swatches, title, and button are real generated/cut assets; no placeholder or code-drawn substitute is used for visible artwork.
-- Copy and content: all nine techniques and dynamic three-tier descriptions preserve project configuration content.
+## Findings
 
-**Comparison history**
+- 无 P0/P1/P2 问题。
+- P3：进化卡底部的预测说明在 354px 宽屏上较密，可在后续数值文案继续增长时改为单行省略或缩短描述。
 
-- Iteration 1 finding (P2): excessive gap between the technique atlas and detail panel; selected detail title alignment drifted on narrow screens.
-- Fix: moved the detail panel upward and corrected label centers based on content-box width.
-- Post-fix evidence: `/private/tmp/codex-fixed-390x844.png`; detail hierarchy is contained and the full composition remains visible.
-- Iteration 2 finding (P1): 565 × 965 browser viewport exposed horizontal/vertical scrollbars, shifting the Cocos effective viewport; path effect labels were too pale over rice paper and mountains.
-- Fix: the Web Mobile build now enforces a non-scrolling viewport; title/rule/atlas vertical positions were rebalanced and path effect text uses darker ochre, teal, and jade tokens.
-- Post-fix evidence: `/private/tmp/codex-fixed-390x844.png` plus browser verification at 565 × 965; both viewports report scroll dimensions equal to viewport dimensions.
-- Iteration 3 finding (P1): tier diamonds were rendered behind their raster rows; small copy and the detail role color lost contrast after responsive scaling; detail heading and rows did not share an explicit text grid.
-- Fix: moved tier marks into a foreground child, increased the rule/node/detail typography, introduced one detail text start line, and restored bright path colors only on the dark detail surface.
-- Post-fix evidence: `/private/tmp/codex-alignment-final.png`; three column axes, nine node labels, detail rows, tier marks, and the close button share stable centers and remain readable.
-- Iteration 4 finding (P1): the three-ring path rasters contain non-uniform ring spacing and asymmetric transparent margins, while interaction cells had been placed on one equal-spacing formula; the selected halo therefore missed the visible ring center, most noticeably on the first edge node.
-- Fix: measured each visible ring center from the source raster, assigned per-path row centers and horizontal raster offsets, and placed the selected halo on the same cell origin.
-- Post-fix evidence: `/private/tmp/codex-ring-alignment-fixed.png`; switched and visually verified the first selected node in all three paths, plus the second and third ring centers.
-- Iteration 5 finding (P1): the selected halo still followed the icon-and-copy group center rather than the painted base-ring center, creating a visible double ring; the vitality slice also included unrelated pixels on its right edge and rendered smaller than the other paths.
-- Fix: cropped the vitality path to its actual 210 px artwork width, resized the halo by its visible ring bounds, and offset only the halo downward while preserving icon and label positions.
-- Post-fix evidence: `/private/tmp/codex-selected-ring-final.png`; the gold selected ring now covers the blue and green base rings without the former separated lower outline. Browser console has no errors or warnings.
-- Iteration 6 finding (P1): close-up review showed that a separate generic halo could never match the three irregular painted path rings, and neighboring rings shared pixels around their connector joints.
-- Fix: replaced the generic halo with nine path-specific selected raster segments derived from the exact source-ring pixels; each three-ring column is now composed from mutually exclusive segments, so the selected segment replaces rather than overlays its original ring. Disabled stale CDN path assets to keep base and selected states on the same local source.
-- Post-fix evidence: `/private/tmp/codex-selected-ring-segments.png`; the selected edge ring follows its original contour and the former lower double-ring artifact is removed. Browser console has no errors or warnings.
-- Iteration 7 finding (P1): unselected rings still competed with icons, while stretching a full-height transparent segment into the column produced an elongated selected outline.
-- Fix: removed all persistent unselected rings and path connectors; the selected state is now an independent, node-bound concentric gold ring drawn at a fixed 1:1 ratio, with the diamond marker anchored to the same node origin.
-- Post-fix evidence: `/private/tmp/codex-selection-circle-final.png`; verified the ring moves from 御剑诀 to 踏云步 without residue, double rings, or horizontal/vertical distortion.
+## 对比历史
 
-**Interactions tested**
+- 第 1 轮：将五组参考图与浏览器实现放入 `/private/tmp/xianxia-popup-design-qa.png` 同屏检查。未发现需要修复的 P0/P1/P2；本轮未因对比结果继续修改视觉。
 
-- Opened 道法谱 from the homepage.
-- Switched selection across 锋芒、玄术、守元 paths, including 枯木逢春.
-- Verified selected halo relocation and detail content update.
-- Checked the rendered screen after a clean rebuild; no new runtime error was introduced by the codex interaction.
+## Implementation Checklist
 
-**Follow-up polish**
+- [x] 墨玉主板使用九宫格切片。
+- [x] 金线信息行使用九宫格切片。
+- [x] 金色主按钮与墨玉次按钮区分层级。
+- [x] 动态图标与文案保持运行时渲染。
+- [x] 354 × 745 竖屏五个关键状态完成截图。
+- [x] 类型检查、Cocos Web Mobile 构建、交互与控制台检查通过。
 
-- P3: on screens wider than the reference composition, side mountain crop varies slightly by aspect ratio; this is expected cover behavior and does not affect content.
+## Follow-up Polish
 
-final result: passed
+- 若后续升级描述变长，为三选一卡片增加最大字符数约束。
 
----
+## 全浮层扩展验收
 
-# 设置页设计还原验收
-
-- Source visual truth: `/Users/xmly/.codex/generated_images/019ff0ce-c640-76b1-afa0-e07ae65b7c51/exec-1467451b-3f37-4589-aa1a-4de7762433cc.png`
-- Implementation screenshot: `/private/tmp/settings-redesign-final.png`
-- Viewport: 390 × 844 CSS px
-- State: 音效关闭、震动开启、减少动态关闭。
-
-**Comparison evidence**
-
-- 延续设计稿的宣纸山水、黑色书法标题、墨玉鎏金主体、金色完成按钮与玉石开关语言。
-- 标题、主体面板、三行偏好、新手指引及底部按钮在竖屏安全区内完整可见；动态文字保持运行时渲染，未烘焙进背景。
-- 开关切图保持固定比例，开态金色圆印位于右侧，关态银黑圆印位于左侧，状态文字与触控区域共用同一中心轴。
-- 音效开关已完成一次开 → 关交互验证，完成按钮可返回首页，浏览器控制台无错误或警告。
-
-**Responsive and fidelity notes**
-
-- 主体宽度随安全视口缩放，背景采用等比 cover；标题、开关与按钮不做非等比拉伸。
-- 复用道法谱背景、墨玉面板、行底纹与按钮，新增设置标题及开/关两张独立状态切图，保持游戏内跨页面一致性。
-- 设计稿中左侧装饰图章没有强行加入当前版本，优先保证小屏文案空间与三项设置的扫读效率。
-- Iteration 2 finding (P1): 开关透明切图被强制塞入固定宽高，导致圆形印章和轨道横向压扁；未收紧的透明边界也让开关贴近面板右侧。
-- Fix: 将开、关两态切图统一裁为 700 × 340 画布，运行时只按高度等比缩放，并增加右侧安全间距。
-- Post-fix evidence: `/private/tmp/settings-toggle-aspect-fixed.png`; 三个开关的圆印恢复正圆，开/关轨道比例一致且不再贴边。
+- 新增参考证据：`/private/tmp/xianxia-audit-before-victory.png`、`/private/tmp/xianxia-audit-before-cultivation.png`。
+- 新增实现证据：`/private/tmp/xianxia-audit-after-victory.png`、`/private/tmp/xianxia-audit-after-defeat.png`、`/private/tmp/xianxia-audit-after-cultivation.png`、`/private/tmp/xianxia-audit-after-event-prelude.png`、`/private/tmp/xianxia-audit-after-route-replay.png`、`/private/tmp/xianxia-audit-after-journey.png`。
+- 新增同屏对比：`/private/tmp/xianxia-all-popup-audit.png`。
+- 对比历史第 2 轮：胜负战报、修行卷、路线回放、终局回响、事件前奏均在 354 × 745 视口检查；容器四角保持比例，主按钮可辨，动态文本无截断。无新增 P0/P1/P2。
+- 交互验证：打开战报、打开路线回放、触发事件前奏、进入修行卷与终局回响；控制台无 error/warning。
 
 final result: passed
