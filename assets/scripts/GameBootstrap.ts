@@ -48,6 +48,7 @@ import {
     PRELOAD_SPRITE_PATHS,
     QINGSHI_SPRING_COMMIT_ANIMATION_ASSET,
     QINGSHI_STELE_COMMIT_ANIMATION_ASSET,
+    SETTINGS_UI_ASSETS,
     SpriteAssetSpec,
     WAVE_CREST_ASSET,
 } from './config/AssetCatalog';
@@ -1488,15 +1489,33 @@ export class GameBootstrap extends Component {
         const preferences = this.settings.snapshot();
         this.clearOverlay();
         this.bringOverlayToFront();
-        this.overlay.addChild(this.makeRect(this.visibleDesignWidth(), this.designHeight, new Color(2, 10, 14, 232)));
-        const panel = this.makeThemedCard(580, 760, 'chapter', new Color('#7DD3B8'));
+        const viewportWidth = this.visibleDesignWidth();
+        const contentWidth = Math.min(714, viewportWidth - 20);
+        const backgroundWidth = Math.max(viewportWidth, this.designHeight * 898 / 1564);
+        this.overlay.addChild(this.createResourceSpriteSized(
+            CODEX_UI_ASSETS.background,
+            backgroundWidth,
+            this.designHeight,
+        ));
+
+        const panel = new Node('SettingsPanel');
+        panel.layer = Layers.Enum.UI_2D;
+        panel.addComponent(UITransform).setContentSize(viewportWidth, this.designHeight);
         panel.name = 'SettingsPanel';
-        const title = this.makeLabel('设 置', 44, new Color('#FFF0BE'));
-        title.node.setPosition(0, 302);
-        panel.addChild(title.node);
-        const subtitle = this.makeLabel('声音、震动与动态偏好会自动保存', 17, new Color('#BBD6CC'));
-        subtitle.node.setPosition(0, 258);
+        const title = this.createResourceSpriteSized(SETTINGS_UI_ASSETS.title, 350, 158);
+        title.setPosition(0, 548);
+        panel.addChild(title);
+        const subtitle = this.makeLabel('声音、震动与动态偏好会自动保存', 20, new Color('#2E3C37'));
+        subtitle.node.setPosition(0, 448);
+        subtitle.node.getComponent(UITransform)?.setContentSize(contentWidth - 40, 30);
         panel.addChild(subtitle.node);
+
+        const settingsBody = new Node('SettingsBody');
+        settingsBody.layer = Layers.Enum.UI_2D;
+        settingsBody.addComponent(UITransform).setContentSize(contentWidth, 780);
+        settingsBody.addChild(this.createResourceSpriteSized(CODEX_UI_ASSETS.detailPanel, contentWidth, 780));
+        settingsBody.setPosition(0, -10);
+        panel.addChild(settingsBody);
 
         const rows: ReadonlyArray<readonly [keyof GamePreferences, string, string]> = [
             ['audioEnabled', '音效', '攻击、破境与战斗反馈'],
@@ -1504,60 +1523,97 @@ export class GameBootstrap extends Component {
             ['reducedMotion', '减少动态', '缩短入境演出并移除循环漂移'],
         ];
         rows.forEach(([key, label, detail], index) => {
-            const row = this.makeThemedCard(510, 112, 'summary');
-            row.setPosition(0, 166 - index * 128);
-            const rowTitle = this.makeLabel(label, 22, new Color('#E9DDC1'));
+            const rowWidth = contentWidth - 64;
+            const row = new Node(`SettingsRow-${String(key)}`);
+            row.layer = Layers.Enum.UI_2D;
+            row.addComponent(UITransform).setContentSize(rowWidth, 142);
+            row.addChild(this.createResourceSpriteSized(CODEX_UI_ASSETS.tierRow, rowWidth, 142));
+            row.setPosition(0, 264 - index * 154);
+            const rowTitle = this.makeLabel(label, 27, new Color('#FFF0C8'));
             rowTitle.horizontalAlign = Label.HorizontalAlign.LEFT;
-            rowTitle.node.setPosition(-142, 18);
-            rowTitle.node.getComponent(UITransform)?.setContentSize(190, 30);
+            rowTitle.node.setPosition(-rowWidth / 2 + 176, 22);
+            rowTitle.node.getComponent(UITransform)?.setContentSize(270, 38);
             row.addChild(rowTitle.node);
-            const rowDetail = this.makeLabel(detail, 15, new Color('#91B2A7'));
+            const rowDetail = this.makeLabel(detail, 17, new Color('#B8CEC5'));
             rowDetail.horizontalAlign = Label.HorizontalAlign.LEFT;
-            rowDetail.node.setPosition(-66, -20);
-            rowDetail.node.getComponent(UITransform)?.setContentSize(340, 26);
+            rowDetail.node.setPosition(-rowWidth / 2 + 214, -22);
+            rowDetail.node.getComponent(UITransform)?.setContentSize(346, 30);
             row.addChild(rowDetail.node);
-            const toggle = this.makeCompactButton(preferences[key] ? '已 开' : '已 关', () => {
+            const enabled = preferences[key];
+            const toggle = new Node(`SettingsToggle-${String(key)}`);
+            toggle.layer = Layers.Enum.UI_2D;
+            toggle.addComponent(UITransform).setContentSize(142, 70);
+            // 开关图存在透明边缘自动裁切；按裁后区域等比绘制，避免 RAW 模式把银色圆印纵向拉长。
+            const toggleArt = this.createTrimmedResourceSprite(
+                enabled ? SETTINGS_UI_ASSETS.toggleOn : SETTINGS_UI_ASSETS.toggleOff,
+                68,
+            );
+            toggle.addChild(toggleArt);
+            const toggleLabel = this.makeLabel(enabled ? '已 开' : '已 关', 19, new Color(enabled ? '#FFF0C8' : '#CCD3CF'));
+            toggleLabel.node.setPosition(enabled ? -28 : 28, 0);
+            toggleLabel.node.getComponent(UITransform)?.setContentSize(74, 32);
+            toggle.addChild(toggleLabel.node);
+            toggle.on(Node.EventType.TOUCH_START, () => toggle.setScale(0.96, 0.96));
+            toggle.on(Node.EventType.TOUCH_CANCEL, () => toggle.setScale(1, 1));
+            toggle.on(Node.EventType.TOUCH_END, (event: EventTouch) => {
+                event.propagationStopped = true;
+                toggle.setScale(1, 1);
                 this.settings.update({ [key]: !this.settings.snapshot()[key] });
                 this.persistSettings();
                 this.showSettingsPanel(origin);
-            }, 106, 48, preferences[key]);
-            toggle.setPosition(178, 8);
+            });
+            toggle.setPosition(rowWidth / 2 - 104, 0);
             row.addChild(toggle);
-            panel.addChild(row);
+            settingsBody.addChild(row);
         });
 
-        const tutorial = this.makeThemedCard(510, 92, 'summary');
-        tutorial.setPosition(0, -226);
-        const tutorialTitle = this.makeLabel('新手指引', 20, new Color('#E9DDC1'));
+        const tutorialWidth = contentWidth - 64;
+        const tutorial = new Node('SettingsTutorial');
+        tutorial.layer = Layers.Enum.UI_2D;
+        tutorial.addComponent(UITransform).setContentSize(tutorialWidth, 128);
+        tutorial.addChild(this.createResourceSpriteSized(CODEX_UI_ASSETS.tierRow, tutorialWidth, 128));
+        tutorial.setPosition(0, -252);
+        const tutorialTitle = this.makeLabel('新手指引', 25, new Color('#FFF0C8'));
         tutorialTitle.horizontalAlign = Label.HorizontalAlign.LEFT;
-        tutorialTitle.node.setPosition(-132, 17);
-        tutorialTitle.node.getComponent(UITransform)?.setContentSize(210, 28);
+        tutorialTitle.node.setPosition(-tutorialWidth / 2 + 176, 20);
+        tutorialTitle.node.getComponent(UITransform)?.setContentSize(270, 36);
         tutorial.addChild(tutorialTitle.node);
         const tutorialDetail = this.makeLabel(
             preferences.tutorialCompleted ? '已完成 · 可在下次入境时重看' : '下次入境将自动显示',
-            14,
-            new Color('#91B2A7'),
+            16,
+            new Color('#B8CEC5'),
         );
         tutorialDetail.horizontalAlign = Label.HorizontalAlign.LEFT;
-        tutorialDetail.node.setPosition(-70, -18);
-        tutorialDetail.node.getComponent(UITransform)?.setContentSize(330, 24);
+        tutorialDetail.node.setPosition(-tutorialWidth / 2 + 214, -20);
+        tutorialDetail.node.getComponent(UITransform)?.setContentSize(346, 28);
         tutorial.addChild(tutorialDetail.node);
         if (preferences.tutorialCompleted) {
-            const replay = this.makeCompactButton('下局重看', () => {
+            const replay = this.makeCompactButton('回放指引', () => {
                 this.settings.update({ tutorialCompleted: false });
                 this.persistSettings();
                 this.showSettingsPanel(origin);
-            }, 116, 44);
-            replay.setPosition(170, 6);
+            }, 132, 48, true);
+            replay.setPosition(tutorialWidth / 2 - 92, 0);
             tutorial.addChild(replay);
         }
-        panel.addChild(tutorial);
+        settingsBody.addChild(tutorial);
 
-        const close = this.makeActionButton('完 成', 'primary', new Color('#7DD3B8'), () => {
+        const close = new Node('SettingsClose');
+        close.layer = Layers.Enum.UI_2D;
+        close.addComponent(UITransform).setContentSize(390, 88);
+        close.addChild(this.createResourceSpriteSized(CODEX_UI_ASSETS.closeButton, 390, 88));
+        const closeLabel = this.makeLabel('完 成', 35, new Color('#15211F'));
+        closeLabel.node.getComponent(UITransform)?.setContentSize(360, 64);
+        close.addChild(closeLabel.node);
+        close.on(Node.EventType.TOUCH_START, () => close.setScale(0.97, 0.97));
+        close.on(Node.EventType.TOUCH_CANCEL, () => close.setScale(1, 1));
+        close.on(Node.EventType.TOUCH_END, (event: EventTouch) => {
+            event.propagationStopped = true;
+            close.setScale(1, 1);
             if (origin === 'pause') this.showPauseMenu();
             else this.showMenu();
-        }, 420, 62);
-        close.setPosition(0, -320);
+        });
+        close.setPosition(0, -592);
         panel.addChild(close);
         this.overlay.addChild(panel);
     }
@@ -9362,6 +9418,39 @@ export class GameBootstrap extends Component {
                 .catch((error: unknown) => console.warn(`[art] UI 补图失败: ${resourcePath}`, error));
         }
         return node;
+    }
+
+    private createTrimmedResourceSprite(resourcePath: string, displayHeight: number): Node {
+        const root = new Node('TrimmedResourceSprite');
+        root.layer = Layers.Enum.UI_2D;
+        const rootTransform = root.addComponent(UITransform);
+        const assign = (frame: SpriteFrame): void => {
+            if (!root.isValid) return;
+            const scale = displayHeight / Math.max(frame.originalSize.height, 1);
+            rootTransform.setContentSize(frame.originalSize.width * scale, displayHeight);
+            const content = root.getChildByName('Content') ?? new Node('Content');
+            content.layer = Layers.Enum.UI_2D;
+            if (!content.parent) root.addChild(content);
+            const transform = content.getComponent(UITransform) ?? content.addComponent(UITransform);
+            const sprite = content.getComponent(Sprite) ?? content.addComponent(Sprite);
+            sprite.spriteFrame = frame;
+            sprite.sizeMode = Sprite.SizeMode.CUSTOM;
+            // 绑定 SpriteFrame 会用原始像素重置 UITransform，裁后尺寸必须最后写入。
+            transform.setContentSize(frame.rect.width * scale, frame.rect.height * scale);
+            content.setPosition(frame.offset.x * scale, frame.offset.y * scale);
+        };
+        const cached = this.spriteFrames.get(resourcePath);
+        if (cached) {
+            assign(cached);
+        } else {
+            void loadSpriteFrame(resourcePath)
+                .then((frame) => {
+                    this.spriteFrames.set(resourcePath, frame);
+                    assign(frame);
+                })
+                .catch((error: unknown) => console.warn(`[art] UI 补图失败: ${resourcePath}`, error));
+        }
+        return root;
     }
 
     private createResourceSprite(resourcePath: string, displayHeight: number): Node {

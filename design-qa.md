@@ -63,3 +63,30 @@
 - P3: on screens wider than the reference composition, side mountain crop varies slightly by aspect ratio; this is expected cover behavior and does not affect content.
 
 final result: passed
+
+---
+
+# 设置页设计还原验收
+
+- Source visual truth: `/Users/xmly/.codex/generated_images/019ff0ce-c640-76b1-afa0-e07ae65b7c51/exec-1467451b-3f37-4589-aa1a-4de7762433cc.png`
+- Implementation screenshot: `/private/tmp/settings-redesign-final.png`
+- Viewport: 390 × 844 CSS px
+- State: 音效关闭、震动开启、减少动态关闭。
+
+**Comparison evidence**
+
+- 延续设计稿的宣纸山水、黑色书法标题、墨玉鎏金主体、金色完成按钮与玉石开关语言。
+- 标题、主体面板、三行偏好、新手指引及底部按钮在竖屏安全区内完整可见；动态文字保持运行时渲染，未烘焙进背景。
+- 开关切图保持固定比例，开态金色圆印位于右侧，关态银黑圆印位于左侧，状态文字与触控区域共用同一中心轴。
+- 音效开关已完成一次开 → 关交互验证，完成按钮可返回首页，浏览器控制台无错误或警告。
+
+**Responsive and fidelity notes**
+
+- 主体宽度随安全视口缩放，背景采用等比 cover；标题、开关与按钮不做非等比拉伸。
+- 复用道法谱背景、墨玉面板、行底纹与按钮，新增设置标题及开/关两张独立状态切图，保持游戏内跨页面一致性。
+- 设计稿中左侧装饰图章没有强行加入当前版本，优先保证小屏文案空间与三项设置的扫读效率。
+- Iteration 2 finding (P1): 开关透明切图被强制塞入固定宽高，导致圆形印章和轨道横向压扁；未收紧的透明边界也让开关贴近面板右侧。
+- Fix: 将开、关两态切图统一裁为 700 × 340 画布，运行时只按高度等比缩放，并增加右侧安全间距。
+- Post-fix evidence: `/private/tmp/settings-toggle-aspect-fixed.png`; 三个开关的圆印恢复正圆，开/关轨道比例一致且不再贴边。
+
+final result: passed

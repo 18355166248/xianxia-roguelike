@@ -101,6 +101,14 @@ export const CODEX_UI_ASSETS = {
     closeButton: 'art/ui/codex-redesign-v1/close-button-v1/spriteFrame',
 } as const;
 
+// 设置页复用道法谱的山水、墨玉面板和金色收束按钮，只为标题与双态开关新增独立切图。
+// 动态状态文字仍由运行时渲染，窄屏缩放时不会因烘焙文字而发糊。
+export const SETTINGS_UI_ASSETS = {
+    title: 'art/ui/settings-redesign-v1/title-settings-v1/spriteFrame',
+    toggleOn: 'art/ui/settings-redesign-v1/toggle-on-v1/spriteFrame',
+    toggleOff: 'art/ui/settings-redesign-v1/toggle-off-v1/spriteFrame',
+} as const;
+
 // 首页三枚机制徽记统一使用同系列法宝资源，避免把带大面积透明边缘的战斗立绘缩进圆章后显得又小又偏。
 export const HOME_STAGE_FEATURE_ICONS: Record<StageMapId, readonly [string, string, string]> = {
     'qingshi-road': [
@@ -237,6 +245,9 @@ export const PRELOAD_SPRITE_PATHS = [
     CODEX_UI_ASSETS.detailPanel,
     CODEX_UI_ASSETS.tierRow,
     CODEX_UI_ASSETS.closeButton,
+    SETTINGS_UI_ASSETS.title,
+    SETTINGS_UI_ASSETS.toggleOn,
+    SETTINGS_UI_ASSETS.toggleOff,
     ...Object.values(HOME_STAGE_FEATURE_ICONS).flat(),
     BOSS_ANIMATION_ASSET.resourcePath,
     FROZEN_BOSS_ANIMATION_ASSET.resourcePath,
