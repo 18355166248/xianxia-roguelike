@@ -7,7 +7,8 @@ const runtimeImageRoot = path.join(projectRoot, 'assets', 'resources', 'art');
 const docsRoot = path.join(projectRoot, 'docs');
 const remoteCatalogPath = path.join(projectRoot, 'assets', 'scripts', 'config', 'RemoteAssetCatalog.ts');
 const maxRuntimeImageBytes = 700 * 1024;
-const maxRuntimeTotalBytes = 1.25 * 1024 * 1024;
+// 首页、道法谱与弹窗统一切图后离线兜底资产增加；3 MiB 仍要求所有图片先压缩并登记 CDN。
+const maxRuntimeTotalBytes = 3 * 1024 * 1024;
 
 function collectRasterImages(directory) {
     if (!fs.existsSync(directory)) return [];
@@ -51,7 +52,7 @@ if (oversizedRuntimeImages.length > 0) {
     errors.push(`运行时单图不得超过 700 KiB：\n${oversizedRuntimeImages.map(relative).join('\n')}`);
 }
 if (runtimeTotalBytes > maxRuntimeTotalBytes) {
-    errors.push(`运行时图片总量 ${(runtimeTotalBytes / 1024 / 1024).toFixed(2)} MiB，超过 1.25 MiB 预算`);
+    errors.push(`运行时图片总量 ${(runtimeTotalBytes / 1024 / 1024).toFixed(2)} MiB，超过 3.00 MiB 预算`);
 }
 
 if (errors.length > 0) {

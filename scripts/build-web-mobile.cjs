@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-const { existsSync, readdirSync, readFileSync, statSync, writeFileSync } = require('fs');
+const { copyFileSync, existsSync, readdirSync, readFileSync, statSync, writeFileSync } = require('fs');
 const { join, resolve } = require('path');
 const { spawnSync } = require('child_process');
 
@@ -67,6 +67,27 @@ if (existsSync(webStylePath)) {
   if (additions.length > 0) {
     writeFileSync(webStylePath, `${style}\n${additions.join('\n')}\n`);
   }
+}
+
+// Creator 模板的默认标题会泄漏引擎信息；构建后统一替换产品标题、分享摘要和站点图标。
+const webRoot = join(projectRoot, 'build', 'web-mobile');
+const webIndexPath = join(webRoot, 'index.html');
+const faviconSource = join(projectRoot, 'assets', 'resources', 'art', 'ui', 'wave-crest-v1.png');
+if (existsSync(webIndexPath)) {
+  let html = readFileSync(webIndexPath, 'utf8');
+  html = html.replace(/<title>[\s\S]*?<\/title>/i, '<title>仙途劫</title>');
+  if (!html.includes('name="description"')) {
+    const metadata = [
+      '<meta name="description" content="水墨仙侠竖屏动作 Roguelike">',
+      '<meta property="og:title" content="仙途劫">',
+      '<meta property="og:description" content="水墨仙侠竖屏动作 Roguelike">',
+      '<meta name="theme-color" content="#071418">',
+      '<link rel="icon" type="image/png" href="favicon.png">',
+    ].join('\n  ');
+    html = html.replace('</head>', `  ${metadata}\n</head>`);
+  }
+  writeFileSync(webIndexPath, html);
+  if (existsSync(faviconSource)) copyFileSync(faviconSource, join(webRoot, 'favicon.png'));
 }
 
 console.log(`[build:web] 正式 Web Mobile 构建通过：${latestLog.path}`);

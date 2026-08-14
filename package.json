@@ -7,7 +7,8 @@
     "test:skills": "node scripts/check-image-budget.cjs && node scripts/run-skill-tests.cjs",
     "verify": "npx tsc -p tsconfig.check.json --noEmit && npm run test:skills",
     "build:web": "node scripts/build-web-mobile.cjs",
-    "balance:report": "node scripts/analyze-balance-samples.cjs"
+    "balance:report": "node scripts/analyze-balance-samples.cjs",
+    "device:report": "node scripts/check-device-qa.cjs"
   },
   "creator": {
     "version": "3.8.8"

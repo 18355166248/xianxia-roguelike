@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "tester": "填写测试人",
+  "capturedAt": "2026-08-14T00:00:00.000Z",
+  "device": {
+    "platform": "ios",
+    "model": "填写物理设备型号",
+    "osVersion": "填写系统版本",
+    "browser": "Safari",
+    "browserVersion": "填写浏览器版本",
+    "screen": "填写屏幕尺寸",
+    "highRefreshRate": false
+  },
+  "results": {
+    "cold-start": { "status": "unverified", "notes": "", "evidence": "" },
+    "first-run-safe-area": { "status": "unverified", "notes": "", "evidence": "" },
+    "combat-inputs": { "status": "unverified", "notes": "", "evidence": "" },
+    "pause-freeze": { "status": "unverified", "notes": "", "evidence": "" },
+    "background-pause": { "status": "unverified", "notes": "", "evidence": "" },
+    "orientation-guard": { "status": "unverified", "notes": "", "evidence": "" },
+    "settings-persistence": { "status": "unverified", "notes": "", "evidence": "" },
+    "full-clear": { "status": "unverified", "notes": "", "evidence": "" },
+    "three-chapter-clear": { "status": "unverified", "notes": "", "evidence": "" },
+    "three-run-stability": { "status": "unverified", "notes": "", "evidence": "" }
+  }
+}

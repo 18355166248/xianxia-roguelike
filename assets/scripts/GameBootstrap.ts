@@ -453,6 +453,8 @@ export class GameBootstrap extends Component {
     private bossFinishEnemy?: EnemyState;
     private bossFinishStarted = false;
     private effects: VisualEffectState[] = [];
+    private waveAnnouncementActive = false;
+    private waveAnnouncementSerial = 0;
     private ambience: AmbientState[] = [];
     private spiritVeinVisual?: SpiritVeinVisual;
     private obstacleVisuals = new Map<string, MapObstacleVisual>();
@@ -4845,9 +4847,14 @@ export class GameBootstrap extends Component {
         shadow.setPosition(0, -fallbackRadius * 0.82);
         shadow.setScale(1.35, 0.34);
         const shadowGraphics = shadow.addComponent(Graphics);
-        shadowGraphics.fillColor = new Color(2, 9, 12, 105);
+        // 石板地面与深色单位明度接近，用一圈低透明暖边保留落点辨识，不改变角色原画。
+        shadowGraphics.fillColor = new Color(2, 9, 12, 145);
         shadowGraphics.circle(0, 0, fallbackRadius * 0.74);
         shadowGraphics.fill();
+        shadowGraphics.strokeColor = new Color(236, 207, 139, 105);
+        shadowGraphics.lineWidth = 4;
+        shadowGraphics.circle(0, 0, fallbackRadius * 0.8);
+        shadowGraphics.stroke();
         node.addChild(shadow);
 
         const visual = new Node('Visual');
@@ -6088,10 +6095,8 @@ export class GameBootstrap extends Component {
         onClick: () => void,
     ): Node {
         const presentation = this.casualUpgradePresentation(choice);
-        const anticipation = previewUpgradeImpact(choice, (id) => this.skills.getLevel(id));
         const currentLevel = this.skills.getLevel(choice.id);
         const nextLevel = Math.min(choice.maxLevel, currentLevel + 1);
-        const accent = new Color(presentation.accent);
         const node = this.makeCutoutSurface(176, 350, true);
         node.name = `CasualUpgrade-${choice.id}`;
 
@@ -6124,13 +6129,7 @@ export class GameBootstrap extends Component {
         result.node.setPosition(0, -116);
         result.node.getComponent(UITransform)?.setContentSize(148, 42);
         node.addChild(result.node);
-        const forecastText = anticipation.milestone
-            ? `突破 · ${anticipation.milestone}`
-            : anticipation.detail.split(' · ')[0];
-        const forecast = this.makeLabel(forecastText, 15, new Color(accent.r, accent.g, accent.b, 245));
-        forecast.node.setPosition(0, -154);
-        forecast.node.getComponent(UITransform)?.setContentSize(154, 24);
-        node.addChild(forecast.node);
+        // 里程碑会在点击后的突破反馈中完整呈现；卡片本身只保留等级、名称和本次效果。
 
         node.on(Node.EventType.TOUCH_START, (event: EventTouch) => {
             event.propagationStopped = true;
@@ -7489,14 +7488,6 @@ export class GameBootstrap extends Component {
             chip.addChild(label.node);
             panel.addChild(chip);
         });
-        const activeBuild = this.makeLabel(
-            `御剑 ${this.skills.getLevel('sword')} · 踏云 ${this.skills.getLevel('dash')} · 剑阵 ${this.skills.getLevel('formation')} · 天劫 ${this.skills.getLevel('tribulation')} · 最高连斩 ${this.runStats.snapshot().bestCombo}`,
-            13,
-            new Color(130, 162, 154, 225),
-        );
-        activeBuild.node.setPosition(0, -48);
-        activeBuild.node.getComponent(UITransform)?.setContentSize(500, 24);
-        panel.addChild(activeBuild.node);
         return panel;
     }
 
@@ -7641,8 +7632,12 @@ export class GameBootstrap extends Component {
         this.bossHud.active = Boolean(boss);
         // 目标条与道途条不再无条件隐藏：没有它们，玩家在局内既不知道要做什么，也看不到自己选过的路。
         // 关底血条占用同一段纵向空间，也确实是此刻唯一的目标，因此登场时由它独占。
-        this.objectiveBacking.active = !boss && Boolean(this.objectiveLabel?.string);
-        this.routeChoiceBacking.active = !boss && Boolean(this.routeChoiceLabel?.string);
+        this.objectiveBacking.active = !boss
+            && !this.waveAnnouncementActive
+            && Boolean(this.objectiveLabel?.string);
+        this.routeChoiceBacking.active = !boss
+            && !this.waveAnnouncementActive
+            && Boolean(this.routeChoiceLabel?.string);
         if (boss) {
             const ratio = Math.max(0, boss.hp / boss.maxHp);
             const presentation = bossPhasePresentationFor(this.currentStage.mapId, boss.bossPhase);
@@ -8989,10 +8984,20 @@ export class GameBootstrap extends Component {
         node.setPosition(0, 380);
         const opacity = node.addComponent(UIOpacity);
         this.screenFxLayer.addChild(node);
+        const life = bossWave ? 2.35 : dangerous ? 2 : 1.75;
+        const announcementSerial = ++this.waveAnnouncementSerial;
+        // 波次横幅出现期间让目标条和道途条暂避；序号避免连续开波时旧定时器误开 HUD。
+        this.waveAnnouncementActive = true;
+        this.updateHud();
+        this.scheduleOnce(() => {
+            if (announcementSerial !== this.waveAnnouncementSerial) return;
+            this.waveAnnouncementActive = false;
+            this.updateHud();
+        }, life);
         this.effects.push({
             node,
             elapsed: 0,
-            life: bossWave ? 2.35 : dangerous ? 2 : 1.75,
+            life,
             update: (progress) => {
                 const fade = progress < 0.16 ? progress / 0.16 : progress > 0.68 ? (1 - progress) / 0.32 : 1;
                 opacity.opacity = Math.round(255 * Math.max(0, fade));
@@ -9040,6 +9045,8 @@ export class GameBootstrap extends Component {
     }
 
     private clearBattle(): void {
+        this.waveAnnouncementActive = false;
+        this.waveAnnouncementSerial += 1;
         if (this.upgradePreviewFx?.isValid) this.upgradePreviewFx.destroy();
         this.upgradePreviewFx = undefined;
         this.clearMoveTarget();

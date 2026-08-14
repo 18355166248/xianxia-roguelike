@@ -95,10 +95,11 @@ npm run build:web
 ```bash
 npm run balance:report -- samples/*.json
 npm run balance:report -- --strict samples/*.json
+npm run device:report -- qa/device/<iPhone记录>.json qa/device/<Android记录>.json
 ```
 
 ## 图片与 CDN 约束
 
 - 文档设计稿和 QA 截图必须先压缩并上传 CDN，地址登记到 `docs/REMOTE_IMAGE_MANIFEST.json`，仓库不保留本地位图。
-- 游戏运行时图片保留压缩后的离线副本，同时登记到 `RemoteAssetCatalog` 优先走 CDN；单图不得超过 700 KiB，总图片预算不得超过 1.25 MiB。
+- 游戏运行时图片保留压缩后的离线副本，同时登记到 `RemoteAssetCatalog` 优先走 CDN；单图不得超过 700 KiB，总图片预算不得超过 3.00 MiB。
 - `npm run test:skills` 会先执行图片体积门禁，防止大图或未迁移的文档截图进入后续提交。

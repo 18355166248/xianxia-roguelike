@@ -65,6 +65,61 @@ final result: passed
 
 ---
 
+# 当前游戏收口 QA（2026-08-14）
+
+## 对比目标与证据
+
+- 视觉真值：用户提供的进化选择截图 `/var/folders/7w/hsspqlq52mj2vrwmmpdjptsh0000gn/T/codex-clipboard-f582f942-7d87-4c61-9301-76c178271aac.png`，以及调整前结算截图 `/private/tmp/xianxia-current-audit-07-victory.png`。
+- 调整后实现：`/private/tmp/xianxia-optimized-upgrade-final.png`、`/private/tmp/xianxia-optimized-wave-active.png`、`/private/tmp/xianxia-optimized-victory-final.png`。
+- CDN/压缩回归：`/private/tmp/xianxia-post-cdn-menu.png`、`/private/tmp/xianxia-post-cdn-settings.png`、`/private/tmp/xianxia-post-cdn-codex.png`、`/private/tmp/xianxia-post-cdn-upgrade.png`。
+- 同屏对比：`/private/tmp/xianxia-design-qa-comparison.png`；上排为进化参考/实现，下排为结算调整前/后。
+- 视口与密度：实现为 354 × 745 CSS px，deviceScaleFactor 1，对应 354 × 745 像素；进化参考为 454 × 467 像素的组件截图。同屏图按等大槽位等比缩放、不拉伸，布局判断以实现原始截图为准。
+- 状态：后续破境三选一、第二波精英战、青石山道胜利战报。
+
+## 全视图与局部对比
+
+- 全视图：354 × 745 下进化面板、战斗 HUD 与胜利战报均处于安全区；固定操作按钮未被裁切。
+- 局部：同屏对比聚焦进化卡底沿和结算“道基归途”区。进化卡由“效果 + 重复预测”收敛为单一效果行；结算构筑区删除重复技能摘要，只保留主修路线与三路等级。
+
+## 必检表面
+
+- 字体与排版：标题、眉题、数值与正文层级未改变；卡片和结算区没有新增截断、异常换行或过密小字。
+- 间距与布局：开波横幅存续期间目标条和道途条暂避，横幅退出后自动恢复；三层信息不再竞争同一顶部区域。
+- 色彩与视觉令牌：继续使用墨玉、暖金、青绿和米白；单位脚下暖金低透明描边仅用于战场辨识，与既有金线令牌一致。
+- 图片质量与切图：现有面板、按钮和角色 PNG 均保持原比例；本轮未用 SVG、占位图或代码装饰替换现有美术。脚下描边属于实时战斗指示，不替代角色资产。
+- 文案与内容：升级本次效果、主修路线、地图功绩和下一目标均保留；删掉的仅是同屏重复信息。
+- 图标：升级、角色、技能和地图图标均为既有真实资源，清晰度与裁切正常。
+- 状态与交互：正式 Web Mobile 构建通过；完整 `npm run verify` 通过；浏览器标题为“仙途劫”，压缩后的首页、设置、道法谱和进化弹窗控制台 error/warning 均为空。
+- 可访问性：信息隐藏只发生在短暂开波横幅存续期，横幅本身承载当前波次目标；关键按钮面积与对比度保持不变。真机触控与读屏仍需独立设备验收。
+
+## 对比历史
+
+- 第 1 轮：发现开波横幅与两条常驻 HUD 竞争、升级卡底部重复预测、深色单位与石板地面融合、结算构筑区重复小字过密；结论为 blocked。
+- 修正：加入横幅时序门控和防旧定时器串扰；升级卡仅保留等级/名称/本次效果；单位阴影增加低透明暖边；结算构筑区移除重复技能摘要。
+- 第 2 轮：同屏对比 `/private/tmp/xianxia-design-qa-comparison.png` 与三个 354 × 745 实现状态复查，无剩余 P0/P1/P2；浏览器日志无 error/warning。
+
+## Findings
+
+- 无 P0/P1/P2 问题。
+- P3：Cocos Canvas 仍缺标准 DOM 语义；真机触控、读屏以及每章真人数值样本不属于截图 QA，需要在发布验收中补齐。
+
+## Implementation Checklist
+
+- [x] 开波横幅与目标/道途 HUD 错峰显示。
+- [x] 进化卡重复预测文案移除。
+- [x] 深色单位落点辨识增强。
+- [x] 胜利战报构筑摘要降密度。
+- [x] 网页标题、分享摘要、主题色与 favicon 进入正式构建脚本。
+- [x] 354 × 745 浏览器截图、正式构建、运行时测试和控制台检查通过。
+
+## Follow-up Polish
+
+- 真机矩阵与真人平衡样本完成后，再决定是否继续拆分 `GameBootstrap.ts` 的展示层；避免在手感基线未冻结前做大规模结构迁移。
+
+final result: passed
+
+---
+
 # 全局样式统一 QA（2026-08-14）
 
 ## 对比目标与证据

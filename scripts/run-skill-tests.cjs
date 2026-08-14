@@ -78,3 +78,4 @@ for (const testFile of testFiles) {
 }
 
 runCommand(process.execPath, ['scripts/analyze-balance-samples.test.cjs']);
+runCommand(process.execPath, ['scripts/check-device-qa.test.cjs']);

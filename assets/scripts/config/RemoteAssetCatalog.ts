@@ -3,6 +3,16 @@
  * 逻辑仍使用 resources 路径作为稳定 key，避免 CDN 迁移波及业务配置。
  */
 export const REMOTE_SPRITE_URLS: Readonly<Record<string, string>> = {
+    'art/ui/home-redesign-v1/home-journey-bg-v1/spriteFrame': 'https://audiopaytest.cos.tx.xmcdn.com/storages/7ea7-audiotest/35/C7/GAqSoUUOVI3oAAUCKwACEZ-o.jpg',
+    'art/ui/home-redesign-v1/title-calligraphy-transparent-v1/spriteFrame': 'https://audiopaytest.cos.tx.xmcdn.com/storages/c395-audiotest/E1/78/GAqSpGcOVI3mAACK6wACEZ-l.png',
+    'art/ui/home-redesign-v1/home-info-panel-v1/spriteFrame': 'https://audiopaytest.cos.tx.xmcdn.com/storages/55c2-audiotest/C3/91/GAqSpGcOVI3nAAivZgACEZ-n.png',
+    'art/ui/home-redesign-v1/chapter-selected-halo-compact-v1/spriteFrame': 'https://audiopaytest.cos.tx.xmcdn.com/storages/c3f6-audiotest/1A/11/GAqSoUUOVI3mAADRxQACEZ-k.png',
+    'art/ui/home-redesign-v1/top-codex-medallion-transparent-v2/spriteFrame': 'https://audiopaytest.cos.tx.xmcdn.com/storages/392c-audiotest/6A/16/GAqSpGcOVI3pAAAZMgACEZ-t.png',
+    'art/ui/home-redesign-v1/top-settings-medallion-transparent-v2/spriteFrame': 'https://audiopaytest.cos.tx.xmcdn.com/storages/dd34-audiotest/98/2A/GAqSpGcOVI3pAAAY7gACEZ-r.png',
+    'art/ui/codex-redesign-v1/selected-marker-v1/spriteFrame': 'https://audiopaytest.cos.tx.xmcdn.com/storages/55f2-audiotest/36/80/GAqSpGcOVI3oAAAlrwACEZ-p.png',
+    'art/ui/settings-redesign-v1/title-settings-v1/spriteFrame': 'https://audiopaytest.cos.tx.xmcdn.com/storages/6d25-audiotest/A9/02/GAqSoUUOVI3pAAE4gAACEZ-s.png',
+    'art/ui/settings-redesign-v1/toggle-on-v1/spriteFrame': 'https://audiopaytest.cos.tx.xmcdn.com/storages/3218-audiotest/9C/FD/GAqSoUUOVI3mAAGJFgACEZ-m.png',
+    'art/ui/settings-redesign-v1/toggle-off-v1/spriteFrame': 'https://audiopaytest.cos.tx.xmcdn.com/storages/99c2-audiotest/12/42/GAqSoUUOVI3oAAGTPAACEZ-q.png',
     'art/ui/codex-redesign-v1/codex-ink-bg-v1/spriteFrame': 'https://audiopaytest.cos.tx.xmcdn.com/storages/12c1-audiotest/05/4B/GAqSoUUOUhoIAAMlEgACEWa8.jpg',
     'art/ui/codex-redesign-v1/title-calligraphy-v1/spriteFrame': 'https://audiopaytest.cos.tx.xmcdn.com/storages/f813-audiotest/4A/B9/GAqSpGcOUhoJAACgHwACEWa_.png',
     'art/ui/codex-redesign-v1/header-edge-v1/spriteFrame': 'https://audiopaytest.cos.tx.xmcdn.com/storages/2c3a-audiotest/35/33/GAqSpGcOUhoKAABgAQACEWbB.png',

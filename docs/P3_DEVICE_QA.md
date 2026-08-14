@@ -37,6 +37,16 @@ npm run build:web
 每一步记录“通过 / 失败 / 无法验证”，失败项附截图、操作步骤和发生频率，不用主观描述替代
 复现条件。
 
+复制 `qa/device/device-qa.template.json` 为每台物理设备单独的 JSON，填写设备信息与上述十步的
+`status`、`notes` 和可选 `evidence`。收齐后执行：
+
+```bash
+npm run device:report -- qa/device/<iPhone记录>.json qa/device/<Android记录>.json
+```
+
+门禁会校验记录结构、十步状态以及 iOS/Android 双平台覆盖；任何 `fail`、`unverified` 或缺失
+平台都会以非零状态退出。模板本身只用于复制，不得作为验收证据。
+
 ## 数值样本
 
 每章至少完成 10 局真人试玩，且两条路线、三类主修均有覆盖。首轮健康区间：
