@@ -755,6 +755,8 @@ export class GameBootstrap extends Component {
         // 单张 CDN 图失败时仍允许进入：现有角色、敌人和地形都有程序化占位表现，不应让弱网变成白屏。
         this.updateLoadingProgress(1, 1, failed);
         this.initializationFinished = true;
+        // 本地视觉验收需要把极短的加载完成态定格；正式入口不会命中该标记。
+        if (this.hasLocalQaFlag('qaLoading=1')) return;
         // 休闲破境验收链接直达实战暂停帧，方便设计对照与回归截图；
         // 其他本地 QA 标记和正式流程仍从章节选择开始。
         if (
@@ -773,40 +775,51 @@ export class GameBootstrap extends Component {
     private showLoadingScreen(): void {
         this.clearOverlay();
         this.bringOverlayToFront();
-        this.overlay.addChild(this.makeRect(this.visibleDesignWidth(), this.designHeight, new Color(2, 12, 16, 252)));
+        const background = this.createResourceSprite(HOME_UI_ASSETS.background, this.designHeight);
+        this.overlay.addChild(background);
+        const veil = this.makeRect(this.visibleDesignWidth(), this.designHeight, new Color(1, 9, 12, 76));
+        this.overlay.addChild(veil);
 
-        const title = this.makeLabel('仙 途 劫', 58, new Color('#F8E4AC'));
-        title.node.setPosition(0, 176);
-        this.overlay.addChild(title.node);
-        const subtitle = this.makeLabel('引灵入境 · 正在加载游戏资源', 22, new Color('#B9D8CE'));
-        subtitle.node.setPosition(0, 104);
-        this.overlay.addChild(subtitle.node);
+        const title = this.createResourceSpriteSized(HOME_UI_ASSETS.title, 410, 142);
+        title.setPosition(0, 238);
+        this.overlay.addChild(title);
 
-        const track = this.makeRect(536, 34, new Color(5, 27, 31, 245), new Color(100, 166, 149, 150), 17, 2);
-        track.setPosition(0, 20);
-        this.overlay.addChild(track);
+        const loadingPanel = this.makeCutoutSurface(590, 218);
+        loadingPanel.name = 'LoadingCutoutPanel';
+        loadingPanel.setPosition(0, -24);
+        const eyebrow = this.makeLabel('引 灵 入 境', 19, new Color('#DDBE72'));
+        eyebrow.node.setPosition(0, 62);
+        loadingPanel.addChild(eyebrow.node);
+        const subtitle = this.makeLabel('正在接引山河灵脉', 25, new Color('#F5E7C0'));
+        subtitle.node.setPosition(0, 24);
+        loadingPanel.addChild(subtitle.node);
+
+        const track = this.makeRect(500, 26, new Color(3, 20, 23, 228), new Color('#C9A85A'), 13, 2);
+        track.setPosition(0, -24);
+        loadingPanel.addChild(track);
         const fillNode = new Node('LoadingProgressFill');
         fillNode.layer = Layers.Enum.UI_2D;
-        fillNode.addComponent(UITransform).setContentSize(512, 18);
+        fillNode.addComponent(UITransform).setContentSize(476, 12);
         this.loadingProgressGraphics = fillNode.addComponent(Graphics);
         track.addChild(fillNode);
 
-        this.loadingProgressLabel = this.makeLabel('正在连接灵脉…', 18, new Color('#D9EEE7'));
-        this.loadingProgressLabel.node.setPosition(0, -42);
-        this.overlay.addChild(this.loadingProgressLabel.node);
+        this.loadingProgressLabel = this.makeLabel('引灵进度 0%', 16, new Color('#AFCFC2'));
+        this.loadingProgressLabel.node.setPosition(0, -66);
+        loadingPanel.addChild(this.loadingProgressLabel.node);
+        this.overlay.addChild(loadingPanel);
         this.updateLoadingProgress(0, 1, 0);
     }
 
     private updateLoadingProgress(completed: number, total: number, failed: number): void {
         const safeTotal = Math.max(total, 1);
         const ratio = Math.min(1, Math.max(0, completed / safeTotal));
-        const width = 512 * ratio;
+        const width = 476 * ratio;
         const graphics = this.loadingProgressGraphics;
         if (graphics?.isValid) {
             graphics.clear();
             if (width > 0) {
-                graphics.fillColor = new Color('#67D4B8');
-                graphics.roundRect(-256, -9, width, 18, Math.min(9, width / 2));
+                graphics.fillColor = new Color('#D9B761');
+                graphics.roundRect(-238, -6, width, 12, Math.min(6, width / 2));
                 graphics.fill();
             }
         }
@@ -1647,11 +1660,11 @@ export class GameBootstrap extends Component {
         tutorialDetail.node.getComponent(UITransform)?.setContentSize(346, 28);
         tutorial.addChild(tutorialDetail.node);
         if (preferences.tutorialCompleted) {
-            const replay = this.makeCompactButton('回放指引', () => {
+            const replay = this.makeCutoutButton('回放指引', 'jade', () => {
                 this.settings.update({ tutorialCompleted: false });
                 this.persistSettings();
                 this.showSettingsPanel(origin);
-            }, 132, 48, true);
+            }, 142, 54, 18);
             replay.setPosition(tutorialWidth / 2 - 92, 0);
             tutorial.addChild(replay);
         }
@@ -1882,7 +1895,7 @@ export class GameBootstrap extends Component {
         });
         this.overlay.addChild(settingsButton);
         if (this.hasLocalQaFlag('qaBalance=1')) {
-            const balanceButton = this.makeCompactButton('平 衡', () => this.showBalanceReportPanel(), 94, 40, true);
+            const balanceButton = this.makeCutoutButton('平 衡', 'jade', () => this.showBalanceReportPanel(), 104, 44, 16);
             balanceButton.name = 'BalanceReportAction';
             balanceButton.setPosition(-medallionX, 448);
             this.overlay.addChild(balanceButton);
@@ -3327,14 +3340,7 @@ export class GameBootstrap extends Component {
         icon.setPosition(0, 7);
         node.addChild(icon);
 
-        const plate = this.makeRect(
-            176,
-            34,
-            new Color(3, 18, 22, 218),
-            new Color(veinKind === 'sword' ? '#F2CF7B' : '#79DDB2'),
-            12,
-            1.5,
-        );
+        const plate = this.makeCutoutSurface(184, 38, true);
         plate.setPosition(0, -70);
         const label = this.makeLabel('', 16, new Color('#F2FFF9'));
         label.node.getComponent(UITransform)?.setContentSize(166, 30);
@@ -3525,9 +3531,10 @@ export class GameBootstrap extends Component {
         this.canvas.addChild(hud);
         const visibleWidth = this.visibleDesignWidth();
 
-        const backing = this.makeRect(this.visibleDesignWidth(), 116, new Color(3, 16, 20, 72), new Color(91, 151, 137, 48), 0, 1);
+        const backing = this.makeCutoutSurface(this.visibleDesignWidth(), 116, true);
         backing.name = 'HudBacking';
         backing.setPosition(0, 609);
+        backing.addComponent(UIOpacity).opacity = 178;
         hud.addChild(backing);
 
         // 破境预警环画在头像底下：临近破境时整个头像会开始呼吸，余光就能看见。
@@ -3589,20 +3596,13 @@ export class GameBootstrap extends Component {
         this.waveLabel.node.getComponent(UITransform)?.setContentSize(188, 82);
         hud.addChild(this.waveLabel.node);
 
-        const pauseButton = this.makeCompactButton('暂 停', () => this.showPauseMenu(), 94, 46);
+        const pauseButton = this.makeCutoutButton('暂 停', 'jade', () => this.showPauseMenu(), 96, 48, 17);
         pauseButton.name = 'PauseAction';
         pauseButton.setPosition(visibleWidth / 2 - 58, 611);
         hud.addChild(pauseButton);
 
         const objectiveWidth = Math.min(620, visibleWidth - 24);
-        this.objectiveBacking = this.makeRect(
-            objectiveWidth,
-            52,
-            new Color(3, 18, 22, 150),
-            new Color(105, 205, 177, 112),
-            18,
-            2,
-        );
+        this.objectiveBacking = this.makeCutoutSurface(objectiveWidth, 58, true);
         this.objectiveBacking.name = 'WaveObjective';
         // 目标条、道途条与连斩条现在会同时出现，纵向必须互不重叠地依次排布。
         this.objectiveBacking.setPosition(0, 502);
@@ -3619,14 +3619,7 @@ export class GameBootstrap extends Component {
         hud.addChild(waveRouteNode);
         this.drawWaveRoute();
 
-        this.routeChoiceBacking = this.makeRect(
-            470,
-            36,
-            new Color(4, 23, 27, 218),
-            new Color(this.currentStage.accent),
-            12,
-            1,
-        );
+        this.routeChoiceBacking = this.makeCutoutSurface(470, 42, true);
         this.routeChoiceBacking.name = 'RouteChoiceStatus';
         this.routeChoiceBacking.setPosition(0, 452);
         this.routeChoiceBacking.active = false;
@@ -3640,14 +3633,7 @@ export class GameBootstrap extends Component {
         hud.addChild(bottomBacking);
         const leftHudCenter = -Math.min(185, Math.max(0, visibleWidth / 2 - 180));
 
-        this.recentUpgradePanel = this.makeRect(
-            360,
-            52,
-            new Color(3, 18, 22, 238),
-            new Color('#D9B86C'),
-            UI_THEME.radius.compact,
-            1,
-        );
+        this.recentUpgradePanel = this.makeCutoutSurface(360, 58, true);
         this.recentUpgradePanel.name = 'RecentUpgrade';
         this.recentUpgradePanel.setPosition(leftHudCenter, -360);
         this.recentUpgradePanel.active = false;
@@ -3662,14 +3648,7 @@ export class GameBootstrap extends Component {
         });
         hud.addChild(this.recentUpgradePanel);
 
-        this.comboPanel = this.makeRect(
-            178,
-            48,
-            new Color(3, 18, 22, 228),
-            new Color('#F0C879'),
-            UI_THEME.radius.compact,
-            1.5,
-        );
+        this.comboPanel = this.makeCutoutSurface(178, 52, true);
         this.comboPanel.name = 'CombatFlow';
         // 连斩条右边缘不能超过 FIXED_HEIGHT 的真实可视宽度，否则窄长屏会只显示半句。
         this.comboPanel.setPosition(Math.min(244, visibleWidth / 2 - 89), 404);
@@ -3788,7 +3767,8 @@ export class GameBootstrap extends Component {
         this.bossHud = new Node('BossHud');
         this.bossHud.layer = Layers.Enum.UI_2D;
         this.bossHud.setPosition(0, 482);
-        const backing = this.makeRect(620, 88, new Color(24, 8, 12, 230), new Color(211, 139, 65, 210), 18, 3);
+        const backing = this.makeCutoutSurface(620, 96, true);
+        backing.addComponent(UIOpacity).opacity = 244;
         this.bossHud.addChild(backing);
         this.bossHpLabel = this.makeLabel('', 19, new Color('#F8D9A0'));
         this.bossHpLabel.node.setPosition(0, 26);

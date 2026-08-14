@@ -19,7 +19,8 @@ const result = spawnSync(creator, [
   '--project',
   projectRoot,
   '--build',
-  'platform=web-mobile;debug=false',
+  // 关闭默认 Cocos 标识页，让引擎启动后直接衔接项目自己的水墨加载页。
+  'platform=web-mobile;debug=false;useSplashScreen=false',
 ], {
   cwd: projectRoot,
   stdio: 'inherit',
@@ -55,8 +56,16 @@ if (!finished) {
 const webStylePath = join(projectRoot, 'build', 'web-mobile', 'style.css');
 if (existsSync(webStylePath)) {
   const style = readFileSync(webStylePath, 'utf8');
+  const additions = [];
   if (!style.includes('overflow: hidden;')) {
-    writeFileSync(webStylePath, `${style}\nhtml, body { overflow: hidden; overscroll-behavior: none; }\n`);
+    additions.push('html, body { overflow: hidden; overscroll-behavior: none; }');
+  }
+  // 引擎脚本尚未接管画布时也使用游戏墨色底，避免出现模板默认灰底闪屏。
+  if (!style.includes('background-color: #071418;')) {
+    additions.push('body { background-color: #071418; }');
+  }
+  if (additions.length > 0) {
+    writeFileSync(webStylePath, `${style}\n${additions.join('\n')}\n`);
   }
 }
 
