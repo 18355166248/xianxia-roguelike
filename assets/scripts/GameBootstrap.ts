@@ -782,7 +782,7 @@ export class GameBootstrap extends Component {
         const veil = this.makeRect(this.visibleDesignWidth(), this.designHeight, new Color(1, 9, 12, 76));
         this.overlay.addChild(veil);
 
-        const title = this.createResourceSpriteSized(HOME_UI_ASSETS.title, 410, 142);
+        const title = this.createResourceSpriteContained(HOME_UI_ASSETS.title, 410, 142);
         title.setPosition(0, 238);
         this.overlay.addChild(title);
 
@@ -1192,7 +1192,7 @@ export class GameBootstrap extends Component {
         const viewportWidth = this.visibleDesignWidth();
         const contentWidth = Math.min(700, viewportWidth - 20);
         const backgroundWidth = Math.max(viewportWidth, this.designHeight * 898 / 1564);
-        this.overlay.addChild(this.createResourceSpriteSized(
+        this.overlay.addChild(this.createBackgroundSpriteSized(
             CODEX_UI_ASSETS.background,
             backgroundWidth,
             this.designHeight,
@@ -1219,7 +1219,7 @@ export class GameBootstrap extends Component {
         const body = new Node('TutorialBody');
         body.layer = Layers.Enum.UI_2D;
         body.addComponent(UITransform).setContentSize(contentWidth, bodyHeight);
-        body.addChild(this.createResourceSpriteSized(CODEX_UI_ASSETS.detailPanel, contentWidth, bodyHeight));
+        body.addChild(this.createSlicedResourceSprite(CODEX_UI_ASSETS.detailPanel, contentWidth, bodyHeight));
         body.setPosition(0, -42);
         panel.addChild(body);
 
@@ -1243,7 +1243,7 @@ export class GameBootstrap extends Component {
             const card = new Node(`TutorialStep-${index + 1}`);
             card.layer = Layers.Enum.UI_2D;
             card.addComponent(UITransform).setContentSize(rowWidth, 142);
-            card.addChild(this.createResourceSpriteSized(CODEX_UI_ASSETS.tierRow, rowWidth, 142));
+            card.addChild(this.createSlicedResourceSprite(CODEX_UI_ASSETS.tierRow, rowWidth, 142));
             card.setPosition(0, 188 - index * 154);
 
             // 序号印章承担三步扫读锚点，颜色只区分功法步，避免整卡出现霓虹色块。
@@ -1281,7 +1281,7 @@ export class GameBootstrap extends Component {
         const start = new Node('TutorialStart');
         start.layer = Layers.Enum.UI_2D;
         start.addComponent(UITransform).setContentSize(startWidth, 82);
-        start.addChild(this.createResourceSpriteSized(CODEX_UI_ASSETS.closeButton, startWidth, 82));
+        start.addChild(this.createSlicedResourceSprite(CODEX_UI_ASSETS.closeButton, startWidth, 82));
         const startLabel = this.makeLabel('明 白 · 开 始 试 炼', 29, new Color('#15211F'));
         startLabel.node.getComponent(UITransform)?.setContentSize(startWidth - 30, 58);
         start.addChild(startLabel.node);
@@ -1333,18 +1333,18 @@ export class GameBootstrap extends Component {
         panel.addChild(resume);
         const settings = this.makeCutoutButton('声 音 与 画 面', 'jade', () => {
             this.showSettingsPanel('pause');
-        }, 458, 68, 25);
+        }, 458, 68, 25, 84);
         settings.setPosition(0, -26);
         panel.addChild(settings);
         const restart = this.makeCutoutButton('重 新 开 始', 'jade', () => {
             this.startStage(this.selectedStageIndex);
-        }, 218, 64, 23);
+        }, 218, 64, 23, 84);
         restart.setPosition(-120, -112);
         panel.addChild(restart);
-        const exit = this.makeCutoutButton('返 回 试 炼 图', 'jade', () => this.showMenu(), 218, 64, 22);
+        const exit = this.makeCutoutButton('返 回 试 炼 图', 'jade', () => this.showMenu(), 218, 64, 22, 84);
         exit.setPosition(120, -112);
         panel.addChild(exit);
-        const note = this.makeLabel('返回试炼图不会记录本局战绩', 15, new Color('#8FAFA5'));
+        const note = this.makeLabel('返回试炼图不会记录本局战绩', 16, new Color('#B7CEC5'));
         note.node.setPosition(0, -204);
         panel.addChild(note.node);
         panel.setPosition(0, -36);
@@ -1376,7 +1376,7 @@ export class GameBootstrap extends Component {
 
         // 背景只做 cover 裁切，所有可点击内容独立拼装；宽屏不拉伸圆环，窄屏只收列距。
         const backgroundWidth = Math.max(viewportWidth, this.designHeight * 898 / 1564);
-        this.overlay.addChild(this.createResourceSpriteSized(
+        this.overlay.addChild(this.createBackgroundSpriteSized(
             CODEX_UI_ASSETS.background,
             backgroundWidth,
             this.designHeight,
@@ -1388,7 +1388,7 @@ export class GameBootstrap extends Component {
         panel.name = 'CultivationCodex';
         this.overlay.addChild(panel);
 
-        const title = this.createResourceSpriteSized(CODEX_UI_ASSETS.title, 348, 110);
+        const title = this.createResourceSpriteContained(CODEX_UI_ASSETS.title, 348, 110);
         title.setPosition(0, 576);
         panel.addChild(title);
         const subtitle = this.makeLabel('九式道法 · 每式三重 · 破境时三选一', 21, new Color('#273633'));
@@ -1403,7 +1403,7 @@ export class GameBootstrap extends Component {
 
         UPGRADE_PATH_ORDER.forEach((path, columnIndex) => {
             const pathColor = codexTextColors[path];
-            const headerBrush = this.createResourceSpriteSized(CODEX_UI_ASSETS.headers[path], 178, 54);
+            const headerBrush = this.createResourceSpriteContained(CODEX_UI_ASSETS.headers[path], 178, 54);
             headerBrush.setPosition(columnX[columnIndex], 440);
             panel.addChild(headerBrush);
             const header = this.makeLabel(UPGRADE_PATH_LABELS[path], 30, new Color('#FFF0C7'));
@@ -1439,7 +1439,7 @@ export class GameBootstrap extends Component {
                     ring.circle(0, 0, 62);
                     ring.stroke();
                     cell.addChild(selectionRing);
-                    const marker = this.createResourceSpriteSized(CODEX_UI_ASSETS.selectedMarker, 48, 40);
+                    const marker = this.createResourceSpriteContained(CODEX_UI_ASSETS.selectedMarker, 48, 40);
                     marker.setPosition(0, 78);
                     cell.addChild(marker);
                 }
@@ -1474,7 +1474,7 @@ export class GameBootstrap extends Component {
         detail.addComponent(UITransform).setContentSize(detailWidth, 352);
         detail.name = 'CodexDetail';
         detail.setPosition(0, -352);
-        detail.addChild(this.createResourceSpriteSized(CODEX_UI_ASSETS.detailPanel, detailWidth, 352));
+        detail.addChild(this.createSlicedResourceSprite(CODEX_UI_ASSETS.detailPanel, detailWidth, 352));
         panel.addChild(detail);
 
         const detailIcon = this.createResourceSprite(selected.iconResourcePath, 72);
@@ -1505,7 +1505,7 @@ export class GameBootstrap extends Component {
             const row = new Node(`CodexTier-${index + 1}`);
             row.layer = Layers.Enum.UI_2D;
             row.addComponent(UITransform).setContentSize(rowWidth, 58);
-            row.addChild(this.createResourceSpriteSized(CODEX_UI_ASSETS.tierRow, rowWidth, 58));
+            row.addChild(this.createSlicedResourceSprite(CODEX_UI_ASSETS.tierRow, rowWidth, 58));
             row.setPosition(0, 36 - index * 68);
             const tier = this.makeLabel(
                 final ? `${tierNames[index]} · 圆满` : tierNames[index],
@@ -1543,7 +1543,7 @@ export class GameBootstrap extends Component {
         const close = new Node('CodexClose');
         close.layer = Layers.Enum.UI_2D;
         close.addComponent(UITransform).setContentSize(360, 78);
-        close.addChild(this.createResourceSpriteSized(CODEX_UI_ASSETS.closeButton, 360, 78));
+        close.addChild(this.createSlicedResourceSprite(CODEX_UI_ASSETS.closeButton, 360, 78));
         const closeLabel = this.makeLabel('收 起', 34, new Color('#15211F'));
         closeLabel.node.getComponent(UITransform)?.setContentSize(340, 60);
         close.addChild(closeLabel.node);
@@ -1566,7 +1566,7 @@ export class GameBootstrap extends Component {
         const viewportWidth = this.visibleDesignWidth();
         const contentWidth = Math.min(714, viewportWidth - 20);
         const backgroundWidth = Math.max(viewportWidth, this.designHeight * 898 / 1564);
-        this.overlay.addChild(this.createResourceSpriteSized(
+        this.overlay.addChild(this.createBackgroundSpriteSized(
             CODEX_UI_ASSETS.background,
             backgroundWidth,
             this.designHeight,
@@ -1576,7 +1576,7 @@ export class GameBootstrap extends Component {
         panel.layer = Layers.Enum.UI_2D;
         panel.addComponent(UITransform).setContentSize(viewportWidth, this.designHeight);
         panel.name = 'SettingsPanel';
-        const title = this.createResourceSpriteSized(SETTINGS_UI_ASSETS.title, 350, 158);
+        const title = this.createResourceSpriteContained(SETTINGS_UI_ASSETS.title, 350, 158);
         title.setPosition(0, 548);
         panel.addChild(title);
         const subtitle = this.makeLabel('声音、震动与动态偏好会自动保存', 20, new Color('#2E3C37'));
@@ -1587,7 +1587,7 @@ export class GameBootstrap extends Component {
         const settingsBody = new Node('SettingsBody');
         settingsBody.layer = Layers.Enum.UI_2D;
         settingsBody.addComponent(UITransform).setContentSize(contentWidth, 780);
-        settingsBody.addChild(this.createResourceSpriteSized(CODEX_UI_ASSETS.detailPanel, contentWidth, 780));
+        settingsBody.addChild(this.createSlicedResourceSprite(CODEX_UI_ASSETS.detailPanel, contentWidth, 780));
         settingsBody.setPosition(0, -10);
         panel.addChild(settingsBody);
 
@@ -1601,14 +1601,14 @@ export class GameBootstrap extends Component {
             const row = new Node(`SettingsRow-${String(key)}`);
             row.layer = Layers.Enum.UI_2D;
             row.addComponent(UITransform).setContentSize(rowWidth, 142);
-            row.addChild(this.createResourceSpriteSized(CODEX_UI_ASSETS.tierRow, rowWidth, 142));
+            row.addChild(this.createSlicedResourceSprite(CODEX_UI_ASSETS.tierRow, rowWidth, 142));
             row.setPosition(0, 264 - index * 154);
             const rowTitle = this.makeLabel(label, 27, new Color('#FFF0C8'));
             rowTitle.horizontalAlign = Label.HorizontalAlign.LEFT;
             rowTitle.node.setPosition(-rowWidth / 2 + 176, 22);
             rowTitle.node.getComponent(UITransform)?.setContentSize(270, 38);
             row.addChild(rowTitle.node);
-            const rowDetail = this.makeLabel(detail, 17, new Color('#B8CEC5'));
+            const rowDetail = this.makeLabel(detail, 17, new Color('#D0DED8'));
             rowDetail.horizontalAlign = Label.HorizontalAlign.LEFT;
             rowDetail.node.setPosition(-rowWidth / 2 + 214, -22);
             rowDetail.node.getComponent(UITransform)?.setContentSize(346, 30);
@@ -1645,7 +1645,7 @@ export class GameBootstrap extends Component {
         const tutorial = new Node('SettingsTutorial');
         tutorial.layer = Layers.Enum.UI_2D;
         tutorial.addComponent(UITransform).setContentSize(tutorialWidth, 128);
-        tutorial.addChild(this.createResourceSpriteSized(CODEX_UI_ASSETS.tierRow, tutorialWidth, 128));
+        tutorial.addChild(this.createSlicedResourceSprite(CODEX_UI_ASSETS.tierRow, tutorialWidth, 128));
         tutorial.setPosition(0, -252);
         const tutorialTitle = this.makeLabel('新手指引', 25, new Color('#FFF0C8'));
         tutorialTitle.horizontalAlign = Label.HorizontalAlign.LEFT;
@@ -1655,7 +1655,7 @@ export class GameBootstrap extends Component {
         const tutorialDetail = this.makeLabel(
             preferences.tutorialCompleted ? '已完成 · 可在下次入境时重看' : '下次入境将自动显示',
             16,
-            new Color('#B8CEC5'),
+            new Color('#D0DED8'),
         );
         tutorialDetail.horizontalAlign = Label.HorizontalAlign.LEFT;
         tutorialDetail.node.setPosition(-tutorialWidth / 2 + 214, -20);
@@ -1666,7 +1666,7 @@ export class GameBootstrap extends Component {
                 this.settings.update({ tutorialCompleted: false });
                 this.persistSettings();
                 this.showSettingsPanel(origin);
-            }, 142, 54, 18);
+            }, 142, 54, 18, 84);
             replay.setPosition(tutorialWidth / 2 - 92, 0);
             tutorial.addChild(replay);
         }
@@ -1675,7 +1675,7 @@ export class GameBootstrap extends Component {
         const close = new Node('SettingsClose');
         close.layer = Layers.Enum.UI_2D;
         close.addComponent(UITransform).setContentSize(390, 88);
-        close.addChild(this.createResourceSpriteSized(CODEX_UI_ASSETS.closeButton, 390, 88));
+        close.addChild(this.createSlicedResourceSprite(CODEX_UI_ASSETS.closeButton, 390, 88));
         const closeLabel = this.makeLabel('完 成', 35, new Color('#15211F'));
         closeLabel.node.getComponent(UITransform)?.setContentSize(360, 64);
         close.addChild(closeLabel.node);
@@ -1848,7 +1848,7 @@ export class GameBootstrap extends Component {
         background.name = 'HomeJourneyBackground';
         this.overlay.addChild(background);
 
-        const title = this.createResourceSpriteSized(HOME_UI_ASSETS.title, 360, 124);
+        const title = this.createResourceSpriteContained(HOME_UI_ASSETS.title, 360, 124);
         title.name = 'HomeCalligraphyTitle';
         title.setPosition(0, 574);
         this.overlay.addChild(title);
@@ -1909,15 +1909,13 @@ export class GameBootstrap extends Component {
     private makeHomeMedallionButton(resourcePath: string): Node {
         const button = new Node('HomeMedallionButton');
         button.layer = Layers.Enum.UI_2D;
-        button.addComponent(UITransform).setContentSize(86, 186);
+        button.addComponent(UITransform).setContentSize(104, 186);
 
-        // 早期切图的圆章主体在透明画布内被压扁；视觉层单独做纵向比例校正，
-        // 触控层仍保持稳定尺寸，避免修图后按钮热区随吊绳一起变窄。
-        const visual = new Node('HomeMedallionVisual');
-        visual.layer = Layers.Enum.UI_2D;
-        visual.setScale(0.78, 1);
-        visual.addChild(this.createResourceSprite(resourcePath, 292));
-        button.addChild(visual);
+        // 源图 120×260 正好对应 86×186 的按钮槽；按高度等比缩放即可保持圆章为正圆。
+        // 旧实现放大到 292 后再横压 0.78，会同时造成窄长变形和上下裁边。
+        // 两张原始切图的圆章主体约为 74×90，文件本身带有约 20% 的纵向拉长。
+        // 这里仅做源资产的逆向几何校正，不重绘文字、纹理和透明边缘；最终圆章恢复为正圆。
+        button.addChild(this.createResourceSpriteContained(resourcePath, 104, 186, 1.2));
         return button;
     }
 
@@ -1965,7 +1963,7 @@ export class GameBootstrap extends Component {
 
         // 选中态只使用一层真实金环资源，通过尺寸与明度表达层级，避免同图叠加形成双圆圈。
         const ringScale = selected ? 1.1 : 1;
-        const ring = this.createResourceSpriteSized(
+        const ring = this.createResourceSpriteContained(
             HOME_UI_ASSETS.chapterMedallion,
             size * ringScale,
             size * ringScale,
@@ -2006,37 +2004,40 @@ export class GameBootstrap extends Component {
     private makeJourneyStagePreview(stage: StageConfig): Node {
         const panel = new Node('StagePreview');
         panel.layer = Layers.Enum.UI_2D;
-        panel.addComponent(UITransform).setContentSize(600, 530);
+        const panelHeight = 492;
+        const sourceHeightScale = panelHeight / 530;
+        panel.addComponent(UITransform).setContentSize(600, panelHeight);
         panel.setPosition(0, -398);
-        panel.addChild(this.createResourceSpriteSized(HOME_UI_ASSETS.infoPanel, 600, 530));
+        panel.addChild(this.createResourceSpriteContained(HOME_UI_ASSETS.infoPanel, 600, panelHeight));
 
         const accent = new Color(stage.accent);
-        // 面板切图 1000×820 在此按 600×530 呈现；右侧文案区位于圆形插图右缘（面板 -87）
+        // 面板源图是 1000×820，按 600×492 等比呈现；内部纵向坐标同步回到源图比例，圆环不再被拉成长椭圆。
+        // 右侧文案区位于圆形插图右缘（面板 -87）
         // 与右内边距（面板 273）之间，视觉中心为 93，不能沿用早期的 78。
         const textColumnX = 93;
         const chapter = this.makeLabel(stage.chapter, 17, new Color(accent.r, accent.g, accent.b, 245));
         chapter.fontFamily = 'Songti SC';
-        chapter.node.setPosition(textColumnX, 206);
+        chapter.node.setPosition(textColumnX, 206 * sourceHeightScale);
         panel.addChild(chapter.node);
         const name = this.makeLabel(stage.stageName, 38, new Color('#FFF0C4'));
         name.fontFamily = 'STKaiti';
-        name.node.setPosition(textColumnX, 166);
+        name.node.setPosition(textColumnX, 166 * sourceHeightScale);
         name.node.getComponent(UITransform)?.setContentSize(330, 52);
         panel.addChild(name.node);
         const tagline = this.makeLabel(stage.tagline, 18, new Color(204, 218, 196, 240));
-        tagline.node.setPosition(textColumnX, 128);
+        tagline.node.setPosition(textColumnX, 128 * sourceHeightScale);
         tagline.node.getComponent(UITransform)?.setContentSize(330, 30);
         panel.addChild(tagline.node);
 
         // 首页只预告本章机制，路线抉择留在入境后的奇遇流程，避免把情报图标伪装成选择器。
         const goalTitle = this.makeLabel('试炼目标', 19, new Color('#D7C18C'));
         goalTitle.horizontalAlign = Label.HorizontalAlign.LEFT;
-        goalTitle.node.setPosition(-3, 82);
+        goalTitle.node.setPosition(-3, 82 * sourceHeightScale);
         goalTitle.node.getComponent(UITransform)?.setContentSize(150, 28);
         panel.addChild(goalTitle.node);
         const goal = this.makeLabel(stage.goal, 18, new Color('#EEF0DF'));
         goal.horizontalAlign = Label.HorizontalAlign.LEFT;
-        goal.node.setPosition(102, 48);
+        goal.node.setPosition(102, 48 * sourceHeightScale);
         goal.node.getComponent(UITransform)?.setContentSize(360, 30);
         panel.addChild(goal.node);
 
@@ -2049,7 +2050,7 @@ export class GameBootstrap extends Component {
             const item = new Node(`JourneyFeature-${index}`);
             item.layer = Layers.Enum.UI_2D;
             item.addComponent(UITransform).setContentSize(132, 120);
-            item.setPosition(iconXs[index], -95);
+            item.setPosition(iconXs[index], -95 * sourceHeightScale);
             const icon = this.createResourceSprite(iconPaths[index], 58);
             item.addChild(icon);
             // 章节首页只做机制预告，不保留“可选”或单项高亮，避免三枚情报图标继续产生切换器错觉。
@@ -2066,9 +2067,9 @@ export class GameBootstrap extends Component {
         const enter = new Node('StagePrimaryAction');
         enter.layer = Layers.Enum.UI_2D;
         // 金色按钮在面板切图中的实体范围是 x 79~919、y 631~767，中心 (499, 699)；
-        // 换算到 600×530 呈现尺寸即中心 (0, -187)、尺寸 504×88，文字与触控区统一挂在该中心。
+        // 等比换算后按钮中心约为 (0, -174)，文字与触控区统一挂在该中心。
         enter.addComponent(UITransform).setContentSize(486, 76);
-        enter.setPosition(0, -187);
+        enter.setPosition(0, -187 * sourceHeightScale);
         const enterLabel = this.makeLabel(`踏入${stage.stageName}`, 31, new Color('#17201D'));
         enterLabel.fontFamily = 'STKaiti';
         enterLabel.node.getComponent(UITransform)?.setContentSize(470, 56);
@@ -6951,9 +6952,7 @@ export class GameBootstrap extends Component {
         });
         panel.addChild(statsStrip);
 
-        panel.addChild(this.makeResultJourneySummary(stats, accent));
-
-        panel.addChild(this.makeResultBuildSummary());
+        panel.addChild(this.makeResultRunSummary(stats, accent));
 
         const rewardPanel = this.makeResultRewardSummary(victory, accent);
         panel.addChild(rewardPanel);
@@ -6988,7 +6987,7 @@ export class GameBootstrap extends Component {
                 ? formatBalanceReport(this.balanceTelemetry.reportFor(this.currentStage.mapId, 1))
                 : guidance.detail,
             13,
-            new Color('#BBD3CA'),
+            new Color('#D0E2DB'),
         );
         guidanceDetail.node.setPosition(0, -15);
         guidanceDetail.node.getComponent(UITransform)?.setContentSize(516, 24);
@@ -7027,6 +7026,7 @@ export class GameBootstrap extends Component {
             300,
             68,
             23,
+            84,
         );
         button.setPosition(-116, 0);
         actionBar.addChild(button);
@@ -7037,6 +7037,7 @@ export class GameBootstrap extends Component {
             220,
             68,
             21,
+            84,
         );
         routeButton.setPosition(154, 0);
         actionBar.addChild(routeButton);
@@ -7155,7 +7156,7 @@ export class GameBootstrap extends Component {
         const footnote = this.makeLabel(
             milestone.kind === 'first-clear' ? stagePresentation.rewardFootnote : milestone.footnote,
             12,
-            new Color(133, 168, 158, 220),
+            new Color('#B7CEC5'),
         );
         footnote.horizontalAlign = Label.HorizontalAlign.LEFT;
         footnote.node.setPosition(70, -42);
@@ -7180,32 +7181,33 @@ export class GameBootstrap extends Component {
         }
     }
 
-    private makeResultJourneySummary(stats: Readonly<RunStatsSnapshot>, accent: Color): Node {
-        const panel = this.makeCutoutSurface(548, 126, true);
-        panel.setPosition(0, 38);
-        const achievementLabel = this.makeLabel('地图功绩', 15, new Color(accent.r, accent.g, accent.b, 235));
+    private makeResultRunSummary(stats: Readonly<RunStatsSnapshot>, accent: Color): Node {
+        // 路线与构筑收进同一张摘要卡，保留复盘入口和流派结果，同时减少结算页连续卡片的压迫感。
+        const panel = this.makeCutoutSurface(548, 184, true);
+        panel.setPosition(0, -32);
+        const achievementLabel = this.makeLabel('历 练 摘 要', 16, new Color(accent.r, accent.g, accent.b, 245));
         achievementLabel.horizontalAlign = Label.HorizontalAlign.LEFT;
-        achievementLabel.node.setPosition(-202, 39);
-        achievementLabel.node.getComponent(UITransform)?.setContentSize(120, 25);
+        achievementLabel.node.setPosition(-190, 66);
+        achievementLabel.node.getComponent(UITransform)?.setContentSize(150, 26);
         panel.addChild(achievementLabel.node);
-        const taken = this.makeLabel(`承伤 ${Math.round(stats.damageTaken)}`, 14, new Color(139, 172, 163, 220));
+        const taken = this.makeLabel(`承伤 ${Math.round(stats.damageTaken)}`, 15, new Color('#B7CEC5'));
         taken.horizontalAlign = Label.HorizontalAlign.RIGHT;
-        taken.node.setPosition(205, 39);
+        taken.node.setPosition(205, 66);
         taken.node.getComponent(UITransform)?.setContentSize(120, 24);
         panel.addChild(taken.node);
         const achievementValue = this.makeLabel(
-            describeMapAchievement(this.currentStage.mapId, stats),
-            17,
-            new Color('#D7E9E2'),
+            `功绩  ·  ${describeMapAchievement(this.currentStage.mapId, stats)}`,
+            18,
+            new Color('#E5F2ED'),
         );
         achievementValue.horizontalAlign = Label.HorizontalAlign.LEFT;
-        achievementValue.node.setPosition(26, 16);
-        achievementValue.node.getComponent(UITransform)?.setContentSize(460, 30);
+        achievementValue.node.setPosition(6, 36);
+        achievementValue.node.getComponent(UITransform)?.setContentSize(492, 30);
         panel.addChild(achievementValue.node);
 
         const divider = new Node('JourneyDivider');
         divider.layer = Layers.Enum.UI_2D;
-        divider.setPosition(0, -7);
+        divider.setPosition(0, 13);
         const dividerGraphics = divider.addComponent(Graphics);
         dividerGraphics.strokeColor = new Color(99, 147, 136, 80);
         dividerGraphics.lineWidth = 1;
@@ -7217,26 +7219,28 @@ export class GameBootstrap extends Component {
         const event = stats.mapEvent;
         if (event) {
             const eventAccent = new Color(MAP_EVENT_TONE_COLORS[event.tone]);
-            const iconBacking = this.makeCutoutSurface(48, 48, true);
-            iconBacking.setPosition(-220, -36);
-            iconBacking.addChild(this.createResourceSprite(event.iconResourcePath, 36));
+            const iconBacking = this.makeCutoutSurface(44, 44, true);
+            iconBacking.setPosition(-228, -19);
+            iconBacking.addChild(this.createResourceSprite(event.iconResourcePath, 32));
             panel.addChild(iconBacking);
-            const eventLabel = this.makeLabel(`奇遇印记  ·  ${event.role}`, 13, eventAccent);
+            const eventLabel = this.makeLabel(`奇遇  ·  ${event.role}`, 15, eventAccent);
             eventLabel.horizontalAlign = Label.HorizontalAlign.LEFT;
-            eventLabel.node.setPosition(-98, -25);
-            eventLabel.node.getComponent(UITransform)?.setContentSize(202, 24);
+            eventLabel.node.setPosition(-119, -8);
+            eventLabel.node.getComponent(UITransform)?.setContentSize(178, 24);
             panel.addChild(eventLabel.node);
-            const eventValue = this.makeLabel(describeMapEventDecision(stats), 16, new Color('#E5F2ED'));
+            const eventValue = this.makeLabel(`${event.title}  ·  ${event.commitLine}`, 16, new Color('#E8F4EF'));
             eventValue.horizontalAlign = Label.HorizontalAlign.LEFT;
-            eventValue.node.setPosition(34, -47);
+            eventValue.node.setPosition(-18, -33);
             eventValue.node.getComponent(UITransform)?.setContentSize(310, 28);
             panel.addChild(eventValue.node);
 
-            const replayButton = this.makeCutoutSurface(88, 34, true);
+            const replayButton = this.makeCutoutSurface(96, 40, true);
             replayButton.name = 'RouteReplayButton';
-            replayButton.setPosition(216, -35);
-            const replayLabel = this.makeLabel('回 放', 12, eventAccent);
-            replayLabel.node.getComponent(UITransform)?.setContentSize(78, 24);
+            // 视觉仍是轻量小按钮，但命中区扩到约 64×39px 的手机尺寸，单手点击不再苛刻。
+            replayButton.getComponent(UITransform)?.setContentSize(116, 70);
+            replayButton.setPosition(214, -20);
+            const replayLabel = this.makeLabel('回 放', 15, eventAccent);
+            replayLabel.node.getComponent(UITransform)?.setContentSize(88, 28);
             replayButton.addChild(replayLabel.node);
             replayButton.on(Node.EventType.TOUCH_START, (touch: EventTouch) => {
                 touch.propagationStopped = true;
@@ -7250,12 +7254,27 @@ export class GameBootstrap extends Component {
             });
             panel.addChild(replayButton);
         } else {
-            const empty = this.makeLabel(describeMapEventDecision(stats), 15, new Color(137, 168, 159, 225));
+            const empty = this.makeLabel(describeMapEventDecision(stats), 16, new Color('#B7CEC5'));
             empty.horizontalAlign = Label.HorizontalAlign.LEFT;
-            empty.node.setPosition(-42, -36);
+            empty.node.setPosition(-42, -20);
             empty.node.getComponent(UITransform)?.setContentSize(430, 30);
             panel.addChild(empty.node);
         }
+
+        const totals = summarizeUpgradePaths((id) => this.skills.getLevel(id));
+        const dominantPath = UPGRADE_PATH_ORDER.reduce((best, path) => (
+            totals[path] > totals[best] ? path : best
+        ), UPGRADE_PATH_ORDER[0]);
+        const build = this.makeLabel(
+            `主修${UPGRADE_PATH_LABELS[dominantPath]}  ·  ${UPGRADE_PATH_ORDER
+                .map((path) => `${UPGRADE_PATH_LABELS[path]} ${totals[path]}重`)
+                .join('  ·  ')}`,
+            16,
+            new Color('#DDECE6'),
+        );
+        build.node.setPosition(0, -68);
+        build.node.getComponent(UITransform)?.setContentSize(504, 28);
+        panel.addChild(build.node);
         return panel;
     }
 
@@ -7455,40 +7474,6 @@ export class GameBootstrap extends Component {
         label.node.getComponent(UITransform)?.setContentSize(108, 24);
         tile.addChild(label.node);
         return tile;
-    }
-
-    private makeResultBuildSummary(): Node {
-        const panel = this.makeCutoutSurface(548, 132, true);
-        panel.setPosition(0, -96);
-        const totals = summarizeUpgradePaths((id) => this.skills.getLevel(id));
-        const dominantPath = UPGRADE_PATH_ORDER.reduce((best, path) => (
-            totals[path] > totals[best] ? path : best
-        ), UPGRADE_PATH_ORDER[0]);
-        const title = this.makeLabel(
-            `道基归途  ·  主修${UPGRADE_PATH_LABELS[dominantPath]}`,
-            17,
-            new Color('#D8E9E2'),
-        );
-        title.horizontalAlign = Label.HorizontalAlign.LEFT;
-        // FIXED_HEIGHT 在窄长屏会裁掉设计画布两侧，左对齐文本需控制在 ±300 的安全区。
-        title.node.setPosition(-116, 41);
-        title.node.getComponent(UITransform)?.setContentSize(360, 30);
-        panel.addChild(title.node);
-        UPGRADE_PATH_ORDER.forEach((path, index) => {
-            const chip = new Node(`ResultPath-${path}`);
-            chip.layer = Layers.Enum.UI_2D;
-            chip.addComponent(UITransform).setContentSize(150, 40);
-            chip.setPosition(-170 + index * 170, -5);
-            const label = this.makeLabel(
-                `${UPGRADE_PATH_LABELS[path]} ${totals[path]}重`,
-                16,
-                new Color(UPGRADE_PATH_COLORS[path]),
-            );
-            label.node.getComponent(UITransform)?.setContentSize(140, 28);
-            chip.addChild(label.node);
-            panel.addChild(chip);
-        });
-        return panel;
     }
 
     private findNearestEnemy(): EnemyState | undefined {
@@ -9231,7 +9216,10 @@ export class GameBootstrap extends Component {
         return node;
     }
 
-    private createResourceSpriteSized(resourcePath: string, width: number, height: number): Node {
+    /**
+     * 仅用于已经按 cover 比例计算好宽高的整页背景；普通 UI 图禁止走这里，避免被强制拉伸。
+     */
+    private createBackgroundSpriteSized(resourcePath: string, width: number, height: number): Node {
         const node = new Node('ResourceSprite');
         node.layer = Layers.Enum.UI_2D;
         const transform = node.addComponent(UITransform);
@@ -9254,6 +9242,46 @@ export class GameBootstrap extends Component {
                     assign(frame);
                 })
                 .catch((error: unknown) => console.warn(`[art] UI 补图失败: ${resourcePath}`, error));
+        }
+        return node;
+    }
+
+    /**
+     * 徽章、题字和插画只能等比缩放：以目标槽为上限做 contain，绝不分别改写宽高。
+     * 节点先占满槽位，资源到达后再收敛到真实显示尺寸，避免异步加载期间布局跳动。
+     */
+    private createResourceSpriteContained(
+        resourcePath: string,
+        maxWidth: number,
+        maxHeight: number,
+        sourceWidthCorrection = 1,
+    ): Node {
+        const node = new Node('ContainedResourceSprite');
+        node.layer = Layers.Enum.UI_2D;
+        const transform = node.addComponent(UITransform);
+        transform.setContentSize(maxWidth, maxHeight);
+        const assign = (frame: SpriteFrame): void => {
+            if (!node.isValid) return;
+            const sprite = node.getComponent(Sprite) ?? node.addComponent(Sprite);
+            sprite.spriteFrame = frame;
+            sprite.sizeMode = Sprite.SizeMode.CUSTOM;
+            const sourceWidth = Math.max(frame.originalSize.width, 1);
+            const sourceHeight = Math.max(frame.originalSize.height, 1);
+            // correction 只用于已确认源文件自身发生形变的资产；常规资源保持 1，仍是严格 contain。
+            const correctedWidth = sourceWidth * sourceWidthCorrection;
+            const scale = Math.min(maxWidth / correctedWidth, maxHeight / sourceHeight);
+            transform.setContentSize(correctedWidth * scale, sourceHeight * scale);
+        };
+        const cached = this.spriteFrames.get(resourcePath);
+        if (cached) {
+            assign(cached);
+        } else {
+            void loadSpriteFrame(resourcePath)
+                .then((frame) => {
+                    this.spriteFrames.set(resourcePath, frame);
+                    assign(frame);
+                })
+                .catch((error: unknown) => console.warn(`[art] 等比资源加载失败: ${resourcePath}`, error));
         }
         return node;
     }
@@ -9308,10 +9336,12 @@ export class GameBootstrap extends Component {
         width: number,
         height: number,
         fontSize = 27,
+        touchHeight = height,
     ): Node {
         const node = new Node(`CutoutButton-${kind}`);
         node.layer = Layers.Enum.UI_2D;
-        node.addComponent(UITransform).setContentSize(width, height);
+        // 命中框与切图尺寸解耦：小屏至少保留约 44px 触控高度，不把次级按钮视觉做得笨重。
+        node.addComponent(UITransform).setContentSize(width, Math.max(height, touchHeight));
         node.addChild(this.createSlicedResourceSprite(
             kind === 'gold' ? CODEX_UI_ASSETS.closeButton : CODEX_UI_ASSETS.tierRow,
             width,
