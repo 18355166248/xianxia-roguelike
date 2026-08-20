@@ -42,8 +42,8 @@ assert(
     'the detail line is simply that level of the card copy, with no extra vocabulary',
 );
 assert(
-    describeUpgradeDelta(firstSword).includes('御剑诀 Lv1'),
-    'the confirmation delta stays readable without route or tier jargon',
+    describeUpgradeDelta(firstSword) === '御剑诀 Lv1',
+    'the persistent upgrade record stays to one direct name-and-level line',
 );
 
 // 满级是这套牌池里唯一需要预告的里程碑。

@@ -40,6 +40,8 @@ export interface EnemyState {
     baseScale: number;
     baseVisualY: number;
     hitTimer: number;
+    hitReactionTier?: 'normal' | 'heavy' | 'finisher';
+    hitReactionDirection?: number;
     deathTimer: number;
     spawnTimer: number;
     castTimer: number;

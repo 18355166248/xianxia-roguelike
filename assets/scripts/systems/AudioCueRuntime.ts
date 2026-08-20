@@ -4,8 +4,13 @@ export type GameAudioCue =
     | 'ui-confirm'
     | 'stage-entry'
     | 'sword-cast'
+    | 'dash-cast'
+    | 'formation-cast'
+    | 'tribulation-charge'
+    | 'tribulation-strike'
     | 'enemy-hit'
     | 'enemy-defeat'
+    | 'elite-defeat'
     | 'player-hit'
     | 'boss-cast'
     | 'boss-phase'
@@ -48,8 +53,16 @@ const CUES: Readonly<Record<GameAudioCue, AudioCueSpec>> = {
     'ui-confirm': { notes: [note(392, 0, 0.12, 0.024), note(587, 0.065, 0.16, 0.028)], cooldownMs: 120 },
     'stage-entry': { notes: [note(196, 0, 0.45, 0.026), note(294, 0.13, 0.55, 0.022), note(440, 0.27, 0.7, 0.018)], cooldownMs: 900 },
     'sword-cast': { notes: [note(760, 0, 0.075, 0.012, 'triangle'), note(1120, 0.025, 0.08, 0.009, 'triangle')], cooldownMs: 95 },
+    // 踏云是短促的由低到高掠风声，不和飞剑的高频金属感重叠。
+    'dash-cast': { notes: [note(180, 0, 0.08, 0.018, 'sine'), note(420, 0.035, 0.12, 0.014, 'triangle')], vibration: 10, cooldownMs: 180 },
+    // 剑阵用三点递进音表达逐柄布阵，尾音停在稳定和弦而非爆炸低频。
+    'formation-cast': { notes: [note(294, 0, 0.16, 0.02, 'triangle'), note(440, 0.07, 0.2, 0.018, 'triangle'), note(587, 0.15, 0.25, 0.016, 'sine')], vibration: [10, 18, 16], cooldownMs: 420 },
+    // 天劫蓄力先给低频压迫，真正落雷再用断崖式下坠音与更重触感兑现。
+    'tribulation-charge': { notes: [note(130, 0, 0.34, 0.024, 'sine'), note(196, 0.12, 0.3, 0.016, 'triangle')], vibration: 12, cooldownMs: 520 },
+    'tribulation-strike': { notes: [note(118, 0, 0.28, 0.048, 'sawtooth'), note(72, 0.045, 0.34, 0.04, 'square'), note(420, 0.02, 0.12, 0.018, 'triangle')], vibration: [24, 18, 46], cooldownMs: 380 },
     'enemy-hit': { notes: [note(164, 0, 0.065, 0.015, 'square')], cooldownMs: 65 },
     'enemy-defeat': { notes: [note(220, 0, 0.11, 0.018, 'triangle'), note(330, 0.04, 0.13, 0.014, 'triangle')], cooldownMs: 90 },
+    'elite-defeat': { notes: [note(146, 0, 0.24, 0.034, 'sawtooth'), note(220, 0.06, 0.28, 0.026, 'triangle'), note(440, 0.16, 0.34, 0.022, 'triangle')], vibration: [24, 20, 38], cooldownMs: 520 },
     'player-hit': { notes: [note(92, 0, 0.18, 0.035, 'sawtooth')], vibration: 24, cooldownMs: 260 },
     'boss-cast': { notes: [note(73, 0, 0.36, 0.04, 'sawtooth'), note(110, 0.12, 0.28, 0.025, 'triangle')], vibration: [14, 30, 20], cooldownMs: 650 },
     'boss-phase': { notes: [note(82, 0, 0.6, 0.045, 'sawtooth'), note(123, 0.12, 0.65, 0.035), note(246, 0.3, 0.7, 0.026)], vibration: [30, 35, 55], cooldownMs: 1200 },

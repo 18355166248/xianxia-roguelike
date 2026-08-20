@@ -93,6 +93,7 @@ import {
     getDashDistance,
     getFormationSpec,
     getTribulationDamageMultiplier,
+    getTribulationRequiredHold,
     getTribulationStrikeRadius,
     SkillRuntime,
 } from './systems/SkillRuntime';
@@ -392,6 +393,7 @@ export class GameBootstrap extends Component {
     private world!: Node;
     private battleLayer!: Node;
     private effectsLayer!: Node;
+    private warningLayer!: Node;
     private screenFxLayer!: Node;
     private overlay!: Node;
     private player!: Node;
@@ -426,11 +428,11 @@ export class GameBootstrap extends Component {
     private recentUpgradePanel?: Node;
     private recentUpgradeLabel?: Label;
     private recentUpgradeTimer = 0;
+    private upgradeSequenceLockTimer = 0;
     private recentUpgradeText = '';
     private comboPanel?: Node;
     private comboLabel?: Label;
     private cultivationChoiceHistory: UpgradeId[] = [];
-    private upgradePreviewFx?: Node;
     private cultivationRelicVolley = 0;
     private hpBar!: Graphics;
     private xpBar!: Graphics;
@@ -607,6 +609,12 @@ export class GameBootstrap extends Component {
             // 最近一次的强反馈结束后退化为轻量累计入口，不让旧进化像被新选择覆盖。
             if (this.recentUpgradeTimer <= 0) this.showUpgradeHistorySummary();
         }
+        if (this.upgradeSequenceLockTimer > 0) {
+            this.upgradeSequenceLockTimer = Math.max(0, this.upgradeSequenceLockTimer - dt);
+            if (this.upgradeSequenceLockTimer <= 0 && this.phase === 'playing' && this.xp >= this.xpNeed) {
+                this.gainXp(0);
+            }
+        }
         if (this.phase !== 'playing') return;
         if (this.chapterBranchMemoryTimer > 0) {
             this.chapterBranchMemoryTimer = Math.max(0, this.chapterBranchMemoryTimer - dt);
@@ -666,6 +674,11 @@ export class GameBootstrap extends Component {
         this.effectsLayer = new Node('EffectsLayer');
         this.effectsLayer.layer = Layers.Enum.UI_2D;
         this.world.addChild(this.effectsLayer);
+
+        // 敌方预警独占最高战场层级：玩家爆发再强也只能从其下方通过，不能遮掉走位信息。
+        this.warningLayer = new Node('EnemyWarningLayer');
+        this.warningLayer.layer = Layers.Enum.UI_2D;
+        this.world.addChild(this.warningLayer);
 
         this.screenFxLayer = new Node('ScreenFxLayer');
         this.screenFxLayer.layer = Layers.Enum.UI_2D;
@@ -3056,7 +3069,7 @@ export class GameBootstrap extends Component {
         node.layer = Layers.Enum.UI_2D;
         const opacity = node.addComponent(UIOpacity);
         const graphics = node.addComponent(Graphics);
-        this.battleLayer.addChild(node);
+        this.warningLayer.addChild(node);
         node.setSiblingIndex(0);
         this.frostTideVisual = { node, graphics, opacity };
         // 寒潮节点常驻但只在预警与横渡阶段绘制，避免每个周期反复创建销毁节点。
@@ -4070,6 +4083,7 @@ export class GameBootstrap extends Component {
         this.playerInvulnerableTimer = Math.max(this.playerInvulnerableTimer, 0.18 + level * 0.08);
         this.skills.markDashUsed(level);
         this.actions.enter('dash', 0.32);
+        this.platformFeedback.playCue('dash-cast', level);
         this.createDashEffect(from, to, level);
 
         const barrier = this.mapObstacles.findSegmentHit(from, to, 30);
@@ -4100,6 +4114,7 @@ export class GameBootstrap extends Component {
         this.skills.markFormationUsed(level);
         this.actions.enter('formation', 0.58);
         this.playerInvulnerableTimer = Math.max(this.playerInvulnerableTimer, 0.16);
+        this.platformFeedback.playCue('formation-cast', level);
         this.createSwordFormationEffect(this.player.position, radius, swordAmount);
         for (const enemy of this.enemies) {
             if (!enemy.node.isValid || enemy.dead) continue;
@@ -4121,6 +4136,19 @@ export class GameBootstrap extends Component {
         }
         if (!this.skills.beginTribulationHold()) return;
         this.playerInvulnerableTimer = Math.max(this.playerInvulnerableTimer, 0.12);
+        this.platformFeedback.playCue('tribulation-charge', level);
+        const target = this.enemies
+            .filter((enemy) => enemy.node.isValid && !enemy.dead)
+            .sort((a, b) => Vec3.distance(a.node.position, this.player.position) - Vec3.distance(b.node.position, this.player.position))[0];
+        const warningPosition = target?.node.position ?? this.constrainToRoad(
+            new Vec3(this.player.position.x, this.player.position.y + 170),
+            20,
+        );
+        this.createTribulationTelegraph(
+            warningPosition,
+            getTribulationStrikeRadius(level),
+            getTribulationRequiredHold(level),
+        );
     }
 
     private releaseTribulationHold(): void {
@@ -4139,6 +4167,7 @@ export class GameBootstrap extends Component {
         );
         const strikeRadius = getTribulationStrikeRadius(level);
         const damage = this.currentSwordDamage() * getTribulationDamageMultiplier(level);
+        this.platformFeedback.playCue('tribulation-strike', level);
 
         // 多重天劫优先分摊到不同目标；目标不足时围绕首要目标落雷，保证首领战仍有成长收益。
         for (let index = 0; index < level; index += 1) {
@@ -4201,7 +4230,11 @@ export class GameBootstrap extends Component {
             resolvedDamage / Math.max(enemy.maxHp, 1),
         );
         this.platformFeedback.playCue(
-            lethal ? 'enemy-defeat' : 'enemy-hit',
+            lethal && enemy.elite && enemy.behavior !== 'boss'
+                ? 'elite-defeat'
+                : lethal
+                    ? 'enemy-defeat'
+                    : 'enemy-hit',
             source === 'sword' ? 0 : source === 'skill' ? 1 : 2,
         );
         this.runStats.recordDamageDealt(Math.min(hpBeforeHit, resolvedDamage));
@@ -4209,7 +4242,9 @@ export class GameBootstrap extends Component {
         if (source === 'skill' && this.hasTrait('thunder-seal')) {
             enemy.thunderMarkTimer = 5;
         }
-        enemy.hitTimer = 0.18;
+        enemy.hitReactionTier = impact.tier;
+        enemy.hitReactionDirection = enemy.node.position.x >= this.player.position.x ? 1 : -1;
+        enemy.hitTimer = impact.tier === 'normal' ? 0.16 : impact.tier === 'heavy' ? 0.24 : 0.3;
         this.createHitBurst(enemy.node.position, color, burstRadius * impact.burstScale, true);
         this.createDamageNumber(enemy.node.position, Math.round(resolvedDamage), impact.tier, impact.numberScale);
         // 命中反馈在伤害结算点统一分级，确保飞剑、功法和环境联动使用同一套视觉语义。
@@ -4280,23 +4315,105 @@ export class GameBootstrap extends Component {
         });
     }
 
+    private createRouteBurst(
+        position: Readonly<Vec3>,
+        color: Color,
+        diameter: number,
+        life = 0.48,
+        name = 'RouteImpactBurst',
+    ): void {
+        const root = new Node(name);
+        root.layer = Layers.Enum.UI_2D;
+        root.setPosition(position);
+        const opacity = root.addComponent(UIOpacity);
+        const graphics = root.addComponent(Graphics);
+        const radius = diameter / 2;
+        const layers = glowStrokeLayers(5, 150);
+        layers.forEach((layer, index) => {
+            graphics.strokeColor = new Color(color.r, color.g, color.b, layer.alpha);
+            graphics.lineWidth = layer.width;
+            graphics.circle(0, 0, radius * (0.28 + index * 0.11));
+            graphics.stroke();
+        });
+        for (let index = 0; index < 12; index += 1) {
+            const angle = index * Math.PI * 2 / 12 + (index % 2) * 0.09;
+            const inner = radius * (0.18 + (index % 3) * 0.04);
+            const outer = radius * (0.62 + (index % 4) * 0.1);
+            graphics.strokeColor = new Color(
+                index % 3 === 0 ? 255 : color.r,
+                index % 3 === 0 ? 240 : color.g,
+                index % 3 === 0 ? 188 : color.b,
+                178 - (index % 3) * 24,
+            );
+            graphics.lineWidth = index % 3 === 0 ? 3.4 : 1.8;
+            graphics.moveTo(Math.cos(angle) * inner, Math.sin(angle) * inner);
+            graphics.lineTo(Math.cos(angle) * outer, Math.sin(angle) * outer);
+            graphics.stroke();
+        }
+        this.effectsLayer.addChild(root);
+        this.effects.push({
+            node: root,
+            elapsed: 0,
+            life: this.prefersReducedMotion ? Math.min(life, 0.28) : life,
+            update: (progress) => {
+                const bloom = 0.48 + (1 - Math.pow(1 - progress, 3)) * 0.78;
+                root.setScale(bloom, bloom);
+                opacity.opacity = Math.round(245 * (1 - Math.pow(progress, 1.7)));
+                if (!this.prefersReducedMotion) root.angle = progress * 18;
+            },
+        });
+    }
+
+    private createBreakthroughGather(position: Readonly<Vec3>): void {
+        const node = new Node('BreakthroughGather');
+        node.layer = Layers.Enum.UI_2D;
+        node.setPosition(position);
+        const opacity = node.addComponent(UIOpacity);
+        const g = node.addComponent(Graphics);
+        for (let index = 0; index < 12; index += 1) {
+            const angle = index * Math.PI * 2 / 12 + 0.16;
+            const inner = 64 + (index % 3) * 8;
+            const outer = 128 + (index % 4) * 11;
+            g.strokeColor = index % 2 === 0
+                ? new Color(255, 226, 151, 180)
+                : new Color(107, 231, 204, 150);
+            g.lineWidth = index % 3 === 0 ? 3 : 1.6;
+            g.moveTo(Math.cos(angle) * inner, Math.sin(angle) * inner);
+            g.lineTo(Math.cos(angle) * outer, Math.sin(angle) * outer);
+            g.stroke();
+        }
+        this.effectsLayer.addChild(node);
+        this.effects.push({
+            node,
+            elapsed: 0,
+            life: this.prefersReducedMotion ? 0.22 : 0.52,
+            update: (progress) => {
+                const collapse = 1 - progress * 0.72;
+                node.setScale(collapse, collapse);
+                opacity.opacity = Math.round(220 * Math.sin(progress * Math.PI));
+                if (!this.prefersReducedMotion) node.angle = -progress * 26;
+            },
+        });
+    }
+
     private createDashEffect(from: Readonly<Vec3>, to: Readonly<Vec3>, level: number): void {
         const trail = new Node('CloudStepTrail');
         trail.layer = Layers.Enum.UI_2D;
         const trailOpacity = trail.addComponent(UIOpacity);
         const g = trail.addComponent(Graphics);
-        g.strokeColor = new Color(125, 231, 211, 105 + level * 25);
-        g.lineWidth = 12 + level * 3;
-        g.moveTo(from.x, from.y);
-        g.bezierCurveTo(
-            from.x + (to.x - from.x) * 0.35 - 18,
-            from.y + (to.y - from.y) * 0.35 + 12,
-            from.x + (to.x - from.x) * 0.7 + 16,
-            from.y + (to.y - from.y) * 0.7 - 10,
-            to.x,
-            to.y,
-        );
-        g.stroke();
+        const segments = 7;
+        const widths = trailSegmentWidths(13 + level * 3, segments);
+        for (let index = 0; index < segments; index += 1) {
+            const a = index / segments;
+            const b = (index + 1) / segments;
+            const swayA = Math.sin(a * Math.PI) * 15;
+            const swayB = Math.sin(b * Math.PI) * 15;
+            g.strokeColor = new Color(125, 231, 211, 88 + level * 26);
+            g.lineWidth = widths[index];
+            g.moveTo(from.x + (to.x - from.x) * a - swayA, from.y + (to.y - from.y) * a + swayA * 0.45);
+            g.lineTo(from.x + (to.x - from.x) * b - swayB, from.y + (to.y - from.y) * b + swayB * 0.45);
+            g.stroke();
+        }
         this.effectsLayer.addChild(trail);
         this.effects.push({
             node: trail,
@@ -4308,27 +4425,30 @@ export class GameBootstrap extends Component {
         });
 
         const currentFrame = this.playerSprite?.spriteFrame;
-        const afterimage = currentFrame
-            ? this.createSpriteFromFrame(currentFrame, this.playerBaseScale, this.playerFacing)
-            : this.createResourceSprite(PLAYER_ASSET.resourcePath, PLAYER_ASSET.displayHeight);
-        afterimage.name = 'CloudStepAfterimage';
-        afterimage.setPosition(from);
-        const opacity = afterimage.addComponent(UIOpacity);
-        opacity.opacity = 150;
-        this.effectsLayer.addChild(afterimage);
-        this.effects.push({
-            node: afterimage,
-            elapsed: 0,
-            life: 0.32,
-            update: (progress) => {
-                afterimage.setPosition(
-                    from.x + (to.x - from.x) * progress * 0.34,
-                    from.y + (to.y - from.y) * progress * 0.34 + progress * 16,
-                );
-                afterimage.setScale(afterimage.scale.x * 1.002, afterimage.scale.y * 1.002);
-                opacity.opacity = Math.round(150 * (1 - progress));
-            },
-        });
+        for (let index = 0; index < Math.min(3, level + 1); index += 1) {
+            const afterimage = currentFrame
+                ? this.createSpriteFromFrame(currentFrame, this.playerBaseScale, this.playerFacing)
+                : this.createResourceSprite(PLAYER_ASSET.resourcePath, PLAYER_ASSET.displayHeight);
+            afterimage.name = `CloudStepAfterimage-${index + 1}`;
+            const offset = (index + 1) / 4;
+            const baseX = from.x + (to.x - from.x) * offset;
+            const baseY = from.y + (to.y - from.y) * offset;
+            afterimage.setPosition(baseX, baseY);
+            const opacity = afterimage.addComponent(UIOpacity);
+            opacity.opacity = 138 - index * 24;
+            this.effectsLayer.addChild(afterimage);
+            this.effects.push({
+                node: afterimage,
+                elapsed: 0,
+                life: 0.24 + index * 0.05,
+                update: (progress) => {
+                    afterimage.setPosition(baseX, baseY + progress * 12);
+                    opacity.opacity = Math.round((138 - index * 24) * (1 - progress));
+                },
+            });
+        }
+        this.createHitBurst(to, new Color('#83E7D3'), 34 + level * 6, false);
+        this.createRouteBurst(to, new Color('#83E7D3'), 80 + level * 12, 0.3, 'CloudStepLanding');
     }
 
     private createSwordFormationEffect(position: Readonly<Vec3>, radius: number, swordAmount: number): void {
@@ -4345,12 +4465,15 @@ export class GameBootstrap extends Component {
         ring.lineWidth = 2;
         ring.circle(0, 0, radius * 0.72);
         ring.stroke();
+        const swords: Node[] = [];
         for (let index = 0; index < swordAmount; index += 1) {
             const angle = index * Math.PI * 2 / swordAmount - Math.PI / 2;
             const sword = this.createResourceSprite('art/relics/xianxia-relics_00/spriteFrame', 50);
             sword.setPosition(Math.cos(angle) * radius * 0.82, Math.sin(angle) * radius * 0.82);
             sword.angle = angle * 180 / Math.PI - 45;
+            sword.setScale(0, 0);
             node.addChild(sword);
+            swords.push(sword);
         }
         this.effectsLayer.addChild(node);
         this.effects.push({
@@ -4358,12 +4481,19 @@ export class GameBootstrap extends Component {
             elapsed: 0,
             life: 0.72,
             update: (progress) => {
-                const scale = 0.46 + Math.sin(Math.min(progress / 0.42, 1) * Math.PI / 2) * 0.62;
+                const deploy = Math.min(1, progress / 0.3);
+                const scale = 0.72 + Math.sin(deploy * Math.PI / 2) * 0.34;
                 node.setScale(scale, scale);
-                node.angle = progress * 70;
+                node.angle = progress * 42;
+                swords.forEach((sword, index) => {
+                    const swordDeploy = Math.max(0, Math.min(1, (progress - 0.1 - index * 0.018) / 0.2));
+                    const swordScale = Math.sin(swordDeploy * Math.PI / 2);
+                    sword.setScale(swordScale, swordScale);
+                });
                 opacity.opacity = Math.round(255 * (1 - Math.max(0, progress - 0.55) / 0.45));
             },
         });
+        this.createRouteBurst(position, new Color('#74E3D8'), radius * 1.25, 0.44, 'SwordFormationDeploy');
     }
 
     private createTribulationStrike(position: Readonly<Vec3>, radius: number, index: number): void {
@@ -4376,9 +4506,21 @@ export class GameBootstrap extends Component {
         g.circle(0, 0, radius);
         g.fill();
         g.strokeColor = new Color(222, 247, 255, 225);
-        g.lineWidth = 10;
+        g.lineWidth = index === 0 ? 12 : 7;
         g.moveTo(0, 560);
         g.lineTo(0, 16);
+        g.stroke();
+        g.strokeColor = new Color(112, 215, 242, index === 0 ? 180 : 130);
+        g.lineWidth = index === 0 ? 4 : 2.5;
+        g.moveTo(-38, 430);
+        g.lineTo(-10, 300);
+        g.lineTo(-28, 170);
+        g.lineTo(0, 18);
+        g.stroke();
+        g.moveTo(34, 360);
+        g.lineTo(12, 250);
+        g.lineTo(25, 126);
+        g.lineTo(0, 18);
         g.stroke();
         g.strokeColor = new Color(105, 211, 238, 170);
         g.lineWidth = 3;
@@ -4399,127 +4541,13 @@ export class GameBootstrap extends Component {
                 opacity.opacity = Math.round(255 * (1 - progress));
             },
         });
-    }
-
-    private createUpgradeResonance(id: UpgradeId, level: number): void {
-        const upgrade = UPGRADES.find((choice) => choice.id === id);
-        if (!upgrade) return;
-        const build = resolveCultivationBuild((choiceId) => this.skills.getLevel(choiceId));
-        const pathColor = new Color(UPGRADE_PATH_COLORS[upgrade.path]);
-        const node = new Node('UpgradeResonance');
-        node.layer = Layers.Enum.UI_2D;
-        node.setPosition(this.player.position);
-        const opacity = node.addComponent(UIOpacity);
-        const g = node.addComponent(Graphics);
-        g.strokeColor = new Color(pathColor.r, pathColor.g, pathColor.b, 220);
-        g.lineWidth = 4;
-        for (let ring = 0; ring < Math.max(1, build.tier); ring += 1) {
-            g.circle(0, 0, 44 + ring * 23);
-            g.stroke();
-        }
-        const iconBacking = new Node('UpgradeResonanceIcon');
-        iconBacking.layer = Layers.Enum.UI_2D;
-        iconBacking.setPosition(0, 105);
-        const iconRing = iconBacking.addComponent(Graphics);
-        iconRing.fillColor = new Color(3, 18, 22, 232);
-        iconRing.circle(0, 0, 34);
-        iconRing.fill();
-        iconRing.strokeColor = new Color(pathColor.r, pathColor.g, pathColor.b, 235);
-        iconRing.lineWidth = 2;
-        iconRing.circle(0, 0, 34);
-        iconRing.stroke();
-        iconBacking.addChild(this.createResourceSprite(upgrade.iconResourcePath, 50));
-        node.addChild(iconBacking);
-        const label = this.makeLabel(
-            build.relic && build.path === upgrade.path
-                ? `${build.relic.name} · ${build.evolutionName}`
-                : `${upgrade.title} · ${level}阶`,
-            24,
-            new Color('#FFF1B8'),
+        this.createRouteBurst(
+            position,
+            new Color(index === 0 ? '#DDF7FF' : '#72DDE8'),
+            radius * (index === 0 ? 1.65 : 1.22),
+            0.42 + index * 0.04,
+            index === 0 ? 'TribulationMainImpact' : 'TribulationAftershock',
         );
-        label.node.setPosition(0, 154);
-        label.node.getComponent(UITransform)?.setContentSize(300, 34);
-        node.addChild(label.node);
-        this.effectsLayer.addChild(node);
-        this.effects.push({
-            node,
-            elapsed: 0,
-            life: 1.08,
-            update: (progress) => {
-                const reveal = Math.min(1, progress / 0.22);
-                const scale = 0.72 + reveal * 0.28 + progress * 0.28;
-                node.setScale(scale, scale);
-                opacity.opacity = Math.round(255 * (progress < 0.62 ? reveal : (1 - progress) / 0.38));
-            },
-        });
-        if (build.relic && build.path === upgrade.path) {
-            this.createAbilityHint(`${build.tierName} · ${upgrade.title}已生效`, pathColor);
-        }
-        this.createUpgradeDemonstration(upgrade, build);
-        this.createScreenFlash(new Color(pathColor.r, pathColor.g, pathColor.b, 44 + level * 8), 0.32);
-    }
-
-    private createUpgradeDemonstration(upgrade: UpgradeConfig, build: CultivationBuildSnapshot): void {
-        const path = upgrade.path;
-        const color = new Color(UPGRADE_PATH_COLORS[path]);
-        const amount = build.tier >= 3 ? 5 : build.tier >= 2 ? 3 : 2;
-        const displayHeight = path === 'edge' ? 62 : path === 'mystic' ? 58 : 31;
-        const travel = path === 'edge' ? 126 : path === 'mystic' ? 108 : 92;
-        for (let index = 0; index < amount; index += 1) {
-            const angle = -Math.PI / 2 + index * Math.PI * 2 / amount;
-            const sword = new Node(`UpgradeDemoSword-${path}-${index}`);
-            sword.layer = Layers.Enum.UI_2D;
-            sword.setPosition(this.player.position);
-            sword.angle = angle * 180 / Math.PI - 45;
-            const opacity = sword.addComponent(UIOpacity);
-            sword.addChild(this.createResourceSprite(PLAYER_AURA_SWORD_RESOURCES[path], displayHeight));
-            this.effectsLayer.addChild(sword);
-            this.effects.push({
-                node: sword,
-                elapsed: 0,
-                life: 0.82,
-                update: (progress) => {
-                    const reveal = Math.min(1, progress / 0.2);
-                    const eased = 1 - Math.pow(1 - progress, 3);
-                    const radius = 22 + travel * eased;
-                    sword.setPosition(
-                        this.player.position.x + Math.cos(angle) * radius,
-                        this.player.position.y + Math.sin(angle) * radius * 0.72,
-                    );
-                    const scale = 0.72 + reveal * 0.28;
-                    sword.setScale(scale, scale);
-                    const fade = Math.min(1, Math.max(0, (1 - progress) / 0.34));
-                    opacity.opacity = Math.round(235 * reveal * fade);
-                },
-            });
-        }
-        if (path === 'mystic') {
-            this.createSwordFormationEffect(this.player.position, 86 + build.tier * 8, 4 + build.tier);
-        } else if (path === 'vitality') {
-            const pulse = new Node('UpgradeVitalityPulse');
-            pulse.layer = Layers.Enum.UI_2D;
-            pulse.setPosition(this.player.position);
-            const opacity = pulse.addComponent(UIOpacity);
-            const ring = pulse.addComponent(Graphics);
-            ring.fillColor = new Color(color.r, color.g, color.b, 34);
-            ring.circle(0, 0, 70);
-            ring.fill();
-            ring.strokeColor = new Color(color.r, color.g, color.b, 220);
-            ring.lineWidth = 5;
-            ring.circle(0, 0, 70);
-            ring.stroke();
-            this.effectsLayer.addChild(pulse);
-            this.effects.push({
-                node: pulse,
-                elapsed: 0,
-                life: 0.8,
-                update: (progress) => {
-                    const scale = 0.6 + progress * 0.8;
-                    pulse.setScale(scale, scale);
-                    opacity.opacity = Math.round(220 * (1 - progress));
-                },
-            });
-        }
     }
 
     private playUpgradeShowcase(spec: UpgradeShowcaseSpec): void {
@@ -4537,6 +4565,13 @@ export class GameBootstrap extends Component {
                 Vec3.distance(a.node.position, this.player.position)
                 - Vec3.distance(b.node.position, this.player.position)
             ));
+        this.createRouteBurst(
+            this.player.position,
+            color,
+            150 + spec.tier * 34,
+            0.54,
+            `UpgradeManifest-${spec.kind}`,
+        );
 
         if (spec.kind === 'sword-volley') {
             const target = alive[0];
@@ -4602,7 +4637,6 @@ export class GameBootstrap extends Component {
 
         this.playerInvulnerableTimer = Math.max(this.playerInvulnerableTimer, 0.34);
         this.attackTimer = Math.max(this.attackTimer, 0.42);
-        this.createAbilityHint(spec.label, color);
         this.createScreenFlash(new Color(color.r, color.g, color.b, 62 + spec.tier * 12), 0.34);
         this.cameraShakeTimer = 0.28 + spec.tier * 0.06;
         this.cameraShakeStrength = Math.max(this.cameraShakeStrength, 8 + spec.tier * 3);
@@ -5015,13 +5049,20 @@ export class GameBootstrap extends Component {
         if (enemy.kind === 'shanxiao' && this.updateBossAnimationFrame(enemy, speedMultiplier > 0.15)) {
             const spawnProgress = 1 - Math.min(enemy.spawnTimer / 0.28, 1);
             const spawnEase = 1 - Math.pow(1 - spawnProgress, 3);
+            const bossHitStrength = enemy.hitReactionTier === 'heavy' ? 1.65 : 1;
+            const bossImpact = enemy.hitTimer > 0
+                ? Math.min(1, enemy.hitTimer / (enemy.hitReactionTier === 'heavy' ? 0.2 : 0.12)) * bossHitStrength
+                : 0;
             enemy.opacity.opacity = Math.round(255 * spawnEase);
-            enemy.visual.setPosition(0, enemy.baseVisualY);
-            enemy.visual.setScale(
-                enemy.baseScale * facing * Math.max(0.15, spawnEase),
-                enemy.baseScale * Math.max(0.15, spawnEase),
+            enemy.visual.setPosition(
+                (enemy.hitReactionDirection ?? -facing) * bossImpact * 5,
+                enemy.baseVisualY - bossImpact * 2,
             );
-            enemy.visual.angle = 0;
+            enemy.visual.setScale(
+                enemy.baseScale * facing * (1 + bossImpact * 0.035) * Math.max(0.15, spawnEase),
+                enemy.baseScale * (1 - bossImpact * 0.045) * Math.max(0.15, spawnEase),
+            );
+            enemy.visual.angle = (enemy.hitReactionDirection ?? 1) * bossImpact * 2.8;
             const sprite = enemy.visual.getComponent(Sprite);
             if (sprite) {
                 sprite.color = enemy.enrageTimer > 0
@@ -5081,10 +5122,13 @@ export class GameBootstrap extends Component {
         );
 
         if (enemy.hitTimer > 0) {
-            const impact = Math.min(1, enemy.hitTimer / 0.14);
-            scaleX += impact * 0.14;
-            scaleY -= impact * 0.12;
-            lean += Math.sin(enemy.hitTimer * 110) * 7;
+            const heavy = enemy.hitReactionTier === 'heavy' || enemy.champion || enemy.elite;
+            const impact = Math.min(1, enemy.hitTimer / (heavy ? 0.2 : 0.12));
+            const strength = heavy ? 1.65 : 1;
+            scaleX += impact * 0.12 * strength;
+            scaleY -= impact * 0.1 * strength;
+            bob -= impact * (heavy ? 5 : 2);
+            lean += (enemy.hitReactionDirection ?? facing) * impact * (heavy ? 13 : 7);
         }
 
         const spawnProgress = 1 - Math.min(enemy.spawnTimer / 0.28, 1);
@@ -5150,18 +5194,41 @@ export class GameBootstrap extends Component {
             this.tryStartBossFinish();
             return;
         }
-        // 死亡阶段保留碰撞实体一小段时间用于播放退场，但 dead 标记会阻止重复伤害与重复结算。
+        // 单帧敌人也按身份分层退场：杂兵快、精英先失衡再崩解，避免所有单位都像同一个纸片旋走。
         enemy.deathTimer += dt;
-        const progress = Math.min(enemy.deathTimer / 0.42, 1);
+        const duration = enemy.elite ? 0.68 : enemy.champion ? 0.54 : 0.42;
+        const progress = Math.min(enemy.deathTimer / duration, 1);
         const currentScale = enemy.visual.scale;
         const sign = currentScale.x < 0 ? -1 : 1;
-        enemy.opacity.opacity = Math.round(255 * (1 - progress));
-        enemy.visual.setPosition(0, enemy.baseVisualY + progress * 22);
-        enemy.visual.setScale(
-            sign * enemy.baseScale * (1 + progress * 0.28),
-            enemy.baseScale * Math.max(0.08, 1 - progress * 0.88),
-        );
-        enemy.visual.angle += dt * 150 * sign;
+        const fallDirection = enemy.hitReactionDirection ?? sign;
+        const hold = enemy.elite ? Math.min(1, progress / 0.32) : progress;
+        const fade = enemy.elite && progress < 0.28 ? 1 : Math.max(0, 1 - (progress - (enemy.elite ? 0.28 : 0)) / (enemy.elite ? 0.72 : 1));
+        enemy.opacity.opacity = Math.round(255 * fade);
+
+        if (enemy.elite || enemy.champion) {
+            const collapse = Math.sin(hold * Math.PI / 2);
+            enemy.visual.setPosition(fallDirection * collapse * 12, enemy.baseVisualY - collapse * 13 + progress * 9);
+            enemy.visual.setScale(
+                sign * enemy.baseScale * (1 + collapse * 0.12 + progress * 0.18),
+                enemy.baseScale * Math.max(0.1, 1 - collapse * 0.34 - progress * 0.48),
+            );
+            enemy.visual.angle = fallDirection * (6 + progress * (enemy.elite ? 24 : 38));
+        } else if (enemy.kind === 'foxSpirit') {
+            enemy.visual.setPosition(fallDirection * progress * 28, enemy.baseVisualY + progress * 38);
+            enemy.visual.setScale(sign * enemy.baseScale * (1 + progress * 0.18), enemy.baseScale * (1 + progress * 0.08));
+            enemy.visual.angle = fallDirection * progress * 34;
+        } else if (enemy.kind === 'jiangshi') {
+            enemy.visual.setPosition(fallDirection * progress * 18, enemy.baseVisualY - progress * 16);
+            enemy.visual.setScale(sign * enemy.baseScale * (1 + progress * 0.08), enemy.baseScale * Math.max(0.18, 1 - progress * 0.56));
+            enemy.visual.angle = fallDirection * progress * 72;
+        } else {
+            enemy.visual.setPosition(fallDirection * progress * 8, enemy.baseVisualY - progress * 9);
+            enemy.visual.setScale(
+                sign * enemy.baseScale * (1 + progress * 0.22),
+                enemy.baseScale * Math.max(0.08, 1 - progress * 0.9),
+            );
+            enemy.visual.angle = fallDirection * progress * 24;
+        }
         if (progress >= 1 && enemy.node.isValid) enemy.node.destroy();
     }
 
@@ -5276,7 +5343,7 @@ export class GameBootstrap extends Component {
         node.layer = Layers.Enum.UI_2D;
         node.setPosition(position);
         const graphics = node.addComponent(Graphics);
-        this.battleLayer.addChild(node);
+        this.warningLayer.addChild(node);
         this.bossPulses.push({
             node,
             graphics,
@@ -5307,7 +5374,7 @@ export class GameBootstrap extends Component {
                 node.addChild(marker);
             }
         }
-        this.battleLayer.addChild(node);
+        this.warningLayer.addChild(node);
         this.bossPincers.push({
             node,
             graphics,
@@ -5347,6 +5414,13 @@ export class GameBootstrap extends Component {
         this.cameraShakeStrength = Math.max(this.cameraShakeStrength, 15);
         // 转相是一章的情绪拐点，用最重的一档停顿把"它变强了"钉在玩家眼前。
         this.triggerHitStop('finisher');
+        this.createRouteBurst(
+            enemy.node.position,
+            frozenBoss ? new Color('#9EEAF4') : new Color('#E58B62'),
+            300,
+            0.72,
+            'BossPhaseInkBurst',
+        );
         // 寒渊形态以环境机制作为转阶段招式，保留一秒预警给玩家滑出浪线。
         if (frozenBoss) this.frostTide.triggerWarning();
         // 终结演出视觉回归入口固定为单首领战，避免召援随机清怪时机让截图漂移；正式流程仍保留召援清场规则。
@@ -5820,6 +5894,13 @@ export class GameBootstrap extends Component {
                 0.18 + flowKill.snapshot.tier * 0.04,
             );
             this.platformFeedback.playComboMilestone(flowKill.snapshot.tier);
+            this.createRouteBurst(
+                enemy.node.position,
+                tone,
+                110 + flowKill.snapshot.tier * 38,
+                0.38 + flowKill.snapshot.tier * 0.05,
+                `ComboMilestone-${flowKill.snapshot.tier}`,
+            );
         }
         enemy.hp = 0;
         enemy.hpBar.node.active = false;
@@ -5830,6 +5911,16 @@ export class GameBootstrap extends Component {
         } else {
             this.gainXp(enemy.xp);
             this.createDeathBurst(enemy.node.position, enemy.elite ? 74 : enemy.champion ? 58 : 42);
+            if (enemy.elite || enemy.champion) {
+                const tone = enemy.elite ? new Color('#F2CD78') : this.cultivationVisualTone().color;
+                this.createRouteBurst(
+                    enemy.node.position,
+                    tone,
+                    enemy.elite ? 220 : 148,
+                    enemy.elite ? 0.62 : 0.44,
+                    enemy.elite ? 'EliteKillFinisher' : 'ChampionKillImpact',
+                );
+            }
             this.createXpWisp(enemy.node.position);
         }
         this.skills.addTribulationCharge(enemy.elite ? 0.22 : enemy.champion ? 0.14 : 0.08);
@@ -5924,6 +6015,10 @@ export class GameBootstrap extends Component {
         this.createHitBurst(enemy.node.position, accent, 112, true);
         this.cameraShakeTimer = 0.5;
         this.cameraShakeStrength = Math.max(this.cameraShakeStrength, 16);
+        this.scheduleOnce(() => {
+            if (this.phase !== 'boss-finish' || !enemy.node.isValid) return;
+            this.createRouteBurst(enemy.node.position, accent, 360, 0.86, 'BossFinalInkBurst');
+        }, pattern.burstAt);
 
         this.effects.push({
             node: reveal,
@@ -5990,6 +6085,8 @@ export class GameBootstrap extends Component {
     private gainXp(value: number): void {
         if (this.hasLocalQaFlag('qaCultivationAura=1')) return;
         this.xp += value;
+        // 首次显化可能连斩并再次填满修为；经验照常累计，但要等结果条完整退场后再开下一次破境。
+        if (this.upgradeSequenceLockTimer > 0) return;
         if (this.xp < this.xpNeed || this.phase !== 'playing') return;
         this.xp -= this.xpNeed;
         this.level += 1;
@@ -6010,13 +6107,11 @@ export class GameBootstrap extends Component {
         this.triggerHitStop('breakthrough');
         this.breakthroughImminent = false;
         this.breakthroughPulse = 0;
-        this.createScreenFlash(new Color(79, 209, 166, 38), 0.28);
-        this.createDeathBurst(this.player.position, 48);
-        if (this.upgradePreviewFx?.isValid) this.upgradePreviewFx.destroy();
-        this.upgradePreviewFx = undefined;
+        this.createBreakthroughGather(this.player.position);
+        this.createScreenFlash(new Color(79, 209, 166, 48), 0.32);
         this.clearOverlay();
         this.bringOverlayToFront();
-        const veil = this.makeRect(this.visibleDesignWidth(), this.designHeight, new Color(2, 10, 14, 52));
+        const veil = this.makeRect(this.visibleDesignWidth(), this.designHeight, new Color(2, 10, 14, 78));
         veil.name = 'UpgradeVeil';
         this.overlay.addChild(veil);
 
@@ -6043,21 +6138,24 @@ export class GameBootstrap extends Component {
         subtitle.node.getComponent(UITransform)?.setContentSize(570, 30);
         panel.addChild(subtitle.node);
         choices.forEach((choice, index) => {
-            const button = this.makeCasualUpgradeChoice(choice, () => {
-                // 卡片即确认动作：一次点击完成选择、结算和返回战斗，避免休闲流程重复确认。
+            const button = this.makeCasualUpgradeChoice(choice, (selected) => {
+                // 选择先化作灵光归入角色，再在落点结算；规则仍是一点即选，没有第二次确认。
                 const impact = previewUpgradeImpact(choice, (id) => this.skills.getLevel(id));
-                const nextLevel = this.applyUpgrade(choice.id);
-                const momentum = this.activateUpgradeMomentum(
-                    choice,
-                    impact.after,
-                    Boolean(impact.milestone),
-                );
-                this.platformFeedback.playUpgradeCommit(
-                    choice.path,
-                    momentum.tier,
-                    Boolean(impact.milestone),
-                );
-                this.showUpgradeCommit(choice, nextLevel, impact);
+                const start = panel.position.clone().add(selected.position);
+                this.playUpgradeCardFlight(choice, start, () => {
+                    const nextLevel = this.applyUpgrade(choice.id);
+                    const momentum = this.activateUpgradeMomentum(
+                        choice,
+                        impact.after,
+                        Boolean(impact.milestone),
+                    );
+                    this.platformFeedback.playUpgradeCommit(
+                        choice.path,
+                        momentum.tier,
+                        Boolean(impact.milestone),
+                    );
+                    this.showUpgradeCommit(choice, nextLevel, impact);
+                });
             });
             const spacing = choices.length >= 3 ? 190 : 202;
             button.setPosition((index - (choices.length - 1) / 2) * spacing, -14);
@@ -6093,7 +6191,7 @@ export class GameBootstrap extends Component {
 
     private makeCasualUpgradeChoice(
         choice: UpgradeConfig,
-        onClick: () => void,
+        onClick: (node: Node) => void,
     ): Node {
         const presentation = this.casualUpgradePresentation(choice);
         const currentLevel = this.skills.getLevel(choice.id);
@@ -6135,70 +6233,85 @@ export class GameBootstrap extends Component {
         node.on(Node.EventType.TOUCH_START, (event: EventTouch) => {
             event.propagationStopped = true;
             node.setScale(0.97, 0.97);
-            // 按下即把路线形态投到战场，松手取消时撤回；移动端无需额外预览按钮。
-            this.createCasualUpgradePreview(choice);
         });
         node.on(Node.EventType.TOUCH_CANCEL, () => {
             node.setScale(1, 1);
-            if (this.upgradePreviewFx?.isValid) this.upgradePreviewFx.destroy();
-            this.upgradePreviewFx = undefined;
         });
         node.on(Node.EventType.TOUCH_END, (event: EventTouch) => {
             event.propagationStopped = true;
             node.setScale(1, 1);
-            onClick();
+            onClick(node);
         });
         return node;
     }
 
-    private createCasualUpgradePreview(choice: UpgradeConfig): void {
-        if (this.upgradePreviewFx?.isValid) this.upgradePreviewFx.destroy();
-        const presentation = this.casualUpgradePresentation(choice);
-        const accent = new Color(presentation.accent);
-        const node = new Node(`UpgradePreview-${choice.id}`);
-        node.layer = Layers.Enum.UI_2D;
-        const opacity = node.addComponent(UIOpacity);
-        const graphics = node.addComponent(Graphics);
+    private playUpgradeCardFlight(
+        choice: UpgradeConfig,
+        start: Readonly<Vec3>,
+        onLanded: () => void,
+    ): void {
+        const color = new Color(UPGRADE_PATH_COLORS[choice.path]);
+        this.clearOverlay();
+        const veil = this.makeRect(this.visibleDesignWidth(), this.designHeight, new Color(2, 10, 14, 72));
+        this.overlay.addChild(veil);
+        const card = this.makeCutoutSurface(112, 156, true);
+        card.name = `UpgradeCardFlight-${choice.path}`;
+        card.setPosition(start);
+        card.addChild(this.createResourceSprite(choice.iconResourcePath, 92));
+        const opacity = card.addComponent(UIOpacity);
+        this.overlay.addChild(card);
+        let landed = false;
+        this.effects.push({
+            node: card,
+            elapsed: 0,
+            life: this.prefersReducedMotion ? 0.18 : 0.34,
+            update: (progress) => {
+                const eased = 1 - Math.pow(1 - progress, 3);
+                const arc = this.prefersReducedMotion ? 0 : Math.sin(progress * Math.PI) * 86;
+                card.setPosition(
+                    start.x + (this.player.position.x - start.x) * eased,
+                    start.y + (this.player.position.y - start.y) * eased + arc,
+                );
+                const scale = 1 - eased * 0.68;
+                card.setScale(scale, scale);
+                opacity.opacity = Math.round(255 * (1 - Math.max(0, progress - 0.78) / 0.22));
+                if (progress < 1 || landed) return;
+                landed = true;
+                this.createRouteBurst(this.player.position, color, 190, 0.5, `UpgradeIntake-${choice.path}`);
+                onLanded();
+            },
+        });
+    }
 
-        if (choice.path === 'mystic') {
-            graphics.strokeColor = new Color(accent.r, accent.g, accent.b, 238);
-            graphics.lineWidth = 9;
-            graphics.moveTo(0, -62);
-            graphics.lineTo(-18, 12);
-            graphics.lineTo(16, 84);
-            graphics.lineTo(-8, 156);
-            graphics.lineTo(22, 228);
-            graphics.lineTo(0, 312);
-            graphics.stroke();
-            graphics.strokeColor = new Color(223, 214, 255, 245);
-            graphics.lineWidth = 3;
-            graphics.moveTo(0, -62);
-            graphics.lineTo(-18, 12);
-            graphics.lineTo(16, 84);
-            graphics.lineTo(-8, 156);
-            graphics.lineTo(22, 228);
-            graphics.lineTo(0, 312);
-            graphics.stroke();
-        } else {
-            graphics.strokeColor = new Color(accent.r, accent.g, accent.b, 205);
-            graphics.lineWidth = choice.path === 'edge' ? 5 : 8;
-            const radius = choice.path === 'edge' ? 112 : 96;
-            for (let index = 0; index < (choice.path === 'edge' ? 3 : 2); index += 1) {
-                graphics.circle(0, 176, radius + index * 22);
-                graphics.stroke();
-            }
+    private createTribulationTelegraph(position: Readonly<Vec3>, radius: number, duration: number): void {
+        const node = new Node('TribulationTelegraph');
+        node.layer = Layers.Enum.UI_2D;
+        node.setPosition(position);
+        const opacity = node.addComponent(UIOpacity);
+        const g = node.addComponent(Graphics);
+        g.fillColor = new Color(78, 186, 222, 24);
+        g.circle(0, 0, radius);
+        g.fill();
+        g.strokeColor = new Color(154, 230, 255, 190);
+        g.lineWidth = 2.5;
+        g.circle(0, 0, radius);
+        g.stroke();
+        for (let index = 0; index < 4; index += 1) {
+            const angle = index * Math.PI / 2;
+            g.moveTo(Math.cos(angle) * radius * 0.72, Math.sin(angle) * radius * 0.72);
+            g.lineTo(Math.cos(angle) * radius, Math.sin(angle) * radius);
+            g.stroke();
         }
-        node.setPosition(this.player.position.x, -4);
-        this.screenFxLayer.addChild(node);
-        this.upgradePreviewFx = node;
+        this.effectsLayer.addChild(node);
         this.effects.push({
             node,
             elapsed: 0,
-            // 选择层可以长时间停留，预览不应在玩家思考时自行消失。
-            life: 60 * 60,
+            life: Math.max(0.2, duration),
             update: (progress) => {
-                const pulse = 0.84 + Math.sin(progress * 60 * 60 * Math.PI * 2) * 0.16;
-                opacity.opacity = Math.round(220 * pulse);
+                const converge = 1.3 - progress * 0.3;
+                node.setScale(converge, converge);
+                opacity.opacity = Math.round(110 + progress * 145);
+                if (!this.prefersReducedMotion) node.angle = progress * 52;
             },
         });
     }
@@ -6208,100 +6321,74 @@ export class GameBootstrap extends Component {
         level: number,
         impact: UpgradeImpactPreview,
     ): void {
-        if (this.upgradePreviewFx?.isValid) this.upgradePreviewFx.destroy();
-        this.upgradePreviewFx = undefined;
         this.clearOverlay();
-        this.bringOverlayToFront();
         const pathColor = new Color(UPGRADE_PATH_COLORS[choice.path]);
-        const veil = this.makeRect(this.designWidth, this.designHeight, new Color(2, 10, 14, 72));
-        veil.name = 'UpgradeCommitVeil';
-        this.overlay.addChild(veil);
+        this.phase = 'playing';
+        this.upgradeSequenceLockTimer = 0.86;
+        const resume = this.cultivationResumeAfterUpgrade;
+        this.cultivationResumeAfterUpgrade = undefined;
+        resume?.();
+
+        // 点卡后立刻把结果兑现到战场。升级提示只负责说清“升级了什么”，
+        // 具体强度交给同一拍的免费显化，不再用第二张大面板重复解释。
+        this.playUpgradeShowcase(resolveUpgradeShowcase(choice, impact.after));
+        this.bringOverlayToFront();
         if (impact.milestone) {
             this.createBreakthroughSeal(
                 choice.path,
                 resolveUpgradeShowcase(choice, impact.after).tier,
             );
         }
-        const panel = this.makeCutoutSurface(584, 258);
-        panel.name = 'UpgradeCommit';
-        panel.setPosition(0, 160);
+        const panel = this.makeCutoutSurface(520, 128, true);
+        panel.name = 'UpgradeResult';
+        panel.setPosition(0, 286);
         const opacity = panel.addComponent(UIOpacity);
         opacity.opacity = 0;
-        panel.setScale(0.94, 0.94);
-        const iconBacking = this.makeCutoutSurface(92, 92, true);
-        iconBacking.name = 'UpgradeCommitIcon';
-        iconBacking.setPosition(-214, 10);
-        iconBacking.addChild(this.createResourceSprite(choice.iconResourcePath, 64));
+        panel.setScale(0.96, 0.96);
+        const iconBacking = this.makeCutoutSurface(78, 78, true);
+        iconBacking.name = 'UpgradeResultIcon';
+        iconBacking.setPosition(-208, 0);
+        iconBacking.addChild(this.createResourceSprite(choice.iconResourcePath, 56));
         panel.addChild(iconBacking);
-        const eyebrow = this.makeLabel(
-            `道 基 共 鸣  ·  ${UPGRADE_PATH_LABELS[choice.path]}`,
-            16,
-            new Color(pathColor.r, pathColor.g, pathColor.b, 240),
+        const title = this.makeLabel(
+            impact.milestone ?? `${choice.title} · Lv${level}`,
+            28,
+            new Color('#FFF2C8'),
         );
-        eyebrow.horizontalAlign = Label.HorizontalAlign.LEFT;
-        eyebrow.node.setPosition(48, 82);
-        eyebrow.node.getComponent(UITransform)?.setContentSize(380, 26);
-        panel.addChild(eyebrow.node);
-        const title = this.makeLabel(`${choice.title} · ${level}阶`, 30, new Color('#FFF2C8'));
         title.horizontalAlign = Label.HorizontalAlign.LEFT;
-        title.node.setPosition(48, 46);
-        title.node.getComponent(UITransform)?.setContentSize(380, 42);
+        title.node.setPosition(42, 24);
+        title.node.getComponent(UITransform)?.setContentSize(390, 38);
         panel.addChild(title.node);
         const benefit = this.makeLabel(choice.descriptions[level - 1], 19, new Color('#CDE5DC'));
         benefit.horizontalAlign = Label.HorizontalAlign.LEFT;
-        benefit.node.setPosition(48, 4);
-        benefit.node.getComponent(UITransform)?.setContentSize(380, 38);
+        benefit.node.setPosition(42, -20);
+        benefit.node.getComponent(UITransform)?.setContentSize(390, 34);
         panel.addChild(benefit.node);
-        const progression = this.makeLabel(
-            `前后对比  ·  ${describeUpgradeDelta(impact)}`,
-            18,
-            new Color(pathColor.r, pathColor.g, pathColor.b, 245),
-        );
-        progression.horizontalAlign = Label.HorizontalAlign.LEFT;
-        progression.node.setPosition(48, -34);
-        progression.node.getComponent(UITransform)?.setContentSize(380, 34);
-        panel.addChild(progression.node);
-        const milestone = this.makeLabel(
-            `战斗验证  ·  ${impact.milestone ?? impact.detail}`,
-            17,
-            new Color(impact.milestone ? '#F4D78B' : '#9CB8AE'),
-        );
-        milestone.horizontalAlign = Label.HorizontalAlign.LEFT;
-        milestone.node.setPosition(48, -72);
-        milestone.node.getComponent(UITransform)?.setContentSize(380, 32);
-        panel.addChild(milestone.node);
         this.overlay.addChild(panel);
         this.effects.push({
             node: panel,
             elapsed: 0,
-            life: 0.96,
+            life: 0.82,
             update: (progress) => {
-                const reveal = Math.min(1, progress / 0.2);
-                const fade = progress < 0.7 ? reveal : Math.max(0, (1 - progress) / 0.3);
+                const reveal = Math.min(1, progress / 0.16);
+                const fade = progress < 0.68 ? reveal : Math.max(0, (1 - progress) / 0.32);
                 opacity.opacity = Math.round(255 * fade);
-                panel.setPosition(0, 146 + reveal * 14);
-                const scale = 0.94 + reveal * 0.06;
+                panel.setPosition(0, 274 + reveal * 12);
+                const scale = 0.96 + reveal * 0.04;
                 panel.setScale(scale, scale);
             },
         });
         this.updateHud();
-        this.showRecentUpgrade(impact);
-        if (this.recentUpgradePanel?.isValid) {
+        // 先让结果条和真实战场显化独占一拍；退场后再接续余势计时，避免三处文字同时抢视线。
+        this.scheduleOnce(() => {
+            if (this.phase !== 'playing') return;
+            this.showRecentUpgrade(impact);
+            if (!this.recentUpgradePanel?.isValid) return;
             this.recentUpgradePanel.setScale(1.045, 1.045);
             this.scheduleOnce(() => {
                 if (this.recentUpgradePanel?.isValid) this.recentUpgradePanel.setScale(1, 1);
             }, 0.18);
-        }
-        this.scheduleOnce(() => {
-            if (this.phase !== 'upgrade') return;
-            this.clearOverlay();
-            this.phase = 'playing';
-            const resume = this.cultivationResumeAfterUpgrade;
-            this.cultivationResumeAfterUpgrade = undefined;
-            resume?.();
-            // 先恢复波次，再免费释放一次进化效果；该次兑现不写入常规技能冷却。
-            this.playUpgradeShowcase(resolveUpgradeShowcase(choice, impact.after));
-        }, 1.02);
+        }, 0.82);
     }
 
     private createBreakthroughSeal(path: UpgradePath, tier: number): void {
@@ -6791,7 +6878,6 @@ export class GameBootstrap extends Component {
             if (nextLevel >= 3) this.playerInvulnerableTimer = Math.max(this.playerInvulnerableTimer, 1.2);
         }
         if (id === 'endless-life' && nextLevel >= 3) this.grantCultivationShield(16);
-        this.createUpgradeResonance(id, nextLevel);
         this.refreshPlayerAura();
         return nextLevel;
     }
@@ -7973,9 +8059,7 @@ export class GameBootstrap extends Component {
             graphics.stroke();
         }
         const shortDelta = describeUpgradeDelta(impact);
-        this.recentUpgradeText = impact.milestone
-            ? `${impact.milestone} · ${shortDelta}`
-            : `${shortDelta} · 已生效`;
+        this.recentUpgradeText = impact.milestone ?? shortDelta;
         const momentum = this.cultivationMomentum;
         this.recentUpgradeLabel.string = momentum && this.cultivationMomentumTimer > 0
             ? `${this.recentUpgradeText} · ${momentum.label} ${this.cultivationMomentumTimer.toFixed(1)}秒`
@@ -9032,8 +9116,6 @@ export class GameBootstrap extends Component {
     private clearBattle(): void {
         this.waveAnnouncementActive = false;
         this.waveAnnouncementSerial += 1;
-        if (this.upgradePreviewFx?.isValid) this.upgradePreviewFx.destroy();
-        this.upgradePreviewFx = undefined;
         this.clearMoveTarget();
         this.onTouchCancel();
         this.enemies = [];
@@ -9068,6 +9150,7 @@ export class GameBootstrap extends Component {
         this.recentUpgradePanel = undefined;
         this.recentUpgradeLabel = undefined;
         this.recentUpgradeTimer = 0;
+        this.upgradeSequenceLockTimer = 0;
         this.recentUpgradeText = '';
         this.comboPanel = undefined;
         this.comboLabel = undefined;
@@ -9079,6 +9162,7 @@ export class GameBootstrap extends Component {
         this.cultivationMomentumTimer = 0;
         this.battleLayer.children.slice().forEach((child) => child.destroy());
         this.effectsLayer.children.slice().forEach((child) => child.destroy());
+        this.warningLayer.children.slice().forEach((child) => child.destroy());
         this.screenFxLayer.children.slice().forEach((child) => child.destroy());
         this.canvas.getChildByName('HUD')?.destroy();
         this.world.setPosition(0, 0);

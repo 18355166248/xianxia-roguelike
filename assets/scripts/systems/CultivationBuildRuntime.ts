@@ -177,9 +177,9 @@ export function previewUpgradeImpact(
     return { before, after, headline, detail, milestone };
 }
 
-/** 选择确认页只展示一条稳定的前后对比，让玩家能立刻验证本次进化到底改变了什么。 */
+/** 战斗中的升级记录只保留“哪项升到了几级”，具体效果由紧随其后的战场显化直接证明。 */
 export function describeUpgradeDelta(impact: UpgradeImpactPreview): string {
-    return `${impact.headline} · ${impact.detail}`;
+    return impact.headline;
 }
 
 /**

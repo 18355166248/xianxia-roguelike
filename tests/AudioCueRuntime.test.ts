@@ -13,6 +13,13 @@ const victory = audioCueSpecFor('victory');
 assert(hit.notes.length > 0 && hit.notes.every((item) => item.duration > 0), 'hit cue should contain playable notes');
 assert(victory.notes.length >= 4, 'victory cue should have a distinct resolving phrase');
 assert(audioCueSpecFor('boss-phase').vibration !== undefined, 'boss phase should include tactile feedback');
+assert(audioCueSpecFor('dash-cast').notes.length === 2, 'dash should use a short two-stage wind cue');
+assert(audioCueSpecFor('formation-cast').notes.length >= 3, 'formation should use a layered deployment phrase');
+assert(audioCueSpecFor('tribulation-strike').vibration !== undefined, 'tribulation strike should include heavy tactile feedback');
+assert(
+    audioCueSpecFor('tribulation-strike').notes[0].frequency < audioCueSpecFor('sword-cast').notes[0].frequency,
+    'tribulation should remain audibly lower than sword casts',
+);
 assert(audioCueSpecFor('sword-cast', 0).notes[0].frequency !== audioCueSpecFor('sword-cast', 1).notes[0].frequency, 'variants should avoid identical repeated pitch');
 
 const gate = new AudioCueGate();
