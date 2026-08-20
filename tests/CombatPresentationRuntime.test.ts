@@ -16,7 +16,11 @@ assert(runtime.snapshot().active === 0, 'released effects must leave no active b
 for (let index = 0; index < 50; index += 1) runtime.updateFrameTime(1 / 30);
 const degraded = runtime.snapshot();
 assert(degraded.qualityScale < 0.8, 'sustained slow frames should reduce presentation density');
+assert(degraded.longFrames === 50, 'diagnostics should count frames at or below thirty fps');
+assert(degraded.peakActive > 0, 'diagnostics should retain the peak concurrent effect count');
 const reduced = runtime.request('combat', true);
 assert(reduced && reduced.detailScale < 0.6, 'reduced motion should also lower per-effect drawing detail');
+runtime.reset();
+assert(runtime.snapshot().longFrames === 0 && runtime.snapshot().admitted === 0, 'a new battle should reset diagnostics');
 
 console.log('CombatPresentationRuntime tests passed');

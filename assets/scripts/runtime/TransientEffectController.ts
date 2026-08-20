@@ -5,6 +5,7 @@ import {
     type VfxAdmission,
     type VfxDensity,
     type VfxPriority,
+    type VfxBudgetSnapshot,
 } from '../systems/CombatPresentationRuntime';
 
 export interface TransientEffectLease {
@@ -13,12 +14,22 @@ export interface TransientEffectLease {
     complete: () => void;
 }
 
+export interface TransientEffectSnapshot extends VfxBudgetSnapshot {
+    poolHits: number;
+    poolMisses: number;
+    recycled: number;
+    pooled: number;
+}
+
 /** Owns short-lived node reuse, admission control and effect timeline cleanup. */
 export class TransientEffectController {
     public readonly effects: VisualEffectState[] = [];
     private readonly budget = new CombatPresentationRuntime();
     private readonly pools = new Map<string, Node[]>();
     private density: VfxDensity = 'balanced';
+    private poolHits = 0;
+    private poolMisses = 0;
+    private recycled = 0;
 
     public setDensity(density: VfxDensity): void {
         this.density = density;
@@ -48,7 +59,10 @@ export class TransientEffectController {
         const admission = this.budget.request(priority, reducedMotion, this.density);
         if (!admission) return undefined;
         const pool = this.pools.get(key);
-        const node = pool?.pop() ?? factory();
+        const pooledNode = pool?.pop();
+        if (pooledNode) this.poolHits += 1;
+        else this.poolMisses += 1;
+        const node = pooledNode ?? factory();
         node.active = true;
         let completed = false;
         return {
@@ -70,6 +84,19 @@ export class TransientEffectController {
         }
         this.effects.splice(0, this.effects.length);
         this.budget.reset();
+        this.poolHits = 0;
+        this.poolMisses = 0;
+        this.recycled = 0;
+    }
+
+    public snapshot(): TransientEffectSnapshot {
+        return {
+            ...this.budget.snapshot(),
+            poolHits: this.poolHits,
+            poolMisses: this.poolMisses,
+            recycled: this.recycled,
+            pooled: [...this.pools.values()].reduce((sum, nodes) => sum + nodes.length, 0),
+        };
     }
 
     public dispose(): void {
@@ -83,6 +110,7 @@ export class TransientEffectController {
     private releaseNode(key: string, node: Node): void {
         if (!node.isValid) return;
         node.removeFromParent();
+        this.recycled += 1;
         node.active = false;
         node.setPosition(Vec3.ZERO);
         node.setScale(1, 1, 1);

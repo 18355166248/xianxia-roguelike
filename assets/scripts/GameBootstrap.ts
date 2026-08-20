@@ -206,6 +206,7 @@ import {
     advanceBreakthroughPulse,
     breakthroughBreathing,
 } from './systems/CultivationPresentationRuntime';
+import { createVfxStressSamples } from './systems/VfxStressRuntime';
 import {
     buildRouteTrace,
     describeChapterBranchMemory,
@@ -547,6 +548,9 @@ export class GameBootstrap extends Component {
     private cameraShakeStrength = 0;
     private stageEntryCameraOffsetY = 0;
     private qaResultConsumed = false;
+    private vfxStressTimer = 0;
+    private vfxStressWave = 0;
+    private vfxDiagnosticsLabel?: Label;
     private orientationGuard?: Node;
     private orientationPausedByGuard = false;
 
@@ -613,6 +617,7 @@ export class GameBootstrap extends Component {
         this.elapsed += dt;
         this.updateAmbience(dt);
         this.updateEffects(combatDt, dt);
+        this.updateVfxStressQa(dt);
         this.updateCameraFeedback(dt);
         if (this.recentUpgradeTimer > 0) {
             this.recentUpgradeTimer = Math.max(0, this.recentUpgradeTimer - dt);
@@ -2805,7 +2810,9 @@ export class GameBootstrap extends Component {
         this.platformFeedback.setAmbience(this.currentStage.mapId);
         this.platformFeedback.setAmbiencePaused(false);
         this.applyStageVisual(false);
-        const directBattlePreview = this.shouldStartBossPreview() || this.shouldStartElitePreview();
+        const directBattlePreview = this.shouldStartBossPreview()
+            || this.shouldStartElitePreview()
+            || this.hasLocalQaFlag('qaVfxStress=1');
         this.phase = directBattlePreview ? 'playing' : 'stage-entry';
         this.lastStageVictory = undefined;
         this.clearOverlay();
@@ -2915,14 +2922,19 @@ export class GameBootstrap extends Component {
             } else {
                 this.showStageEntry();
             }
-        } else if (!this.hasLocalQaFlag('qaBossPhase=2')) {
+        } else if (!this.hasLocalQaFlag('qaBossPhase=2') && !this.hasLocalQaFlag('qaVfxStress=1')) {
             this.showWaveAnnouncement();
         }
         if (this.hasLocalQaFlag('qaRouteHud=1')) {
             // 固定首境分岔并暂停刷怪，便于检查 HUD 预告而不被升级页或随机触发时机打断。
             this.spawnTimer = Number.POSITIVE_INFINITY;
         }
-        if (this.hasLocalQaFlag('qaCultivationHistory=1')) {
+        if (this.hasLocalQaFlag('qaVfxStress=1')) {
+            this.phase = 'playing';
+            this.spawnTimer = Number.POSITIVE_INFINITY;
+            this.playerInvulnerableTimer = Number.POSITIVE_INFINITY;
+            this.setupVfxStressQa();
+        } else if (this.hasLocalQaFlag('qaCultivationHistory=1')) {
             // 累计进化验收使用真实确认路径写入三次选择，再直达修行卷检查历史、阶数与叠加结果。
             this.phase = 'playing';
             this.clearOverlay();
@@ -4450,10 +4462,19 @@ export class GameBootstrap extends Component {
     }
 
     private createDashEffect(from: Readonly<Vec3>, to: Readonly<Vec3>, level: number): void {
-        const trail = new Node('CloudStepTrail');
-        trail.layer = Layers.Enum.UI_2D;
-        const trailOpacity = trail.addComponent(UIOpacity);
-        const g = trail.addComponent(Graphics);
+        const trailLease = this.transientEffects.acquire('cloud-step-trail', 'combat', this.prefersReducedMotion, () => {
+            const pooledNode = new Node('CloudStepTrail');
+            pooledNode.layer = Layers.Enum.UI_2D;
+            pooledNode.addComponent(UIOpacity);
+            pooledNode.addComponent(Graphics);
+            return pooledNode;
+        });
+        if (!trailLease) return;
+        const trail = trailLease.node;
+        trail.name = 'CloudStepTrail';
+        const trailOpacity = trail.getComponent(UIOpacity)!;
+        const g = trail.getComponent(Graphics)!;
+        g.clear();
         const segments = 7;
         const widths = trailSegmentWidths(13 + level * 3, segments);
         for (let index = 0; index < segments; index += 1) {
@@ -4472,6 +4493,7 @@ export class GameBootstrap extends Component {
             node: trail,
             elapsed: 0,
             life: 0.38,
+            complete: trailLease.complete,
             update: (progress) => {
                 trailOpacity.opacity = Math.round(220 * (1 - progress));
             },
@@ -4479,21 +4501,33 @@ export class GameBootstrap extends Component {
 
         const currentFrame = this.playerSprite?.spriteFrame;
         for (let index = 0; index < Math.min(3, level + 1); index += 1) {
+            const afterimageLease = currentFrame
+                ? this.transientEffects.acquire('cloud-step-afterimage', 'combat', this.prefersReducedMotion, () => (
+                    this.createSpriteFromFrame(currentFrame, this.playerBaseScale, this.playerFacing)
+                ))
+                : undefined;
+            if (currentFrame && !afterimageLease) continue;
             const afterimage = currentFrame
-                ? this.createSpriteFromFrame(currentFrame, this.playerBaseScale, this.playerFacing)
+                ? afterimageLease!.node
                 : this.createResourceSprite(PLAYER_ASSET.resourcePath, PLAYER_ASSET.displayHeight);
             afterimage.name = `CloudStepAfterimage-${index + 1}`;
+            if (currentFrame) {
+                const sprite = afterimage.getComponent(Sprite);
+                if (sprite) sprite.spriteFrame = currentFrame;
+                afterimage.setScale(this.playerBaseScale * this.playerFacing, this.playerBaseScale);
+            }
             const offset = (index + 1) / 4;
             const baseX = from.x + (to.x - from.x) * offset;
             const baseY = from.y + (to.y - from.y) * offset;
             afterimage.setPosition(baseX, baseY);
-            const opacity = afterimage.addComponent(UIOpacity);
+            const opacity = afterimage.getComponent(UIOpacity) ?? afterimage.addComponent(UIOpacity);
             opacity.opacity = 138 - index * 24;
             this.effectsLayer.addChild(afterimage);
             this.effects.push({
                 node: afterimage,
                 elapsed: 0,
                 life: 0.24 + index * 0.05,
+                complete: afterimageLease?.complete,
                 update: (progress) => {
                     afterimage.setPosition(baseX, baseY + progress * 12);
                     opacity.opacity = Math.round((138 - index * 24) * (1 - progress));
@@ -8448,6 +8482,51 @@ export class GameBootstrap extends Component {
         this.transientEffects.update(timelineDt, frameDt);
     }
 
+    private setupVfxStressQa(): void {
+        this.vfxStressTimer = 0;
+        this.vfxStressWave = 0;
+        const panel = this.makeRect(620, 78, new Color(2, 12, 17, 232), new Color(117, 231, 205, 190), 14, 2);
+        panel.name = 'VfxStressDiagnostics';
+        // 放在目标条下方的战场安全区；HUD 后创建且层级更高，贴顶会被目标信息完整遮住。
+        panel.setPosition(0, 310);
+        const label = this.makeLabel('特效压测准备中', 17, new Color('#D8FFF4'));
+        label.node.getComponent(UITransform)?.setContentSize(590, 62);
+        panel.addChild(label.node);
+        this.vfxDiagnosticsLabel = label;
+        this.screenFxLayer.addChild(panel);
+    }
+
+    private updateVfxStressQa(dt: number): void {
+        const label = this.vfxDiagnosticsLabel;
+        if (!label?.node.isValid || !this.hasLocalQaFlag('qaVfxStress=1')) return;
+        this.vfxStressTimer -= dt;
+        if (this.vfxStressTimer <= 0) {
+            this.vfxStressTimer = 1.25;
+            this.vfxStressWave += 1;
+            const samples = createVfxStressSamples();
+            for (const sample of samples) {
+                const position = new Vec3(sample.x, sample.y);
+                const accent = sample.tier === 'finisher'
+                    ? new Color('#FFE7A3')
+                    : sample.tier === 'heavy'
+                        ? new Color('#A8E9FF')
+                        : new Color('#8FE1C4');
+                this.createHitBurst(position, accent, sample.tier === 'finisher' ? 64 : 34, true);
+                this.createDamageNumber(position, sample.damage, sample.tier);
+                this.createSwordTrail(new Vec3(sample.x - 26, sample.y - 12), new Vec3(sample.x + 28, sample.y + 14));
+                if (sample.defeated) {
+                    this.createDeathBurst(position, sample.tier === 'finisher' ? 74 : 44);
+                    this.createXpWisp(position);
+                }
+            }
+            this.createScreenFlash(new Color(115, 232, 205, 22), 0.12);
+        }
+        const metrics = this.transientEffects.snapshot();
+        const attempts = metrics.poolHits + metrics.poolMisses;
+        const hitRate = attempts > 0 ? Math.round(metrics.poolHits / attempts * 100) : 0;
+        label.string = `特效压测 ${this.vfxStressWave}轮 × 50  ·  活跃 ${metrics.active}/${metrics.peakActive}  ·  池命中 ${hitRate}%\n丢弃 ${metrics.dropped}  ·  回收 ${metrics.recycled}  ·  长帧 ${metrics.longFrames}  ·  均帧 ${metrics.frameTimeMs.toFixed(1)}ms`;
+    }
+
     private updateCameraFeedback(dt: number): void {
         if (this.cameraShakeTimer > 0) {
             this.cameraShakeTimer = Math.max(0, this.cameraShakeTimer - dt);
@@ -8485,14 +8564,30 @@ export class GameBootstrap extends Component {
     }
 
     private createScreenFlash(color: Color, life: number): void {
-        const node = this.makeRect(this.designWidth, this.designHeight, color);
+        const lease = this.transientEffects.acquire('screen-flash', 'critical', this.prefersReducedMotion, () => {
+            const pooledNode = new Node('DamageFlash');
+            pooledNode.layer = Layers.Enum.UI_2D;
+            pooledNode.addComponent(UITransform).setContentSize(this.designWidth, this.designHeight);
+            pooledNode.addComponent(Graphics);
+            pooledNode.addComponent(UIOpacity);
+            return pooledNode;
+        });
+        if (!lease) return;
+        const node = lease.node;
         node.name = 'DamageFlash';
-        const opacity = node.addComponent(UIOpacity);
+        node.getComponent(UITransform)?.setContentSize(this.designWidth, this.designHeight);
+        const graphics = node.getComponent(Graphics)!;
+        graphics.clear();
+        graphics.fillColor = color;
+        graphics.rect(-this.designWidth / 2, -this.designHeight / 2, this.designWidth, this.designHeight);
+        graphics.fill();
+        const opacity = node.getComponent(UIOpacity)!;
         this.screenFxLayer.addChild(node);
         this.effects.push({
             node,
             elapsed: 0,
             life,
+            complete: lease.complete,
             update: (progress) => {
                 opacity.opacity = Math.round(255 * (1 - progress));
             },
@@ -8527,16 +8622,25 @@ export class GameBootstrap extends Component {
 
     private createSwordCast(position: Readonly<Vec3>, angle: number): void {
         const visualTone = this.cultivationVisualTone();
-        const node = new Node('SwordCast');
-        node.layer = Layers.Enum.UI_2D;
+        const lease = this.transientEffects.acquire('sword-cast', 'combat', this.prefersReducedMotion, () => {
+            const pooledNode = new Node('SwordCast');
+            pooledNode.layer = Layers.Enum.UI_2D;
+            pooledNode.addComponent(Graphics);
+            return pooledNode;
+        });
+        if (!lease) return;
+        const node = lease.node;
+        node.name = 'SwordCast';
         node.setPosition(position);
         node.angle = angle * 180 / Math.PI;
-        const g = node.addComponent(Graphics);
+        const g = node.getComponent(Graphics)!;
         const color = visualTone.color;
         const spread = 18 + visualTone.tier * 4;
         const reach = 48 + visualTone.tier * 8;
         // 起手的火星沿出剑方向喷出，让"剑从这里飞出去"有来源而不是凭空出现。
-        const sparks = impactShardLayout(this.vfxShardCount(4 + visualTone.tier), angle * 97.3, {
+        const sparks = impactShardLayout(Math.max(2, Math.round(
+            this.vfxShardCount(4 + visualTone.tier) * lease.admission.detailScale,
+        )), angle * 97.3, {
             reach: reach * 0.7,
             direction: 0,
             spread: Math.PI * 0.42,
@@ -8546,6 +8650,7 @@ export class GameBootstrap extends Component {
             node,
             elapsed: 0,
             life: 0.22,
+            complete: lease.complete,
             update: (progress) => {
                 const expand = impactExpansion(progress);
                 const fade = impactFade(progress, 0.2);
@@ -8570,18 +8675,26 @@ export class GameBootstrap extends Component {
 
     private createSwordTrail(from: Readonly<Vec3>, to: Readonly<Vec3>): void {
         const visualTone = this.cultivationVisualTone();
-        const node = new Node('SwordTrail');
-        node.layer = Layers.Enum.UI_2D;
-        const g = node.addComponent(Graphics);
+        const lease = this.transientEffects.acquire('sword-trail', 'ambient', this.prefersReducedMotion, () => {
+            const pooledNode = new Node('SwordTrail');
+            pooledNode.layer = Layers.Enum.UI_2D;
+            pooledNode.addComponent(Graphics);
+            return pooledNode;
+        });
+        if (!lease) return;
+        const node = lease.node;
+        node.name = 'SwordTrail';
+        const g = node.getComponent(Graphics)!;
         const color = visualTone.color;
         // 拖尾切成逐段收窄的缎带：等宽直线读起来是一根棍子，收窄后才有掠过的速度感。
-        const segments = 5;
+        const segments = Math.max(2, Math.round(5 * lease.admission.detailScale));
         const widths = trailSegmentWidths(4 + visualTone.tier, segments);
         this.effectsLayer.addChild(node);
         this.effects.push({
             node,
             elapsed: 0,
             life: 0.18,
+            complete: lease.complete,
             update: (progress) => {
                 const fade = impactFade(progress, 0.12);
                 g.clear();
@@ -9224,6 +9337,9 @@ export class GameBootstrap extends Component {
         this.bossFinishEnemy = undefined;
         this.bossFinishStarted = false;
         this.transientEffects.reset();
+        this.vfxStressTimer = 0;
+        this.vfxStressWave = 0;
+        this.vfxDiagnosticsLabel = undefined;
         this.spiritVeinVisual = undefined;
         this.spiritVein.reset();
         this.mapObstacles.reset();

@@ -43,6 +43,7 @@
     "assets/scripts/systems/ImpactVfxRuntime.ts",
     "assets/scripts/systems/CombatPresentationRuntime.ts",
     "assets/scripts/systems/CultivationPresentationRuntime.ts",
+    "assets/scripts/systems/VfxStressRuntime.ts",
     "assets/scripts/ui/SkillHudRenderer.ts",
     "assets/scripts/GameBootstrap.ts"
   ]

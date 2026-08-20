@@ -13,6 +13,8 @@ export interface VfxBudgetSnapshot {
     qualityScale: number;
     admitted: number;
     dropped: number;
+    longFrames: number;
+    peakActive: number;
 }
 
 const PRIORITY_COST: Readonly<Record<VfxPriority, number>> = {
@@ -32,9 +34,12 @@ export class CombatPresentationRuntime {
     private qualityScale = 1;
     private admitted = 0;
     private dropped = 0;
+    private longFrames = 0;
+    private peakActive = 0;
 
     public updateFrameTime(dt: number): void {
         if (!Number.isFinite(dt) || dt <= 0 || dt > 0.25) return;
+        if (dt >= 1 / 30) this.longFrames += 1;
         this.smoothedFrameTime += (dt - this.smoothedFrameTime) * 0.08;
         const target = this.smoothedFrameTime >= 1 / 38
             ? 0.55
@@ -67,6 +72,7 @@ export class CombatPresentationRuntime {
 
         const id = this.nextId++;
         this.active.set(id, priority);
+        this.peakActive = Math.max(this.peakActive, this.active.size);
         this.admitted += 1;
         const loadScale = load >= 0.72 ? 0.58 : load >= 0.42 ? 0.76 : 1;
         return {
@@ -85,6 +91,11 @@ export class CombatPresentationRuntime {
         this.active.clear();
         this.smoothedFrameTime = 1 / 60;
         this.qualityScale = 1;
+        this.nextId = 1;
+        this.admitted = 0;
+        this.dropped = 0;
+        this.longFrames = 0;
+        this.peakActive = 0;
     }
 
     public snapshot(): VfxBudgetSnapshot {
@@ -94,6 +105,8 @@ export class CombatPresentationRuntime {
             qualityScale: this.qualityScale,
             admitted: this.admitted,
             dropped: this.dropped,
+            longFrames: this.longFrames,
+            peakActive: this.peakActive,
         };
     }
 }
