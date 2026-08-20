@@ -100,6 +100,7 @@ export interface VisualEffectState {
     elapsed: number;
     life: number;
     update: (progress: number) => void;
+    complete?: () => void;
 }
 
 export interface AmbientState {

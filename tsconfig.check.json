@@ -13,6 +13,7 @@
     "assets/scripts/config/GameConfig.ts",
     "assets/scripts/runtime/GameRuntimeTypes.ts",
     "assets/scripts/runtime/SpriteAssetLoader.ts",
+    "assets/scripts/runtime/TransientEffectController.ts",
     "assets/scripts/systems/PlayerAnimationRuntime.ts",
     "assets/scripts/systems/PlayerActionRuntime.ts",
     "assets/scripts/systems/SpiritVeinRuntime.ts",
@@ -40,6 +41,8 @@
     "assets/scripts/systems/SkillRuntime.ts",
     "assets/scripts/systems/HitStopRuntime.ts",
     "assets/scripts/systems/ImpactVfxRuntime.ts",
+    "assets/scripts/systems/CombatPresentationRuntime.ts",
+    "assets/scripts/systems/CultivationPresentationRuntime.ts",
     "assets/scripts/ui/SkillHudRenderer.ts",
     "assets/scripts/GameBootstrap.ts"
   ]

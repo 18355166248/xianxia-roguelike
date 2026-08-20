@@ -82,7 +82,12 @@ import {
 } from './runtime/GameRuntimeTypes';
 import { loadSpriteFrame } from './runtime/SpriteAssetLoader';
 import { PlatformFeedbackService } from './runtime/PlatformFeedbackService';
-import { GameSettingsRuntime, type GamePreferences } from './systems/GameSettingsRuntime';
+import { TransientEffectController } from './runtime/TransientEffectController';
+import {
+    GameSettingsRuntime,
+    type EffectDensity,
+    type GamePreferences,
+} from './systems/GameSettingsRuntime';
 import {
     BalanceTelemetryRuntime,
     formatBalanceReport,
@@ -198,6 +203,10 @@ import {
     type UpgradeShowcaseSpec,
 } from './systems/CultivationBuildRuntime';
 import {
+    advanceBreakthroughPulse,
+    breakthroughBreathing,
+} from './systems/CultivationPresentationRuntime';
+import {
     buildRouteTrace,
     describeChapterBranchMemory,
     describeNextWaveModifiers,
@@ -294,7 +303,6 @@ interface CasualUpgradePresentation {
 
 
 // 修为进入这一段后开始播报破境预警：留出约一次击杀的反应时间，形成"看着它来"的期待。
-const BREAKTHROUGH_WARNING_RATIO = 0.78;
 
 /**
  * 九张道法各自的三级质变。键是能力语义，值是"哪张牌修满会给出它"，
@@ -454,7 +462,8 @@ export class GameBootstrap extends Component {
     private bossCastIndex = 0;
     private bossFinishEnemy?: EnemyState;
     private bossFinishStarted = false;
-    private effects: VisualEffectState[] = [];
+    private readonly transientEffects = new TransientEffectController();
+    private readonly effects: VisualEffectState[] = this.transientEffects.effects;
     private waveAnnouncementActive = false;
     private waveAnnouncementSerial = 0;
     private ambience: AmbientState[] = [];
@@ -588,6 +597,7 @@ export class GameBootstrap extends Component {
         globalThis.document?.removeEventListener('visibilitychange', this.onVisibilityChange);
         globalThis.removeEventListener?.('resize', this.onViewportResize);
         this.platformFeedback.dispose();
+        this.transientEffects.dispose();
     }
 
     protected override update(dt: number): void {
@@ -602,7 +612,7 @@ export class GameBootstrap extends Component {
         const combatDt = this.hitStop.consume(dt);
         this.elapsed += dt;
         this.updateAmbience(dt);
-        this.updateEffects(combatDt);
+        this.updateEffects(combatDt, dt);
         this.updateCameraFeedback(dt);
         if (this.recentUpgradeTimer > 0) {
             this.recentUpgradeTimer = Math.max(0, this.recentUpgradeTimer - dt);
@@ -1599,8 +1609,8 @@ export class GameBootstrap extends Component {
 
         const settingsBody = new Node('SettingsBody');
         settingsBody.layer = Layers.Enum.UI_2D;
-        settingsBody.addComponent(UITransform).setContentSize(contentWidth, 780);
-        settingsBody.addChild(this.createSlicedResourceSprite(CODEX_UI_ASSETS.detailPanel, contentWidth, 780));
+        settingsBody.addComponent(UITransform).setContentSize(contentWidth, 900);
+        settingsBody.addChild(this.createSlicedResourceSprite(CODEX_UI_ASSETS.detailPanel, contentWidth, 900));
         settingsBody.setPosition(0, -10);
         panel.addChild(settingsBody);
 
@@ -1654,12 +1664,53 @@ export class GameBootstrap extends Component {
             settingsBody.addChild(row);
         });
 
+        const densityLabels: Readonly<Record<EffectDensity, string>> = {
+            low: '流 畅',
+            balanced: '均 衡',
+            high: '华 丽',
+        };
+        const densityOrder: ReadonlyArray<EffectDensity> = ['low', 'balanced', 'high'];
+        const densityRowWidth = contentWidth - 64;
+        const densityRow = new Node('SettingsRow-effectDensity');
+        densityRow.layer = Layers.Enum.UI_2D;
+        densityRow.addComponent(UITransform).setContentSize(densityRowWidth, 142);
+        densityRow.addChild(this.createSlicedResourceSprite(CODEX_UI_ASSETS.tierRow, densityRowWidth, 142));
+        densityRow.setPosition(0, -198);
+        const densityTitle = this.makeLabel('特效密度', 27, new Color('#FFF0C8'));
+        densityTitle.horizontalAlign = Label.HorizontalAlign.LEFT;
+        densityTitle.node.setPosition(-densityRowWidth / 2 + 176, 22);
+        densityTitle.node.getComponent(UITransform)?.setContentSize(270, 38);
+        densityRow.addChild(densityTitle.node);
+        const densityDetail = this.makeLabel('控制同屏数量；卡顿时仍会自动降级', 17, new Color('#D0DED8'));
+        densityDetail.horizontalAlign = Label.HorizontalAlign.LEFT;
+        densityDetail.node.setPosition(-densityRowWidth / 2 + 214, -22);
+        densityDetail.node.getComponent(UITransform)?.setContentSize(346, 30);
+        densityRow.addChild(densityDetail.node);
+        const densityButton = this.makeCutoutButton(
+            densityLabels[preferences.effectDensity],
+            'jade',
+            () => {
+                const current = this.settings.snapshot().effectDensity;
+                const next = densityOrder[(densityOrder.indexOf(current) + 1) % densityOrder.length];
+                this.settings.update({ effectDensity: next });
+                this.persistSettings();
+                this.showSettingsPanel(origin);
+            },
+            142,
+            54,
+            18,
+            84,
+        );
+        densityButton.setPosition(densityRowWidth / 2 - 92, 0);
+        densityRow.addChild(densityButton);
+        settingsBody.addChild(densityRow);
+
         const tutorialWidth = contentWidth - 64;
         const tutorial = new Node('SettingsTutorial');
         tutorial.layer = Layers.Enum.UI_2D;
         tutorial.addComponent(UITransform).setContentSize(tutorialWidth, 128);
         tutorial.addChild(this.createSlicedResourceSprite(CODEX_UI_ASSETS.tierRow, tutorialWidth, 128));
-        tutorial.setPosition(0, -252);
+        tutorial.setPosition(0, -362);
         const tutorialTitle = this.makeLabel('新手指引', 25, new Color('#FFF0C8'));
         tutorialTitle.horizontalAlign = Label.HorizontalAlign.LEFT;
         tutorialTitle.node.setPosition(-tutorialWidth / 2 + 176, 20);
@@ -2702,10 +2753,12 @@ export class GameBootstrap extends Component {
             // 设置存储不可用时继续使用系统默认值，首局和战斗不能依赖本地存储权限。
         }
         this.platformFeedback.configure(this.settings.snapshot());
+        this.transientEffects.setDensity(this.settings.snapshot().effectDensity);
     }
 
     private persistSettings(): void {
         this.platformFeedback.configure(this.settings.snapshot());
+        this.transientEffects.setDensity(this.settings.snapshot().effectDensity);
         this.platformFeedback.setAmbiencePaused(this.phase === 'paused');
         if (this.hasLocalQaFlag('qa')) return;
         try {
@@ -7746,9 +7799,11 @@ export class GameBootstrap extends Component {
      */
     private drawBreakthroughProgress(): void {
         const xpRatio = Math.max(0, Math.min(1, this.xp / Math.max(this.xpNeed, 1)));
-        const breathing = this.breakthroughImminent && !this.prefersReducedMotion
-            ? (Math.sin(this.breakthroughPulse) + 1) / 2
-            : 0;
+        const breathing = breakthroughBreathing(
+            this.breakthroughImminent,
+            this.breakthroughPulse,
+            this.prefersReducedMotion,
+        );
 
         this.xpBar.clear();
         this.xpBar.fillColor = new Color(2, 9, 12, 220);
@@ -8389,18 +8444,8 @@ export class GameBootstrap extends Component {
         }
     }
 
-    private updateEffects(dt: number): void {
-        // 所有短生命周期表现统一在这里回收，防止长局中命中特效节点持续累积。
-        for (const effect of this.effects) {
-            if (!effect.node.isValid) continue;
-            effect.elapsed += dt;
-            effect.update(Math.min(effect.elapsed / effect.life, 1));
-        }
-        this.effects = this.effects.filter((effect) => {
-            if (effect.elapsed < effect.life && effect.node.isValid) return true;
-            if (effect.node.isValid) effect.node.destroy();
-            return false;
-        });
+    private updateEffects(timelineDt: number, frameDt: number): void {
+        this.transientEffects.update(timelineDt, frameDt);
     }
 
     private updateCameraFeedback(dt: number): void {
@@ -8427,20 +8472,16 @@ export class GameBootstrap extends Component {
      * 破境前的最后一段修为用呼吸环预告，让升级从"突然弹窗"变成"看着它来"。
      */
     private updateBreakthroughPulse(dt: number): void {
-        const ratio = Math.max(0, Math.min(1, this.xp / Math.max(this.xpNeed, 1)));
-        const imminent = ratio >= BREAKTHROUGH_WARNING_RATIO;
-        if (imminent && !this.breakthroughImminent) {
-            this.breakthroughPulse = 0;
-            this.platformFeedback.playBreakthroughWarning();
-        }
-        this.breakthroughImminent = imminent;
-        if (!imminent) {
-            this.breakthroughPulse = 0;
-            return;
-        }
-        // 越接近满修为，呼吸越快：不看数字也能从节奏判断还差多少。
-        const urgency = (ratio - BREAKTHROUGH_WARNING_RATIO) / Math.max(1 - BREAKTHROUGH_WARNING_RATIO, 0.01);
-        this.breakthroughPulse += dt * (5.2 + urgency * 6.4);
+        const next = advanceBreakthroughPulse(
+            this.xp,
+            this.xpNeed,
+            dt,
+            this.breakthroughImminent,
+            this.breakthroughPulse,
+        );
+        if (next.enteredWarning) this.platformFeedback.playBreakthroughWarning();
+        this.breakthroughImminent = next.imminent;
+        this.breakthroughPulse = next.pulse;
     }
 
     private createScreenFlash(color: Color, life: number): void {
@@ -8630,20 +8671,29 @@ export class GameBootstrap extends Component {
     }
 
     private createHitBurst(position: Readonly<Vec3>, color: Color, radius: number, slash: boolean): void {
-        const node = new Node('HitBurst');
-        node.layer = Layers.Enum.UI_2D;
+        const lease = this.transientEffects.acquire('hit-burst', 'combat', this.prefersReducedMotion, () => {
+            const pooledNode = new Node('HitBurst');
+            pooledNode.layer = Layers.Enum.UI_2D;
+            pooledNode.addComponent(Graphics);
+            return pooledNode;
+        });
+        if (!lease) return;
+        const node = lease.node;
+        node.name = 'HitBurst';
         node.setPosition(position);
-        const g = node.addComponent(Graphics);
+        const g = node.getComponent(Graphics)!;
         const shards = impactShardLayout(
-            this.vfxShardCount(slash ? 7 : 5),
+            Math.max(2, Math.round(this.vfxShardCount(slash ? 7 : 5) * lease.admission.detailScale)),
             position.x * 7.1 + position.y * 3.3,
             { reach: radius * 1.25 },
         );
+        const haloCount = Math.min(this.vfxHaloCount, lease.admission.detailScale >= 0.86 ? 2 : lease.admission.detailScale >= 0.68 ? 1 : 0);
         this.effectsLayer.addChild(node);
         this.effects.push({
             node,
             elapsed: 0,
             life: 0.28,
+            complete: lease.complete,
             update: (progress) => {
                 const expand = impactExpansion(progress);
                 const fade = impactFade(progress, 0.18);
@@ -8656,6 +8706,7 @@ export class GameBootstrap extends Component {
                     (slash ? 4.5 : 3.4) * (1 - expand * 0.55),
                     235 * fade,
                     () => g.circle(0, 0, radius * (0.32 + expand * 0.78)),
+                    haloCount,
                 );
                 this.strokeShards(g, color, shards, progress, fade);
                 if (slash) {
@@ -8669,7 +8720,7 @@ export class GameBootstrap extends Component {
                             g.moveTo(-radius * 0.9, -radius * 0.34);
                             g.quadraticCurveTo(0, radius * 0.28 * (1 + expand), radius * 0.95, radius * 0.4);
                         },
-                        this.prefersReducedMotion ? 0 : 1,
+                        Math.min(haloCount, 1),
                     );
                 }
             },
@@ -8677,14 +8728,21 @@ export class GameBootstrap extends Component {
     }
 
     private createDeathBurst(position: Readonly<Vec3>, radius: number): void {
-        const node = new Node('DeathBurst');
-        node.layer = Layers.Enum.UI_2D;
+        const lease = this.transientEffects.acquire('death-burst', 'critical', this.prefersReducedMotion, () => {
+            const pooledNode = new Node('DeathBurst');
+            pooledNode.layer = Layers.Enum.UI_2D;
+            pooledNode.addComponent(Graphics);
+            return pooledNode;
+        });
+        if (!lease) return;
+        const node = lease.node;
+        node.name = 'DeathBurst';
         node.setPosition(position);
-        const g = node.addComponent(Graphics);
+        const g = node.getComponent(Graphics)!;
         const core = new Color(214, 255, 240);
         const aura = new Color(110, 231, 183);
         const shards = impactShardLayout(
-            this.vfxShardCount(11),
+            Math.max(3, Math.round(this.vfxShardCount(11) * lease.admission.detailScale)),
             position.x * 2.7 + position.y * 5.9,
             { reach: radius * 1.5 },
         );
@@ -8693,6 +8751,7 @@ export class GameBootstrap extends Component {
             node,
             elapsed: 0,
             life: 0.52,
+            complete: lease.complete,
             update: (progress) => {
                 const expand = impactExpansion(progress);
                 const fade = impactFade(progress, 0.14);
@@ -8723,17 +8782,29 @@ export class GameBootstrap extends Component {
             this.createFrostGroundBurst(position, radius);
             return;
         }
-        const node = new Node('GroundBurst');
-        node.layer = Layers.Enum.UI_2D;
+        const lease = this.transientEffects.acquire('ground-burst', 'critical', this.prefersReducedMotion, () => {
+            const pooledNode = new Node('GroundBurst');
+            pooledNode.layer = Layers.Enum.UI_2D;
+            pooledNode.addComponent(Graphics);
+            return pooledNode;
+        });
+        if (!lease) return;
+        const node = lease.node;
+        node.name = 'GroundBurst';
         node.setPosition(position);
-        const g = node.addComponent(Graphics);
+        const g = node.getComponent(Graphics)!;
         const ember = new Color(255, 190, 112);
-        const dust = impactShardLayout(this.vfxShardCount(13), position.x * 4.4 + position.y * 1.7, { reach: radius * 1.35 });
+        const dust = impactShardLayout(
+            Math.max(3, Math.round(this.vfxShardCount(13) * lease.admission.detailScale)),
+            position.x * 4.4 + position.y * 1.7,
+            { reach: radius * 1.35 },
+        );
         this.effectsLayer.addChild(node);
         this.effects.push({
             node,
             elapsed: 0,
             life: 0.42,
+            complete: lease.complete,
             update: (progress) => {
                 const expand = impactExpansion(progress);
                 const fade = impactFade(progress, 0.16);
@@ -8758,12 +8829,20 @@ export class GameBootstrap extends Component {
     }
 
     private createFrostGroundBurst(position: Readonly<Vec3>, radius: number): void {
-        const node = new Node('FrostGroundBurst');
-        node.layer = Layers.Enum.UI_2D;
+        const lease = this.transientEffects.acquire('frost-ground-burst', 'critical', this.prefersReducedMotion, () => {
+            const pooledNode = new Node('FrostGroundBurst');
+            pooledNode.layer = Layers.Enum.UI_2D;
+            pooledNode.addComponent(UIOpacity);
+            const pooledSprite = pooledNode.addComponent(Sprite);
+            pooledSprite.sizeMode = Sprite.SizeMode.RAW;
+            return pooledNode;
+        });
+        if (!lease) return;
+        const node = lease.node;
+        node.name = 'FrostGroundBurst';
         node.setPosition(position);
-        const opacity = node.addComponent(UIOpacity);
-        const sprite = node.addComponent(Sprite);
-        sprite.sizeMode = Sprite.SizeMode.RAW;
+        const opacity = node.getComponent(UIOpacity)!;
+        const sprite = node.getComponent(Sprite)!;
         sprite.spriteFrame = this.frostImpactAnimationFrames[0];
         const frameHeight = Math.max(this.frostImpactAnimationFrames[0].originalSize.height, 1);
         const baseScale = radius * 2.35 / frameHeight;
@@ -8773,6 +8852,7 @@ export class GameBootstrap extends Component {
             node,
             elapsed: 0,
             life: 0.64,
+            complete: lease.complete,
             update: (progress) => {
                 // 四帧严格表达预兆、裂纹、爆发、余霜，不再叠加旋转以免破坏地面透视。
                 const frameIndex = resolveFrostImpactFrame(progress);
@@ -8794,15 +8874,23 @@ export class GameBootstrap extends Component {
     ): void {
         const finisher = tier === 'finisher';
         const heavy = tier === 'heavy';
-        const label = this.makeLabel(
-            finisher ? `斩 ${damage}` : `${damage}`,
-            finisher ? 34 : heavy ? 29 : 24,
-            new Color(finisher ? '#FFF0A8' : heavy ? '#BDF4FF' : '#E0F2FE'),
+        const lease = this.transientEffects.acquire(
+            'damage-number',
+            finisher ? 'critical' : heavy ? 'combat' : 'ambient',
+            this.prefersReducedMotion,
+            () => this.makeLabel('', 24, new Color('#E0F2FE')).node,
         );
-        const node = label.node;
+        if (!lease) return;
+        const node = lease.node;
+        const label = node.getComponent(Label)!;
+        const fontSize = finisher ? 34 : heavy ? 29 : 24;
+        label.string = finisher ? `斩 ${damage}` : `${damage}`;
+        label.fontSize = fontSize;
+        label.lineHeight = fontSize * 1.35;
+        label.color = new Color(finisher ? '#FFF0A8' : heavy ? '#BDF4FF' : '#E0F2FE');
         node.name = 'DamageNumber';
         node.setPosition(position.x + this.random(-9, 9), position.y + 26);
-        const opacity = node.addComponent(UIOpacity);
+        const opacity = node.getComponent(UIOpacity) ?? node.addComponent(UIOpacity);
         const startX = node.position.x;
         const startY = node.position.y;
         this.effectsLayer.addChild(node);
@@ -8810,6 +8898,7 @@ export class GameBootstrap extends Component {
             node,
             elapsed: 0,
             life: finisher ? 0.72 : heavy ? 0.62 : 0.55,
+            complete: lease.complete,
             update: (progress) => {
                 node.setPosition(
                     startX + Math.sin(progress * Math.PI) * (finisher ? 4 : 7),
@@ -8823,11 +8912,19 @@ export class GameBootstrap extends Component {
     }
 
     private createXpWisp(position: Readonly<Vec3>): void {
-        const node = new Node('XpWisp');
-        node.layer = Layers.Enum.UI_2D;
+        const lease = this.transientEffects.acquire('xp-wisp', 'ambient', this.prefersReducedMotion, () => {
+            const pooledNode = new Node('XpWisp');
+            pooledNode.layer = Layers.Enum.UI_2D;
+            pooledNode.addComponent(UIOpacity);
+            pooledNode.addComponent(Graphics);
+            return pooledNode;
+        });
+        if (!lease) return;
+        const node = lease.node;
+        node.name = 'XpWisp';
         node.setPosition(position);
-        const opacity = node.addComponent(UIOpacity);
-        const g = node.addComponent(Graphics);
+        const opacity = node.getComponent(UIOpacity)!;
+        const g = node.getComponent(Graphics)!;
         g.fillColor = new Color(110, 231, 183, 220);
         g.circle(0, 0, 5);
         g.fill();
@@ -8841,6 +8938,7 @@ export class GameBootstrap extends Component {
             node,
             elapsed: 0,
             life: 0.62,
+            complete: lease.complete,
             update: (progress) => {
                 const eased = progress * progress;
                 const target = this.player?.isValid ? this.player.position : start;
@@ -9125,7 +9223,7 @@ export class GameBootstrap extends Component {
         this.bossCastIndex = 0;
         this.bossFinishEnemy = undefined;
         this.bossFinishStarted = false;
-        this.effects = [];
+        this.transientEffects.reset();
         this.spiritVeinVisual = undefined;
         this.spiritVein.reset();
         this.mapObstacles.reset();

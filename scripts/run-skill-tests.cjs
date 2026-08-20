@@ -24,6 +24,8 @@ const testFiles = [
   'temp/skill-tests/tests/FrostRouteRuntime.test.js',
   'temp/skill-tests/tests/UpgradeChoiceRuntime.test.js',
   'temp/skill-tests/tests/CultivationBuildRuntime.test.js',
+  'temp/skill-tests/tests/CultivationPresentationRuntime.test.js',
+  'temp/skill-tests/tests/CombatPresentationRuntime.test.js',
   'temp/skill-tests/tests/CombatFlowRuntime.test.js',
   'temp/skill-tests/tests/HitStopRuntime.test.js',
   'temp/skill-tests/tests/ImpactVfxRuntime.test.js',
